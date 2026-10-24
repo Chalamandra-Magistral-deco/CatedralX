@@ -177,6 +177,14 @@ class Orchestrator:
 
         package = {
             "timestamp": int(time.time()),
+            # Business accounting is intentionally unevaluated until verified
+            # ledger inputs are supplied; market prices are not business revenue.
+            "economic_feedback": {
+                "status": "not_evaluated",
+                "reason": "verified_business_ledger_not_provided",
+                "money_moved": False,
+                "payments_executed": False,
+            },
             "contexto": {
                 "market_phase": financial["regime"],
                 "geometry_regime": "ELIPTICO" if score_anarmonico > 0.6 else "HIPERBOLICO",

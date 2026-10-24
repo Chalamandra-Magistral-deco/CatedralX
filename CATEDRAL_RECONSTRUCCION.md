@@ -73,3 +73,8 @@ Corrección aplicada:
 Prueba de regresión: se añadió una serie donde el momentum de corto plazo es positivo y el de medio plazo negativo; el resultado esperado es `hold`. Otra prueba verifica que el diagnóstico heredado determinista es repetible y respeta la defensa por cortisol.
 
 Verificación posterior a estos cambios: 25 tests pasaron, `compileall` y `git diff --check` terminaron sin errores; se ejecutó otra vez el ciclo real y el estado siguió saludable. No se activaron órdenes.
+
+
+## Ciclo económico
+
+`elite/REASON/economic_feedback.py` calcula excedente a partir de ingresos recibidos, costes, obligaciones y compensación justa; propone asignaciones ilustrativas sujetas a aprobación humana. Un déficit nunca se convierte en excedente. No mueve dinero ni ejecuta pagos. El ciclo principal marca la capa como `not_evaluated` mientras falte un libro empresarial verificado; precios de mercado no se tratan como ingresos del negocio. Las métricas de valor creado e impacto social siguen pendientes de fuentes e indicadores reales.

@@ -91,6 +91,8 @@ def test_public_execute_cycle_uses_financial_layer_and_persists_outside_repo(tmp
     assert persisted["contexto"]["decision_financiera"] == "buy"
     assert persisted["contexto"]["trading_enabled"] is False
     assert persisted["contexto"]["orders_executed"] is False
+    assert persisted["economic_feedback"]["status"] == "not_evaluated"
+    assert persisted["economic_feedback"]["money_moved"] is False
 
 
 def test_runtime_input_refuses_to_synthesize_missing_market_prices() -> None:

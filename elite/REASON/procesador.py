@@ -85,6 +85,7 @@ class ProcesadorEndocrino:
             "concentracion_actual": {key: round(float(_s(value)), 4) for key, value in self.conc.items()},
             "estres_critico": self.conc["cortisol_C"] > 0.7,
             "contexto": self.contexto,
+            "economic_feedback": getattr(self, "economic_feedback", {}),
         }
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
         descriptor, temporary_name = tempfile.mkstemp(
@@ -111,6 +112,7 @@ class ProcesadorEndocrino:
         """Compatibility entry point used by the reasoning orchestrator."""
         perception = inputs_entorno.get("percepcion_espacial", {})
         self.contexto = inputs_entorno.get("contexto", self.contexto)
+        self.economic_feedback = inputs_entorno.get("economic_feedback", {})
         self.actualizar({
             "sorpresa": perception.get("free_energy", 0.0),
             "gap": perception.get("gap_detectado", 0.0),
