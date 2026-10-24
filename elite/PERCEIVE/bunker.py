@@ -17,6 +17,7 @@ from REASON.schemas import SensoryInput
 from PERCEIVE.percepcion import from_snapshot
 from PERCEIVE.api_pulse import validate_snapshot_payload
 from PERCEIVE.data_feeder import snapshot_path
+from DSX.DEFENSE import defense
 from DSX.DEFENSE.guardian_ram import hay_suficiente_recurso
 
 
@@ -46,6 +47,13 @@ class BunkerDaemon:
             await asyncio.sleep(self.ritmo)
 
     def _ciclo(self) -> Optional[Dict[str, Any]]:
+        # An emergency marker blocks new reasoning cycles before snapshot I/O.
+        # This is an analysis gate; it does not place or cancel financial orders.
+        panic_path = Path(defense.PATH_PANIC).expanduser()
+        if panic_path.exists():
+            logger.error("Emergency panic marker active; CatedralX cycle skipped: %s", panic_path)
+            return None
+
         snapshot = self._leer_snapshot()
         if not snapshot:
             logger.debug("No PERCEIVE snapshot available")
@@ -61,6 +69,7 @@ class BunkerDaemon:
         # The returned value may include diagnostics, but the source snapshot
         # remains read-only. The shared engine owns canonical state persistence.
         snapshot["REASON"] = {
+            "cycle_id": state.percepcion_espacial.get("cycle_id"),
             "decision": state.decision,
             "confianza": state.confianza,
             "signal_strength": state.confianza,

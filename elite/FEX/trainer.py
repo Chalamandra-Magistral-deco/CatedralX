@@ -1,8 +1,19 @@
-"""Catedral v4.2 supervised stochastic-gradient trainer."""
+"""Compatibility facade for the canonical FEX feedback trainer.
+
+The implementation lives in ``FEX.FEEDBACK.trainer``. Keep these legacy names
+for callers using the historical ``FEX.trainer`` import path.
+"""
+from __future__ import annotations
 
 from typing import List, Tuple
 
 import numpy as np
+
+from FEX.FEEDBACK.trainer import (
+    actualizar_modelo as _actualizar_modelo,
+    perdida_logistica,
+    sgd_step as _sgd_step,
+)
 
 
 def sgd_paso(
@@ -10,14 +21,7 @@ def sgd_paso(
     gradiente: np.ndarray,
     tasa: float = 0.01,
 ) -> np.ndarray:
-    """Apply one stochastic-gradient descent update."""
-    return pesos - tasa * gradiente
-
-
-def perdida_logistica(pred: float, real: float) -> float:
-    """Return binary cross-entropy with a numerically safe prediction."""
-    pred = np.clip(pred, 1e-7, 1.0 - 1e-7)
-    return float(-(real * np.log(pred) + (1.0 - real) * np.log(1.0 - pred)))
+    return _sgd_step(pesos, gradiente, tasa)
 
 
 def entrenar_paso(
@@ -26,11 +30,4 @@ def entrenar_paso(
     pesos: np.ndarray,
     tasa: float = 0.01,
 ) -> Tuple[np.ndarray, float]:
-    """Perform one logistic prediction, update and loss calculation."""
-    x = np.asarray(entradas + [1.0], dtype=float)
-    logits = float(np.dot(pesos, x))
-    y_pred = 1.0 / (1.0 + np.exp(-logits))
-    error = y_pred - objetivo
-    gradiente = error * x
-    nuevos_pesos = sgd_paso(pesos, gradiente, tasa)
-    return nuevos_pesos, perdida_logistica(y_pred, objetivo)
+    return _actualizar_modelo(entradas, objetivo, pesos, tasa)

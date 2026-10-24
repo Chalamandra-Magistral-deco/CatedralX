@@ -56,7 +56,9 @@ def ensamblar_operacion(
         "decision_mode": decision_mode,
         "size_final": round(size_final, 4),
         "filtros_aplicados": {name: round(value, 4) for name, value in sizes.items()},
-        "ejecucion_autorizada": bool(size_final > 0.0 and direccion != "HOLD"),
+        # Risk filters produce a proposal, never human/external authorization.
+        "ejecucion_autorizada": False,
+        "requiere_autorizacion_explicita": bool(size_final > 0.0 and direccion != "HOLD"),
     }
 
 

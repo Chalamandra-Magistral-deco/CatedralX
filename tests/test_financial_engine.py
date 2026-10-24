@@ -80,14 +80,18 @@ def test_public_execute_cycle_uses_financial_layer_and_persists_outside_repo(tmp
     prices = [100.0 * math.exp(0.001 * index) for index in range(60)]
     sensory = SensoryInput(precio_historico=prices, precio_actual=prices[-1])
 
-    first = orchestrator.execute_cycle(sensory)
-    second = orchestrator.execute_cycle(sensory)
+    first = orchestrator.execute_cycle(sensory, cycle_id="acceptance-cycle-001")
+    second = orchestrator.execute_cycle(sensory, cycle_id="acceptance-cycle-002")
 
+    assert first.percepcion_espacial["cycle_id"] == "acceptance-cycle-001"
+    assert first.percepcion_espacial["ciclo_id"] == "acceptance-cycle-001"
+    assert second.percepcion_espacial["cycle_id"] == "acceptance-cycle-002"
     assert first.decision == second.decision == "buy"
     assert first.señal_combinada == second.señal_combinada == "compra"
     assert first.percepcion_espacial["analisis_financiero"] == second.percepcion_espacial["analisis_financiero"]
     assert first.percepcion_espacial["analisis_financiero"]["trading_enabled"] is False
     persisted = json.loads(state_path.read_text(encoding="utf-8"))
+    assert persisted["contexto"]["cycle_id"] == "acceptance-cycle-002"
     assert persisted["contexto"]["decision_financiera"] == "buy"
     assert persisted["contexto"]["trading_enabled"] is False
     assert persisted["contexto"]["orders_executed"] is False
