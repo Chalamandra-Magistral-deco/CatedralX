@@ -42,3 +42,16 @@ El núcleo de Chalamandra Magistral (CatedralX) y la Malla de Agentes (API) han 
 1. Auditar los repos Frontend (`OMNI-CHALAMANDRA`, `CHMADEX-DIAL`, etc.) para vincular los 7 dominios oficiales.
 2. Definir SystemDecode como consumidor de los webhooks del Modo 2.
 3. Dockerizar el backend usando el `BLUEPRINT_COMPOSE_FULL.yaml`.
+
+## Actualización de estado — Correcciones de auditoría
+Fecha: 2026-10-25 (post-auditoría externa)
+
+El estado del backend ha sido endurecido tras una auditoría externa:
+- **JWT con scopes:** Reemplazado el token estático. Todas las rutas exigen JWT con `exp` y `scope` específico. `/healthz` es público.
+- **Fail-closed:** `task_validator` devuelve `NOT_EVALUATED` y `executor` exige `is_pass`. Los agentes no pueden autoaprobarse.
+- **Contrato unificado:** `job_manager` ahora acepta el formato anidado (`{"type": ..., "payload": {...}}`) definido en el OpenAPI.
+- **Aceptación independiente:** El `acceptance_store` exige firma HMAC y valida el `evidence_digest` contra el candidato almacenado.
+- **Webhooks firmados:** El `webhook_dispatcher` firma con HMAC y revalida SSRF en cada envío.
+- **Worker real:** `worker_loop` ejecuta `Master.execute_task()` en lugar de simular la tarea.
+
+**Pendiente (Fase 2):** Orquestación proactiva completa (bus atómico, recuperación de tareas) y Redis.
