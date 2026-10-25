@@ -120,3 +120,19 @@ Un resultado técnicamente correcto NO se convierte automáticamente en un resul
 - Especificación original §1-§6
 - AUDITORIA_CONSOLIDACION_PERGAMINO.md — auditoría formal de CatedralX
 - PROMPT_AGENTS.md — contrato maestro de AGENTS (en repo agents)
+
+## 8. Nota sobre `CHALAMANDRA_API_ENABLE_MODEL_CALLS`
+
+**Decisión:** Este flag debe permanecer en `true` en producción.
+
+**Razón:** Los 3 flujos DecoX (Normal, Inverso, Invertido) requieren que los agentes especializados usen LLMs para:
+- Modo 1: Investigar y buscar contraevidencia.
+- Modo 2: Contextualizar resultados cacheados.
+- Modo 3: Ejecutar tareas proactivas.
+
+**Seguridad:** La separación de poderes no se logra apagando los LLMs, sino mediante:
+1. CatedralX (núcleo determinista) que define las reglas.
+2. El Gate de Aceptación (Fase 2) que exige firma independiente.
+3. El aislamiento de red (loopback + NSG) que impide acceso externo.
+
+Un agente puede investigar con LLM, pero **no puede autorizar su propio resultado**.
