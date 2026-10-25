@@ -241,7 +241,6 @@ def test_acceptance_dsx_rejects_missing_disconnected_and_tampered_fex_report():
     assert "sustainability_evidence_integrity_failed" in tampered_result["reasons"]
 
 
-@pytest.mark.skip(reason="FASE 2: trainers duplicados eliminados en commit d56d09a; test obsoleto")
 def test_acceptance_duplicate_trainers_have_equivalent_math_but_different_api_names():
     import numpy as np
     from FEX.FEEDBACK import trainer as feedback_trainer
