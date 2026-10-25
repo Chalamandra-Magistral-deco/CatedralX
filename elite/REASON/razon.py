@@ -14,6 +14,8 @@ from PERCEIVE.percepcion import from_snapshot
 from PERCEIVE.api_pulse import validate_snapshot_payload
 from REASON.orchestrator import execute_cycle, SNAPSHOT_PATH
 from FEX.FEEDBACK.feedback_loop import registrar_prediccion
+from contracts.builder import build_decision_result
+from contracts.result_store import append_result
 from DSX.DEFENSE import defense
 
 
@@ -67,6 +69,13 @@ def main() -> int:
         "orders_executed": False,
     }
     result["prediction_id"] = registrar_prediccion(result)
+    
+    # FASE 1a: Generar contrato DecisionResult y persistir
+    cognitive_data = state.cognicion if hasattr(state, "cognicion") else {}
+    decision_contract = build_decision_result(state, cognitive_data)
+    append_result(decision_contract)
+    result["decision_result"] = decision_contract
+
     print(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False))
     return 0
 
