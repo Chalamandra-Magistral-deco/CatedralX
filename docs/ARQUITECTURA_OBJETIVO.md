@@ -136,3 +136,15 @@ Un resultado técnicamente correcto NO se convierte automáticamente en un resul
 3. El aislamiento de red (loopback + NSG) que impide acceso externo.
 
 Un agente puede investigar con LLM, pero **no puede autorizar su propio resultado**.
+
+## 9. Actualización post-auditoría (2026-10-25)
+
+El estado anterior de este documento indicaba "implementación parcial". Tras las correcciones de auditoría (commits `cdc15c2` y `330a3de` en `agents`), el estado real es:
+
+- **Los 3 modos** (Reactivo, Retorno, Proactivo) están unificados a través del TaskBus SQLite.
+- **El Gate de Aceptación** exige firma HMAC y valida el `evidence_digest` SHA-256 contra el candidato almacenado.
+- **El Worker persistente** procesa tareas reales (no simuladas) y genera evidencia verificable.
+- **Todas las rutas** exigen JWT con `exp` y scopes específicos.
+- **Fail-closed:** `task_validator` devuelve `NOT_EVALUATED` y `executor` exige `is_pass`.
+
+La deuda técnica restante (Ed25519, Redis, Docker/TLS, JWT `iss`/`aud`, worker token) está documentada en `ESTADO_PRODUCCION.md` §4.
