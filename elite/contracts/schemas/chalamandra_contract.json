@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Chalamandra Master Contract",
+  "version": "1.0",
+  "type": "object",
+  "required": ["schema_version", "job_id", "trace_id", "cycle_id", "objective", "execution", "candidate", "evidence", "validation", "decision", "provenance", "publication"],
+  "properties": {
+    "schema_version": { "const": "chalamandra.contract/1.0" },
+    "job_id": { "type": "string" },
+    "trace_id": { "type": "string" },
+    "cycle_id": { "type": "string" },
+    "objective": { "type": "string" },
+    "execution": {
+      "type": "object",
+      "required": ["status"],
+      "properties": { "status": { "enum": ["queued", "running", "completed", "failed"] } }
+    },
+    "candidate": {
+      "type": "object",
+      "required": ["engine", "output"],
+      "properties": {
+        "engine": { "const": "CatedralX" },
+        "output": { "type": ["string", "null"] }
+      }
+    },
+    "evidence": { "type": "array", "items": { "type": "object" } },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "counterevidence": { "type": "array", "items": { "type": "object" } },
+    "validation": {
+      "type": "object",
+      "required": ["status", "checks"],
+      "properties": {
+        "status": { "enum": ["not_evaluated", "accepted", "rejected", "needs_more_evidence", "blocked"] },
+        "checks": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "required": ["status", "value", "rationale"],
+      "properties": {
+        "status": { "enum": ["pending", "accepted", "rejected"] },
+        "value": { "type": ["string", "null"] },
+        "rationale": { "type": ["string", "null"] }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "engine_version": { "type": ["string", "null"] },
+        "input_hash": { "type": ["string", "null"] },
+        "agent_runs": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "publication": {
+      "type": "object",
+      "required": ["eligible"],
+      "properties": { "eligible": { "type": "boolean" } }
+    }
+  }
+}
