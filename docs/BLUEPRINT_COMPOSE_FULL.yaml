@@ -1,0 +1,93 @@
+# BLUEPRINT, no despliegue listo.
+name: chalamandra-catedralx
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["sh", "-lc", "exec redis-server --appendonly yes --appendfsync everysec --requirepass \"$${REDIS_PASSWORD}\""]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Configure REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    expose:
+      - "6379"
+    networks:
+      - control
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping 2>/dev/null | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+
+  api:
+    profiles: ["app"]
+    image: ${CHALAMANDRA_API_IMAGE:-chalamandra-api:local}
+    restart: unless-stopped
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Configure REDIS_PASSWORD}
+      API_BIND_HOST: 0.0.0.0
+      API_BIND_PORT: "8000"
+    expose:
+      - "8000"
+    networks:
+      - edge
+      - control
+    depends_on:
+      redis:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid
+    security_opt:
+      - no-new-privileges:true
+
+  catedralx:
+    profiles: ["app"]
+    image: ${CATEDRALX_IMAGE:-catedralx:local}
+    restart: unless-stopped
+    environment:
+      CATEDRALX_STATE_PATH: /var/lib/chalamandra/catedralx/hormonas.json
+    volumes:
+      - catedralx-state:/var/lib/chalamandra/catedralx
+    networks:
+      - control
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid
+    security_opt:
+      - no-new-privileges:true
+
+  agent-worker:
+    profiles: ["app"]
+    image: ${AGENT_WORKER_IMAGE:-chalamandra-agent-worker:local}
+    restart: unless-stopped
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Configure REDIS_PASSWORD}
+      CATEDRALX_STATE_PATH: /var/lib/chalamandra/catedralx/hormonas.json
+    networks:
+      - control
+    depends_on:
+      redis:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  control:
+    internal: true
+  edge:
+    driver: bridge
+
+volumes:
+  redis-data:
+  catedralx-state:
