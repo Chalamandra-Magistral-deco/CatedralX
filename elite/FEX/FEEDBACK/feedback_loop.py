@@ -461,3 +461,26 @@ def evaluar_feedback(path: str | Path | None = None) -> dict[str, Any]:
             "alineado omite hold y no incluye costes."
         ),
     }
+
+
+def resumir_memoria_decisiones(decisions: list[str], max_history: int = 50) -> dict[str, Any]:
+    """Summarize observed decision labels; never infer PnL, accuracy, or outcomes."""
+    from collections import Counter
+    import math
+
+    if not isinstance(max_history, int) or max_history < 1:
+        raise ValueError("max_history debe ser entero positivo")
+    history = [x.lower() for x in decisions
+               if isinstance(x, str) and x.lower() in {"buy", "sell", "hold"}][-max_history:]
+    counts = Counter(history)
+    directional = counts["buy"] + counts["sell"]
+    bias = (counts["buy"] - counts["sell"]) / directional if directional else None
+    entropy = (-sum((n / len(history)) * math.log(n / len(history))
+                    for n in counts.values()) if history else None)
+    return {
+        "ultimas_decisiones": history, "conteos": dict(counts),
+        "sesgo_direccional": round(bias, 8) if bias is not None else None,
+        "entropia_decisiones_nats": round(entropy, 8) if entropy is not None else None,
+        "ciclos_observados": len(history),
+        "evidence_status": "computed_from_observed_decisions" if history else "no_history",
+    }

@@ -2,12 +2,17 @@
 
 import os
 import time
+from pathlib import Path
 from typing import Any, Dict, List
 
 import psutil
 
-
-PATH_PANIC = os.path.expanduser("~/LAB/03-OUTPUT/.panic")
+# One configurable source of truth shared by defense and order-generation code.
+PATH_PANIC = Path(
+    os.path.expanduser(
+        os.environ.get("CATEDRALX_PANIC_PATH", "~/LAB/03-OUTPUT/.panic")
+    )
+)
 
 
 def riesgo_compuesto(riesgo_ram: float, riesgo_codigo: float) -> float:
@@ -36,17 +41,23 @@ def limitar_tasa(
     return False
 
 
+def _panic_path() -> Path:
+    """Resolve the current shared panic path, including test/runtime overrides."""
+    return Path(PATH_PANIC).expanduser()
+
+
 def activar_panic(reason: str = "RIESGO_ALTO") -> None:
     """Create the global panic marker with the supplied reason."""
-    os.makedirs(os.path.dirname(PATH_PANIC), exist_ok=True)
-    with open(PATH_PANIC, "w", encoding="utf-8") as panic_file:
-        panic_file.write(reason)
+    path = _panic_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(str(reason), encoding="utf-8")
 
 
 def desactivar_panic() -> None:
     """Remove the global panic marker when it exists."""
-    if os.path.exists(PATH_PANIC):
-        os.remove(PATH_PANIC)
+    path = _panic_path()
+    if path.exists():
+        path.unlink()
 
 
 def estado_defensivo(estado_sistema: Dict[str, Any]) -> Dict[str, Any]:
@@ -59,5 +70,5 @@ def estado_defensivo(estado_sistema: Dict[str, Any]) -> Dict[str, Any]:
         "riesgo_ram": round(riesgo_ram, 4),
         "riesgo_codigo": round(riesgo_codigo, 4),
         "bloqueo_activo": total > 0.85,
-        "panic_activo": os.path.exists(PATH_PANIC),
+        "panic_activo": _panic_path().exists(),
     }

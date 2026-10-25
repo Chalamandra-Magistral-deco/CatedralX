@@ -46,6 +46,8 @@ def preparar_intencion(
         block_reasons.append("risk_flags")
     if label == "hold":
         block_reasons.append("hold_signal")
+        # AEX is review-only: no explicit human authorization was provided.
+        block_reasons.append("explicit_authorization_missing")
     blocked = bool(block_reasons)
 
     return {

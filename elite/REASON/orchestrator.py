@@ -5,20 +5,29 @@ import json
 import math
 import os
 import time
+import uuid
 from pathlib import Path
 from typing import Any, Dict, List
 
 import numpy as np
 
 from PERCEIVE.api_pulse import validate_snapshot_payload
+from DSX.DEFENSE import defense
+from DSX.DEFENSE.guards import (
+    cognitive_execution_guard, final_execution_guard, verificar_autorizacion_ejecucion,
+)
+from AEX.ejecutor import preparar_intencion
 
 from . import anharmonic, cerebellum, free_energy, gyroscope, hurst_analyzer, mental_power
 from . import geometry
 from .financial_engine import analyze_financial_market
+from .report_composition import build_cognitive_report
+from FEX.FEEDBACK.feedback_loop import resumir_memoria_decisiones
 from .hamiltonian import HamiltonianEngine
 from .procesador import TransductorEndocrino
 from .state_paths import canonical_state_path
 from .schemas import CathedralState, SensoryInput
+from .dynamic_constraints import DynamicConstraintInputs, evaluate_dynamic_constraints
 
 SNAPSHOT_PATH = Path(os.environ.get("CATEDRALX_SNAPSHOT_PATH", "/dev/shm/cathedral_snapshot.json")).expanduser()
 HAMILTONIAN_PROTECTION_LIMIT = 45.0
@@ -44,11 +53,16 @@ def construir_neurovector(
 
 
 class Orchestrator:
-    def __init__(self) -> None:
+    def __init__(self, fex_report_provider: Any = None) -> None:
+        # FEX evidence must come from an explicit provider; never fabricate governance metrics.
+        self.fex_report_provider = fex_report_provider
         state_path = canonical_state_path()
         self.transductor = TransductorEndocrino(output_path=state_path)
         self.ultimo_fe = 0.0
         self._gyro_filter_state = None
+        # Bounded process-local context. No persistent learning or parameter updates.
+        self._regime_history: list[str] = []
+        self._decision_history: list[str] = []
         self.hamiltonian_engine = HamiltonianEngine()
 
     def _leer_snapshot_percibido(self) -> Dict[str, Any]:
@@ -83,16 +97,23 @@ class Orchestrator:
         inercia = float(perceive.get("inercia", 0.0))
         if not math.isfinite(gap) or not math.isfinite(inercia):
             raise ValueError("gap e inercia deben ser valores finitos.")
+        dynamic_constraints = datos_percibidos.get("DYNAMIC_CONSTRAINTS", {})
+        if not isinstance(dynamic_constraints, dict):
+            raise ValueError("DYNAMIC_CONSTRAINTS debe ser un objeto cuando se proporciona")
         return SensoryInput(
             precio_historico=precios,
             precio_actual=precio_actual,
             gap=gap,
             inercia=inercia,
             free_energy_prev=self.ultimo_fe,
+            dynamic_constraints=dynamic_constraints,
         )
 
-    def ejecutar_ciclo(self, entrada: SensoryInput) -> CathedralState:
+    def ejecutar_ciclo(
+        self, entrada: SensoryInput, cycle_id: str | None = None
+    ) -> CathedralState:
         """Run one financial-analysis cycle and persist only its canonical state."""
+        cycle_id = cycle_id or str(uuid.uuid4())
         raw_prices = list(entrada.precio_historico)
         current = float(entrada.precio_actual)
         if not math.isfinite(current) or current <= 0:
@@ -102,6 +123,44 @@ class Orchestrator:
 
         # Financial validation happens before any cognitive state is advanced or saved.
         financial = analyze_financial_market(raw_prices)
+        allowed_constraint_keys = set(DynamicConstraintInputs.__dataclass_fields__)
+        supplied_constraints = entrada.dynamic_constraints
+        if not isinstance(supplied_constraints, dict):
+            supplied_constraints = {}
+        unknown_constraint_keys = sorted(set(supplied_constraints) - allowed_constraint_keys)
+        if unknown_constraint_keys:
+            constraints_report = {
+                "state": "RESTRICCIONES_NO_VERIFICADAS",
+                "growth_allowed": False,
+                "entropy_constraint_ok": False,
+                "feedback_constraint_ok": False,
+                "scale_constraint_ok": False,
+                "issues": ["CLAVES_DE_RESTRICCION_DESCONOCIDAS"],
+                "missing_metrics": [],
+                "invalid_metrics": unknown_constraint_keys,
+                "automatic_recalibration": False,
+                "automatic_modularization": False,
+            }
+        else:
+            constraints_report = evaluate_dynamic_constraints(
+                DynamicConstraintInputs(**supplied_constraints)
+            )
+        measured_breach = any(issue in constraints_report["issues"] for issue in (
+            "MANTENIMIENTO_ENTROPICO", "FRENO_DINAMICO",
+            "MODULARIZAR_O_REDUCIR_EXPOSICION", "DATOS_INVALIDOS",
+            "CLAVES_DE_RESTRICCION_DESCONOCIDAS",
+        ))
+        if measured_breach:
+            financial["risk_flags"] = list(financial.get("risk_flags", []))
+            if "dynamic_hard_constraint" not in financial["risk_flags"]:
+                financial["risk_flags"].append("dynamic_hard_constraint")
+            financial["signal"] = "hold"
+            financial["combined_signal"] = "lateral"
+            financial["signal_strength"] = 0.0
+            financial["regime"] = "DYNAMIC_CONSTRAINT_HOLD"
+            financial["decision_reason"] = (
+                "Restricción dinámica dura activada; crecimiento bloqueado y requiere revisión."
+            )
         prices = [float(value) for value in raw_prices]
         gap = float(entrada.gap)
         inertia = float(entrada.inercia)
@@ -161,6 +220,121 @@ class Orchestrator:
 
         decision = str(financial["signal"])
         signal_strength = float(financial["signal_strength"])
+
+        # SCX cognitive diagnostics use only explicit direction/confidence fields.
+        # signal_strength is a heuristic, not a calibrated probability.
+        gyro_direction = giro.get("orientacion")
+        signals = [{
+            "name": "financial_engine",
+            "direction": decision,
+            "confidence": signal_strength,
+            "confidence_kind": "heuristic_signal_strength",
+        }]
+        if gyro_direction in {"ALCISTA", "BAJISTA", "NEUTRO"} and isinstance(giro.get("confianza"), (int, float)):
+            signals.append({
+                "name": "gyroscope",
+                "direction": gyro_direction,
+                "confidence": float(giro["confianza"]),
+                "confidence_kind": "module_heuristic_confidence",
+            })
+        cognitive = build_cognitive_report(
+            decision=decision,
+            signals=signals,
+            regime_history=[*self._regime_history, str(financial["regime"])][-100:],
+            decision_history=[*self._decision_history, decision][-50:],
+            input_evidence={
+                "cycle_id": cycle_id,
+                "price_count": len(prices),
+                "latest_price": current,
+                "financial_signal": decision,
+                "signal_strength_is_probability": False,
+                "gyroscope_orientation": gyro_direction,
+                "gyroscope_confidence": giro.get("confianza"),
+            },
+        )
+        # DSX owns enforcement; SCX only reports coherence and counterevidence.
+        dsx_gate = cognitive_execution_guard(
+            cognitive["coherencia"], cognitive["contraevidencia"],
+            dissonance_threshold=0.40, counterevidence_threshold=0.35,
+            panic=defense._panic_path().exists(),
+        )
+        cognitive["operational_policy"]["dsx_guard"] = dsx_gate
+        cognitive["operational_policy"]["hard_block"] = dsx_gate["blocked"]
+        # A measured contradiction is a hold/review gate, never an order.
+        if dsx_gate["blocked"]:
+            decision = "hold"
+            financial["signal"] = "hold"
+            financial["combined_signal"] = "lateral"
+            financial["risk_flags"] = list(financial.get("risk_flags", []))
+            if "cognitive_contradiction_review" not in financial["risk_flags"]:
+                financial["risk_flags"].append("cognitive_contradiction_review")
+            financial["decision_reason"] = (
+                "La capa cognitiva detectó disonancia/contraevidencia sobre el umbral; "
+                "el ciclo queda en HOLD para revisión."
+            )
+            cognitive["decision"] = decision
+            cognitive["operational_policy"]["hard_block"] = True
+            cognitive["operational_policy"]["status"] = "hold_for_review"
+
+        # Actual cycle integration: SCX report + explicit FEX evidence -> final DSX gate -> AEX review-only stub.
+        # Missing provider/report is deliberately fail-closed; no governance metrics are fabricated here.
+        panic_active = defense._panic_path().exists()
+        try:
+            fex_report = self.fex_report_provider(financial, cognitive, current) if self.fex_report_provider else None
+        except Exception as error:
+            fex_report = None
+            cognitive["operational_policy"]["fex_provider_error"] = type(error).__name__
+        intent_context = {
+            "accion": str(decision),
+            "tamano": 0.0,
+            "confianza": float(signal_strength),
+            "razon": str(financial.get("decision_reason", "")),
+        }
+        dsx_final = final_execution_guard(
+            cognitive["coherencia"], cognitive["contraevidencia"], fex_report,
+            panic=panic_active, decision_context=intent_context, reference_price=current,
+        )
+        dsx_signature_valid = verificar_autorizacion_ejecucion(
+            dsx_final, intent_context, current,
+        )
+        aex_risk_flags = list(financial.get("risk_flags", []))
+        if dsx_final["blocked"]:
+            aex_risk_flags.append("dsx_final_gate_blocked")
+        if not dsx_signature_valid:
+            aex_risk_flags.append("dsx_authorization_invalid_or_expired")
+        # Review-only handoff is always HOLD with zero size; preserve the analytical
+        # signal separately so it cannot be mistaken for an actionable order.
+        aex_intent = preparar_intencion(
+            "hold", size=0.0, panic=panic_active, risk_flags=aex_risk_flags,
+        )
+        aex_intent["requested_signal"] = decision
+        # AEX only receives a review intent. This path never calls generar_orden/execute_order.
+        cognitive["operational_policy"]["fex_report_status"] = (
+            "provided" if isinstance(fex_report, dict) else "missing_fail_closed"
+        )
+        cognitive["operational_policy"]["dsx_final_gate"] = dsx_final
+        cognitive["operational_policy"]["dsx_signature_valid"] = dsx_signature_valid
+        cognitive["operational_policy"]["aex_review_intent"] = aex_intent
+        cognitive["operational_policy"]["execution_handoff"] = {
+            "cycle_id": cycle_id,
+            "status": "BLOCKED" if dsx_final["blocked"] or not dsx_signature_valid else "REVIEW_REQUIRED",
+            "trading_enabled": False,
+            "orders_created": False,
+            "orders_executed": False,
+        }
+
+        # Record the final observed cycle decision in bounded, process-local memory.
+        self._regime_history.append(str(financial["regime"]))
+        self._decision_history.append(decision)
+        self._regime_history = self._regime_history[-100:]
+        self._decision_history = self._decision_history[-50:]
+        cognitive["memoria"] = resumir_memoria_decisiones(self._decision_history)
+        cognitive["contexto"] = {
+            **cognitive["contexto"],
+            "historial_fases": list(self._regime_history),
+            "memoria_status": "process_local_not_persistent",
+        }
+
         decisions: List[Dict[str, Any]] = []
         if decision == "buy" and not financial["risk_flags"]:
             decisions = [{
@@ -176,9 +350,8 @@ class Orchestrator:
             }]
 
         package = {
+            "cycle_id": cycle_id,
             "timestamp": int(time.time()),
-            # Business accounting is intentionally unevaluated until verified
-            # ledger inputs are supplied; market prices are not business revenue.
             "economic_feedback": {
                 "status": "not_evaluated",
                 "reason": "verified_business_ledger_not_provided",
@@ -186,6 +359,7 @@ class Orchestrator:
                 "payments_executed": False,
             },
             "contexto": {
+                "cycle_id": cycle_id,
                 "market_phase": financial["regime"],
                 "geometry_regime": "ELIPTICO" if score_anarmonico > 0.6 else "HIPERBOLICO",
                 "señal_combinada": financial["combined_signal"],
@@ -204,6 +378,8 @@ class Orchestrator:
                 "trading_enabled": False,
                 "orders_created": False,
                 "orders_executed": False,
+                "dynamic_constraints": constraints_report,
+                "growth_allowed": constraints_report["growth_allowed"],
             },
             "percepcion_espacial": {
                 "hurst": round(h_val, 4),
@@ -211,6 +387,8 @@ class Orchestrator:
                 "inercia": round(inertia, 6),
                 "free_energy": round(fe, 4),
                 "analisis_financiero": financial,
+                "dynamic_constraints": constraints_report,
+                "growth_allowed": constraints_report["growth_allowed"],
                 "decision_subsistema_original": legacy_decision,
                 "decision_subsistema_original_rol": "diagnostico_no_autoritativo",
                 "decision_subsistema_original_es_estocastico": False,
@@ -222,6 +400,7 @@ class Orchestrator:
                 "senal": legacy_decision,
                 "zona": "estable" if score_anarmonico > 0.7 else "indefinido",
             },
+            "cognicion": cognitive,
         }
         self.transductor.volcar_estado_quimico(package)
         state = CathedralState(
@@ -237,8 +416,10 @@ class Orchestrator:
             cognitive_load,
         )
         state.decisiones = decisions
+        state.cognicion = cognitive
         state.regimen = str(financial["regime"])
         state.señal_combinada = str(financial["combined_signal"])
+        state.percepcion_espacial["cycle_id"] = cycle_id
         return state
 
     def bucle_infinito(self) -> None:
@@ -273,9 +454,12 @@ class Orchestrator:
                 time.sleep(2)
 
 
-def execute_cycle(sensory_data: SensoryInput) -> CathedralState:
-    """Public entry point routed through deterministic financial analysis."""
-    return think(sensory_data, sensory_data.precio_historico, int(time.time()))
+def execute_cycle(
+    sensory_data: SensoryInput, cycle_id: str | None = None
+) -> CathedralState:
+    """Run one analysis with a traceable ID shared by state and entry-point output."""
+    identifier = cycle_id or str(uuid.uuid4())
+    return think(sensory_data, sensory_data.precio_historico, identifier)
 
 _think_orchestrator = Orchestrator()
 
@@ -283,7 +467,7 @@ _think_orchestrator = Orchestrator()
 def think(
     sensory_input: SensoryInput,
     historial_precios: List[float],
-    ciclo_id: int,
+    ciclo_id: str,
 ) -> CathedralState:
     """Run deterministic financial analysis plus optional geometry diagnostics."""
     raw_prices = list(historial_precios)
@@ -303,9 +487,10 @@ def think(
         gap=gap_value,
         inercia=inertia_value,
         free_energy_prev=sensory_input.free_energy_prev,
+        dynamic_constraints=dict(sensory_input.dynamic_constraints),
     )
     # ejecutar_ciclo validates financial inputs before touching persistent state.
-    state = _think_orchestrator.ejecutar_ciclo(entrada)
+    state = _think_orchestrator.ejecutar_ciclo(entrada, cycle_id=ciclo_id)
     # Financial validation has passed in ejecutar_ciclo; normalize only for diagnostics.
     prices = [float(value) for value in raw_prices]
     try:
@@ -330,6 +515,7 @@ def think(
     if "diagnostic_error" in geo_state:
         state.percepcion_espacial["diagnostico_geometrico_error"] = geo_state["diagnostic_error"]
     state.percepcion_espacial["ciclo_id"] = ciclo_id
+    state.percepcion_espacial["cycle_id"] = ciclo_id
     state.percepcion_espacial["neurovector"] = neurovector
     return state
 

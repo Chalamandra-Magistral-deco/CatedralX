@@ -84,6 +84,7 @@ def ensamblar_operacion(
         "size_final": round(final_size, 4),
         "filtros_aplicados": {name: round(value, 4) for name, value in sizes.items()},
         "review_required": review_required,
+        "requiere_autorizacion_explicita": review_required,
         "ejecucion_autorizada": False,
         "trading_enabled": False,
         "orders_created": False,

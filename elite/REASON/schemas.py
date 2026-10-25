@@ -35,6 +35,7 @@ class SensoryInput:
     gap: float = 0.0
     inercia: float = 0.0
     free_energy_prev: float = 0.0
+    dynamic_constraints: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -52,3 +53,5 @@ class CathedralState:
     decisiones: List[Dict[str, Any]] = field(default_factory=list)
     regimen: str = "INDEFINIDO"
     señal_combinada: str = "lateral"
+    # Optional v4.2 extension; default preserves old positional/keyword constructors.
+    cognicion: Dict[str, Any] = field(default_factory=dict)

@@ -20,3 +20,6 @@ venv/
 # Local logs
 logs/
 *.log
+
+# Test/output artifacts (never committed)
+03-OUTPUT/
