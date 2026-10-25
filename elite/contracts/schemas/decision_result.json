@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["result_id", "status", "engine", "decision", "evidence", "assumptions", "risks", "provenance", "trace_id", "analysis_only", "orders_created", "orders_executed"],
+  "properties": {
+    "result_id": {"type": "string"},
+    "status": {"type": "string", "enum": ["ACCEPTED", "UNCERTAIN", "REJECTED"]},
+    "engine": {"type": "string", "const": "CatedralX"},
+    "decision": {"type": "string"},
+    "evidence": {"type": "array", "items": {"type": "object"}},
+    "assumptions": {"type": "array", "items": {"type": "string"}},
+    "risks": {"type": "array", "items": {"type": "string"}},
+    "tests": {"type": "array", "items": {"type": "string"}},
+    "provenance": {"type": "array", "items": {"type": "string"}},
+    "trace_id": {"type": "string"},
+    "analysis_only": {"type": "boolean", "const": true},
+    "orders_created": {"type": "boolean", "const": false},
+    "orders_executed": {"type": "boolean", "const": false},
+    "next_action": {"type": "string"}
+  }
+}
