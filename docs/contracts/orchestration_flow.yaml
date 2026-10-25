@@ -1,0 +1,224 @@
+openapi: 3.1.0
+info:
+  title: CatedralX Orchestration Flow Internal API
+  version: 0.1.0
+  summary: Orquestación dirigida por CatedralX y ejecución de tareas por workers.
+  description: Contrato interno. No exponer a Internet.
+servers:
+  - url: /
+paths:
+  /internal/v1/orchestration/runs:
+    post:
+      operationId: startOrchestrationRun
+      x-required-scope: orchestration:run
+      security: [{ serviceBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrchestrationTrigger' }
+      responses:
+        '202':
+          description: Ciclo aceptado y planificado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RunAccepted' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { description: Dedupe key ya usada. }
+        '422': { $ref: '#/components/responses/Problem' }
+  /internal/v1/orchestration/runs/{run_id}:
+    get:
+      operationId: getOrchestrationRun
+      x-required-scope: orchestration:read
+      security: [{ serviceBearerAuth: [] }]
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Estado del ciclo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RunStatus' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /internal/v1/tasks/{task_id}/results:
+    post:
+      operationId: submitCandidateResult
+      x-required-scope: tasks:result:write
+      security: [{ serviceBearerAuth: [] }]
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CandidateResult' }
+      responses:
+        '202':
+          description: Resultado candidato registrado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CandidateResultAccepted' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { description: Tarea ya completada o clave conflictiva. }
+        '422': { $ref: '#/components/responses/Problem' }
+  /internal/v1/orchestration/runs/{run_id}/acceptance:
+    post:
+      operationId: recordAcceptanceDecision
+      x-required-scope: acceptance:write
+      security: [{ serviceBearerAuth: [] }]
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AcceptanceDecision' }
+      responses:
+        '201':
+          description: Decisión registrada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AcceptanceRecorded' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { description: Conflicto con evidencia o decisión previa. }
+        '422': { $ref: '#/components/responses/Problem' }
+components:
+  securitySchemes:
+    serviceBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    OrchestrationTrigger:
+      type: object
+      additionalProperties: false
+      required: [trigger_id, source, objective, success_criteria, permissions, trace_id]
+      properties:
+        trigger_id: { type: string, minLength: 8, maxLength: 128 }
+        source: { type: string, enum: [scheduler, verified_condition, authorized_manual] }
+        objective: { type: string, minLength: 1, maxLength: 4000 }
+        context_ref: { type: [string, 'null'] }
+        success_criteria:
+          type: array
+          minItems: 1
+          items: { type: string, minLength: 1, maxLength: 1000 }
+        deadline_seconds: { type: integer, minimum: 1, maximum: 3600 }
+        max_tasks: { type: integer, minimum: 1, maximum: 50 }
+        permissions:
+          type: object
+          additionalProperties: false
+          required: [allowed_tools, side_effects]
+          properties:
+            allowed_tools: { type: array, uniqueItems: true, items: { type: string } }
+            side_effects: { type: string, enum: [none, read_only, approved_scoped] }
+        trace_id: { type: string }
+    TaskContract:
+      type: object
+      additionalProperties: false
+      required: [task_id, run_id, objective, required_tools, success_criteria, deadline_at, trace_id]
+      properties:
+        task_id: { type: string }
+        run_id: { type: string }
+        objective: { type: string }
+        required_tools: { type: array, uniqueItems: true, items: { type: string } }
+        success_criteria: { type: array, minItems: 1, items: { type: string } }
+        deadline_at: { type: string, format: date-time }
+        context_ref: { type: [string, 'null'] }
+        trace_id: { type: string }
+    EvidenceRecord:
+      type: object
+      additionalProperties: false
+      required: [evidence_id, kind, source, observed_at, description]
+      properties:
+        evidence_id: { type: string }
+        kind: { type: string, enum: [input, observation, calculation, test, external_source, contradiction] }
+        source: { type: string }
+        observed_at: { type: string, format: date-time }
+        digest: { type: [string, 'null'] }
+        description: { type: string }
+        artifact_ref: { type: [string, 'null'] }
+    CandidateResult:
+      type: object
+      additionalProperties: false
+      required: [candidate_id, worker_id, status, summary, evidence, assumptions, contradictions, trace_id]
+      properties:
+        candidate_id: { type: string }
+        worker_id: { type: string }
+        status: { type: string, enum: [candidate, incomplete, blocked, failed] }
+        summary: { type: string }
+        evidence: { type: array, items: { $ref: '#/components/schemas/EvidenceRecord' } }
+        assumptions: { type: array, items: { type: string } }
+        contradictions: { type: array, items: { type: string } }
+        tests_performed: { type: array, items: { type: string } }
+        limitations: { type: array, items: { type: string } }
+        trace_id: { type: string }
+    CandidateResultAccepted:
+      type: object
+      required: [candidate_id, verification_status, trace_id]
+      properties:
+        candidate_id: { type: string }
+        verification_status: { type: string, const: pending }
+        trace_id: { type: string }
+    AcceptanceDecision:
+      type: object
+      additionalProperties: false
+      required: [decision_id, candidate_id, outcome, criteria_checked, reasons, verifier_id, trace_id]
+      properties:
+        decision_id: { type: string }
+        candidate_id: { type: string }
+        outcome: { type: string, enum: [accepted, rejected, needs_more_evidence, blocked] }
+        criteria_checked: { type: array, items: { type: string } }
+        reasons: { type: array, minItems: 1, items: { type: string } }
+        missing_evidence: { type: array, items: { type: string } }
+        verifier_id: { type: string }
+        evidence_digest: { type: [string, 'null'] }
+        decided_at: { type: string, format: date-time }
+        trace_id: { type: string }
+    AcceptanceRecorded:
+      type: object
+      required: [decision_id, outcome, recorded_at, trace_id]
+      properties:
+        decision_id: { type: string }
+        outcome: { type: string, enum: [accepted, rejected, needs_more_evidence, blocked] }
+        recorded_at: { type: string, format: date-time }
+        trace_id: { type: string }
+    RunAccepted:
+      type: object
+      required: [run_id, status, trace_id]
+      properties:
+        run_id: { type: string }
+        status: { type: string, const: queued }
+        trace_id: { type: string }
+    RunStatus:
+      type: object
+      required: [run_id, status, trace_id, updated_at]
+      properties:
+        run_id: { type: string }
+        status: { type: string, enum: [queued, planning, executing, verifying, accepted, blocked, failed, timed_out] }
+        task_ids: { type: array, items: { type: string } }
+        updated_at: { type: string, format: date-time }
+        trace_id: { type: string }
+        reason: { type: [string, 'null'] }
+  responses:
+    Problem:
+      description: Error en formato problem+json.

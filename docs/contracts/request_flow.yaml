@@ -1,0 +1,205 @@
+openapi: 3.1.0
+info:
+  title: Chalamandra Request Flow API
+  version: 0.1.0
+  summary: Flujo de solicitud autenticada y consulta de análisis.
+  description: >-
+    Contrato propuesto. No implica que estas rutas estén implementadas o desplegadas.
+    La primera vertical slice admitida es análisis financiero, no ejecución de órdenes.
+servers:
+  - url: /
+    description: URL base relativa al gateway configurado en el entorno.
+paths:
+  /v1/jobs:
+    post:
+      operationId: createJob
+      summary: Crear un trabajo de análisis
+      x-required-scope: jobs:write
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 128 }
+        - name: X-Trace-Id
+          in: header
+          required: false
+          schema: { type: string, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobRequest'
+      responses:
+        '202':
+          description: Trabajo aceptado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobAccepted' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: Idempotency-Key reutilizada con payload distinto. }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/ServerError' }
+  /v1/jobs/{job_id}:
+    get:
+      operationId: getJob
+      summary: Consultar estado de un trabajo
+      x-required-scope: jobs:read
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: Estado actual del trabajo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobStatus' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/results/{result_id}:
+    get:
+      operationId: getResult
+      summary: Recuperar un resultado aceptado
+      x-required-scope: results:read
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: result_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 128 }
+      responses:
+        '200':
+          description: Resultado analítico autorizado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DecisionResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    JobId:
+      name: job_id
+      in: path
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 128 }
+  schemas:
+    JobRequest:
+      type: object
+      additionalProperties: false
+      required: [type, payload]
+      properties:
+        type:
+          type: string
+          const: financial_analysis
+        payload:
+          $ref: '#/components/schemas/FinancialAnalysisPayload'
+        constraints:
+          type: object
+          additionalProperties: false
+          properties:
+            deadline_seconds: { type: integer, minimum: 1, maximum: 900, default: 60 }
+            max_agent_steps: { type: integer, minimum: 1, maximum: 20, default: 5 }
+    FinancialAnalysisPayload:
+      type: object
+      additionalProperties: false
+      properties:
+        asset: { type: string, minLength: 1, maxLength: 64, default: unspecified }
+        data_source:
+          type: string
+          enum: [provided, frankfurter_daily]
+          default: provided
+        historical_prices:
+          type: array
+          minItems: 30
+          maxItems: 5000
+          items: { type: number, exclusiveMinimum: 0 }
+        current_price: { type: number, exclusiveMinimum: 0 }
+        base_currency: { type: string, pattern: '^[A-Z]{3}$', default: EUR }
+        quote_currency: { type: string, pattern: '^[A-Z]{3}$', default: USD }
+        observations: { type: integer, minimum: 30, maximum: 500, default: 60 }
+        max_staleness_days: { type: integer, minimum: 0, maximum: 30, default: 7 }
+      allOf:
+        - if:
+            properties: { data_source: { const: provided } }
+            required: [data_source]
+          then:
+            required: [historical_prices]
+    JobAccepted:
+      type: object
+      required: [job_id, status, trace_id, accepted_at]
+      properties:
+        job_id: { type: string }
+        status: { type: string, const: queued }
+        trace_id: { type: string }
+        accepted_at: { type: string, format: date-time }
+        poll_url: { type: string, format: uri-reference }
+    JobStatus:
+      type: object
+      required: [job_id, status, trace_id, updated_at]
+      properties:
+        job_id: { type: string }
+        status:
+          type: string
+          enum: [queued, running, review_required, completed, blocked, failed]
+        trace_id: { type: string }
+        updated_at: { type: string, format: date-time }
+        result_id: { type: [string, 'null'] }
+        reason_code: { type: [string, 'null'] }
+        message: { type: [string, 'null'] }
+    DecisionResult:
+      type: object
+      required: [result_id, status, engine, decision, evidence, assumptions, risks, provenance, analysis_only, orders_created, orders_executed]
+      properties:
+        result_id: { type: string }
+        status: { type: string, const: accepted }
+        engine: { type: string, const: CatedralX }
+        decision: { type: string }
+        evidence: { type: array, items: { $ref: '#/components/schemas/EvidenceRecord' } }
+        assumptions: { type: array, items: { type: string } }
+        risks: { type: array, items: { type: string } }
+        tests: { type: array, items: { type: string } }
+        provenance: { type: array, items: { type: string } }
+        trace_id: { type: string }
+        analysis_only: { type: boolean, const: true }
+        orders_created: { type: boolean, const: false }
+        orders_executed: { type: boolean, const: false }
+        next_action: { type: string }
+    EvidenceRecord:
+      type: object
+      required: [evidence_id, kind, source, observed_at]
+      properties:
+        evidence_id: { type: string }
+        kind: { type: string, enum: [input, observation, calculation, test, external_source, contradiction] }
+        source: { type: string }
+        observed_at: { type: string, format: date-time }
+        digest: { type: [string, 'null'] }
+        notes: { type: string }
+  responses:
+    BadRequest:
+      description: Solicitud mal formada.
+    Unauthorized:
+      description: JWT ausente o inválido.
+    Forbidden:
+      description: Falta scope o permiso.
+    NotFound:
+      description: Recurso inexistente.
+    Unprocessable:
+      description: Entrada no satisface reglas del contrato.
+    RateLimited:
+      description: Límite de frecuencia alcanzado.
+    ServerError:
+      description: Error interno con trace_id.
