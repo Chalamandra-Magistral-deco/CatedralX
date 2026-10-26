@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+  catedralx-core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chalamandra-catedralx-v1
+    restart: unless-stopped
+    shm_size: '256m'
+    volumes:
+      - catedralx-state:/home/catedralx/.local/state/chalamandra/catedralx
+    ports:
+      - "127.0.0.1:5050:5050"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - CATEDRALX_SNAPSHOT_PATH=/dev/shm/cathedral_snapshot.json
+
+volumes:
+  catedralx-state:
+    driver: local
