@@ -1,4 +1,6 @@
-"""Compatibility facade for the canonical FEX feedback trainer.
+"""DEPRECATED: Compatibility facade - use FEX.FEEDBACK.trainer
+
+Original: Compatibility facade for the canonical FEX feedback trainer.
 
 The implementation lives in ``FEX.FEEDBACK.trainer``. Keep these legacy names
 for callers using the historical ``FEX.trainer`` import path.

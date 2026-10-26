@@ -12,7 +12,8 @@ if str(ELITE_DIR) not in sys.path:
 
 from PERCEIVE.percepcion import from_snapshot
 from PERCEIVE.api_pulse import validate_snapshot_payload
-from REASON.orchestrator import execute_cycle, SNAPSHOT_PATH
+from PERCEIVE.data_feeder import snapshot_path
+from REASON.orchestrator import execute_cycle
 from FEX.FEEDBACK.feedback_loop import registrar_prediccion
 from contracts.builder import build_decision_result
 from contracts.result_store import append_result
@@ -35,7 +36,7 @@ def main() -> int:
     if panic_path.exists():
         return _no_cycle(f"Bloqueo de emergencia activo: {panic_path}")
 
-    path = Path(os.environ.get("CATEDRALX_SNAPSHOT_PATH", str(SNAPSHOT_PATH))).expanduser()
+    path = snapshot_path()  # CANONICO RSX consolidado Paso2
     try:
         snapshot = json.loads(path.read_text(encoding="utf-8"))
         freshness = validate_snapshot_payload(snapshot)

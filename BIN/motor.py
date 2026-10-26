@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Convenience entry point for one safe CatedralX analysis cycle."""
+"""DEPRECATED: Use BIN/catedral motor - wrapper mantenido por compatibilidad."""
 from pathlib import Path
 import sys
+print("DEPRECATED: BIN/motor.py -> use BIN/catedral motor", file=sys.stderr)
 ROOT = Path(__file__).resolve().parents[1]
 ELITE = ROOT / "elite"
 if str(ELITE) not in sys.path:

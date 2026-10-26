@@ -26,10 +26,11 @@ from FEX.FEEDBACK.feedback_loop import resumir_memoria_decisiones
 from .hamiltonian import HamiltonianEngine
 from .procesador import TransductorEndocrino
 from .state_paths import canonical_state_path
+from PERCEIVE.data_feeder import snapshot_path as rsx_snapshot_path
 from .schemas import CathedralState, SensoryInput
 from .dynamic_constraints import DynamicConstraintInputs, evaluate_dynamic_constraints
 
-SNAPSHOT_PATH = Path(os.environ.get("CATEDRALX_SNAPSHOT_PATH", "/dev/shm/cathedral_snapshot.json")).expanduser()
+SNAPSHOT_PATH = rsx_snapshot_path()  # CANONICO RSX desde data_feeder - consolidado Paso2
 HAMILTONIAN_PROTECTION_LIMIT = 45.0
 
 

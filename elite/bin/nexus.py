@@ -6,6 +6,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 from PERCEIVE.api_pulse import check_snapshot
+from PERCEIVE.data_feeder import snapshot_path as rsx_path
 from REASON.state_paths import canonical_state_path
 
 def state_path() -> Path:
@@ -20,7 +21,7 @@ def status() -> dict:
     except (OSError, ValueError):
         state, age, available = {}, None, False
     return {"project": "CatedralX", "state_available": available, "state_age_seconds": age,
-            "feed": check_snapshot(), "trading_enabled": False, "orders_created": False,
+            "feed": check_snapshot(), "rsx_path": str(rsx_path()), "state_path": str(state_path()), "trading_enabled": False, "orders_created": False,
             "orders_executed": False, "state_preview": state.get("contexto", {}) if available else {}}
 
 if __name__ == "__main__":
