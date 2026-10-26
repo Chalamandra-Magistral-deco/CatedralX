@@ -31,3 +31,21 @@ jobs:
         run: python -m pytest -q
       - name: Compile Python sources
         run: python -m compileall -q elite BIN tests
+
+  docker-build-and-smoke-test:
+    name: Build and smoke-test the CLI image
+    runs-on: ubuntu-24.04
+    needs: [unit-tests]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build canonical Docker image (fail closed)
+        run: docker build --pull --file Dockerfile --tag catedralx:ci .
+
+      - name: Smoke-test the image's default command
+        run: docker run --rm --name catedralx-cli-smoke catedralx:ci
