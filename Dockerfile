@@ -18,7 +18,6 @@ RUN if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.
 
 COPY elite/ ./elite/
 COPY BIN/ ./BIN/
-COPY contracts/ ./contracts/ 2>/dev/null || true
 
 RUN chmod +x BIN/catedral && chown -R catedralx:catedralx /app
 
