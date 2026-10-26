@@ -1,36 +1,23 @@
-# Contratos OpenAPI — Chalamandra Magistral
+# Contratos OpenAPI — Chalamandra Magistral DecoX
 
-**Estado:** Diseñados, NO IMPLEMENTADOS.
+**Revisión de código:** 2026-10-26.  
+Los contratos describen el comportamiento deseado; tener rutas con nombres similares no prueba conformidad ni despliegue.
 
-| Archivo | Propósito |
-|---|---|
-| request_flow.yaml | Entrada pública: POST /v1/jobs, GET /v1/jobs/{id}, GET /v1/results/{id} |
-| distribution_flow.yaml | Salida pública: subscriptions + webhooks + SSRF |
-| orchestration_flow.yaml | Orquestación interna: runs + tasks + acceptance |
+| Contrato | Función objetivo | Estado observado |
+|---|---|---|
+| `request_flow.yaml` | Crear trabajos, consultar estado y recuperar resultados aceptados. | **Parcial.** Existen rutas `/v1/jobs`, `/v1/jobs/{id}` y `/v1/results/{id}`; no se verificó el recorrido real hasta aceptación independiente. |
+| `distribution_flow.yaml` | Crear/listar/deshabilitar suscripciones y distribuir solo resultados aceptados. | **Parcial.** Existen `subscription_store` y `webhook_dispatcher`; no se confirmó `POST /v1/subscriptions`. Hay desajustes de scopes y falta revisar la defensa SSRF ante redirecciones. |
+| `orchestration_flow.yaml` | Disparar runs, consultar estado y recibir resultados del worker con token de servicio. | **P0 en main.** GET de runs no valida su scope y consulta métodos inexistentes; POST de resultados no valida autorización. La corrección está propuesta en [PR #13](https://github.com/Chalamandra-Magistral-deco/chalamandra-agent-engine/pull/13), aún no fusionada. |
 
-## Verificación de implementación
+## Componentes relacionados
 
-Ninguno de los 3 contratos tiene código que los implemente. Verificado con:
+- **TaskBus:** SQLite, reserva de tareas e idempotencia existen en `api/task_bus.py`.
+- **Candidate store:** persiste candidatos y calcula un digest SHA-256 de evidencia.
+- **Acceptance store:** usa HMAC-SHA256 y contrasta el digest. Esto depende de un secreto compartido, no demuestra firma asimétrica independiente.
+- **Ed25519:** `api/crypto_signer.py` existe, pero el flujo de aceptación no lo utiliza y PyNaCl no está declarada en los manifiestos revisados.
+- **Worker:** el código existe en `api/worker_loop.py`; el servicio activo en VM no se ha verificado.
+- **Modo proactivo:** existe endpoint interno de disparo; scheduler desplegado no comprobado.
 
-- grep job_id /v1/jobs Idempotency-Key -> 0 resultados en agents/
-- grep subscription webhook endpoint_url -> 0 resultados en ambos repos
-- grep AcceptanceDecision -> 0 resultados en ambos repos
+## Criterio de finalización
 
-## Estado real de implementación
-
-| Componente | Estado |
-|---|---|
-| CatedralX motor | ✅ 281 tests verdes |
-| agents workers | ✅ 132 tests verdes |
-| AcceptanceDecision | ❌ 0% |
-| Modo 2 (Retorno async) | ❌ 0% |
-| Modo 3 (Proactivo) | ❌ 0% |
-| result_store persistente | ❌ 0% |
-| JWT user/service | ❌ 0% |
-| Redis queue | ❌ 0% |
-| Dockerfiles + TLS | ❌ 0% |
-
-## Referencias
-
-- docs/ARQUITECTURA_OBJETIVO.md — arquitectura completa
-- docs/BLUEPRINT_COMPOSE.md — topología docker-compose
+Un flujo solo pasa a “validado” cuando el endpoint comprueba el scope correcto, el payload satisface el schema, el recorrido se ejecuta de extremo a extremo, IDs/evidencia/digest/aceptación son coherentes, el CI está verde en el commit exacto y el despliegue real se inspecciona. No declarar los tres contratos implementados solo porque existan rutas o módulos.
