@@ -12,5 +12,5 @@ COPY elite/ ./elite/
 COPY BIN/ ./BIN/
 RUN chmod +x BIN/catedral && chown -R catedralx:catedralx /app
 USER catedralx
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 CMD catedral status || exit 1
+# CLI de ejecución puntual: status finaliza el proceso; no aplica HEALTHCHECK de servicio.
 CMD ["catedral","status"]
