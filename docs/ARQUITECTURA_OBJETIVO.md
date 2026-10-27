@@ -82,7 +82,7 @@ Esta clasificación es preliminar: se basa en metadatos, README y archivos acces
 | Request flow | Rutas de creación/consulta de trabajos y resultados presentes. | Parcial; no se demostró recorrido completo hasta resultado aceptado. |
 | Aceptación | `acceptance_store` usa HMAC-SHA256 y compara el digest de evidencia. | Parcial; helper Ed25519 existe pero no está conectado al store. |
 | Distribución | Store de suscripciones y webhook dispatcher presentes. | Parcial; no se confirmó `POST /v1/subscriptions`. |
-| Orquestación interna | Endpoints de runs y resultados presentes. | **P0 en `main`:** GET de runs carece de scope y consulta funciones inexistentes; POST de resultados carece de autorización. Corrección propuesta en [PR #13](https://github.com/Chalamandra-Magistral-deco/chalamandra-agent-engine/pull/13), aún sin fusionar. |
+| Orquestación interna | Endpoints de runs y resultados presentes. | **Corrección P0 fusionada:** commit `aee4e114ecdc86d9ff8abade69e02799b500d90e` restaura `orchestration:read` y `tasks:complete`, usa `task_bus.get_run_tasks()` y pasa CI de pruebas, Ruff, mypy y smoke test de imagen. La operación real en VM sigue sin comprobarse. |
 | Parser W3C | `api/trace_parser.py` existe en agentes. | No integrado en `api/server.py`; requiere validar semántica W3C. |
 | Modo proactivo | Endpoint de disparo interno presente. | Scheduler desplegado no confirmado. |
 | VM/API/túnel | Unidad systemd para API versionada. | Estado real de procesos, entorno, red, DNS y logs no verificado. |
