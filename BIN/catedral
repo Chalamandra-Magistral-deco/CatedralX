@@ -11,7 +11,8 @@ case "${1:-status}" in
     exec "$PYTHON" "$ROOT/elite/bin/feed_once.py"
     ;;
   motor)
-    exec "$PYTHON" "$ROOT/BIN/motor.py"
+    export PYTHONPATH="$ROOT/elite${PYTHONPATH:+:$PYTHONPATH}"
+    exec "$PYTHON" -m REASON.razon
     ;;
   ciclo)
     "$PYTHON" "$ROOT/elite/bin/feed_once.py"
