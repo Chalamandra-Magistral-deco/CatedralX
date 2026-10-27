@@ -24,7 +24,7 @@
 
 | Repo | Función/stack observados | Conexión al núcleo y deuda confirmada |
 |---|---|---|
-| `CHALAMANDRA-MAGISTRAL` | Portal institucional estático, build Tailwind y salida Vercel. | Formulario con Formspree más POST secundario a Cloudflare Worker de leads. El POST secundario ignora errores; el Worker no está versionado en este repo. No se demostró persistencia en agent-engine. `package.json` tiene un test placeholder que falla. Duplicados de `.gitignore` en [PR #26](https://github.com/Chalamandra-Magistral-deco/CHALAMANDRA-MAGISTRAL/pull/26), pendientes. |
+| `CHALAMANDRA-MAGISTRAL` | Portal institucional estático, build Tailwind y salida Vercel. | Formulario con Formspree más POST secundario a Cloudflare Worker de leads. El POST secundario ignora errores; el Worker no está versionado en este repo. No se demostró persistencia en agent-engine. `package.json` tiene un test placeholder que falla. Duplicados de `.gitignore` retirados en [PR #26](https://github.com/Chalamandra-Magistral-deco/CHALAMANDRA-MAGISTRAL/pull/26), fusionado; el check Vercel del preview pasó. |
 | `INTERACTIVE-DECOX` | Portal comercial, catálogo, API routes de IA/contacto, checkout/verificación y webhook de Stripe. | Es la fuente canónica del catálogo usado por Sesión Descubrimiento. No se encontró conexión directa con la API canónica de agentes en los archivos revisados. Checkout debe probarse con entorno de prueba. |
 | `SESION-DESCUBRIMIENTO-DECOX` | Aplicación de diagnóstico en cinco fases e informe PDF/JSON. | Documenta handoff desde INTERACTIVE-DECOX tras validación server-side de Stripe mediante `VITE_DISCOVERY_APP_URL`. Mantiene un espejo `src/data/interactiveCatalog.ts` del catálogo canónico. README dice que la URL pública aún debe configurarse/verificarse; integración es declarada, no probada de punta a punta. |
 | `Tricentric-Integration` | React, Supabase Auth/Postgres/RLS y Edge Function `srap-analysis` con Gemini. | Flujo de producto propio; no se encontró referencia a CatedralX/agent API en README/manifiestos revisados. |
@@ -37,7 +37,7 @@
 | `CHMADEX-DIAL` | Extensión Chrome con Gemini Cloud/Nano y extracción contextual. | Arquitectura de extensión propia; no se encontró endpoint canónico de agentes en README revisado. |
 | `Insightify-Chalamandra` | Extensión que declara Gemini Nano local, offscreen y caché por hash. | No se encontró conexión al motor canónico. La afirmación “zero-egress” requiere verificación de tráfico y permisos antes de tratarla como garantía. |
 | `Gemini-Flash-1` | Chat con imágenes; React/Vite, Express, PostgreSQL y Replit AI Integration. | Backend propio; no se encontró conexión a CatedralX/agent API. |
-| `OMNI-CHALAMANDRA-decox` | Prototipo cognitivo/geometría/debate de agentes con salida visual. | `app/main.js` llama a un orquestador local; no se evidenció una conexión a agent-engine. `package.json` señala URLs de repositorio distintas del owner/nombre real y el script `test` es placeholder: candidato para limpieza aparte, no para borrar el producto. |
+| `OMNI-CHALAMANDRA-decox` | Prototipo cognitivo/geometría/debate de agentes con salida visual. | `app/main.js` llama a un orquestador local; no se evidenció una conexión a agent-engine. Las URLs `repository`, `bugs` y `homepage` de `package.json` se corrigieron en [PR #1](https://github.com/Chalamandra-Magistral-deco/OMNI-CHALAMANDRA-decox/pull/1). El script `test` sigue siendo placeholder y el destino del script `start` necesita comprobarse antes de modificarlo. |
 | `Or-culo-Chalamandra` | App AI Studio/React/Vite con Gemini. | Producto independiente según README/manifiesto; no se encontró conexión a CatedralX. README es plantilla genérica. |
 | `CHALAMANDRA-S-BUNKER` | App AI Studio/React/Vite. | Producto independiente; conexión al núcleo no evidenciada. |
 | `Blueprint-Chalamandra---SRAP-Barrio-Edition` | Demo SRAP con checkout provisional. | README confirma que `api/checkout.js` responde 501; no tratar como checkout activo ni afirmar que autoriza pagos Premium. |
@@ -70,7 +70,7 @@
 1. **agent-engine:** P0 de autorización fusionado como `aee4e114`; CI de pruebas/Ruff/mypy y smoke de imagen pasó. No equivale a despliegue en VM.
 2. **CatedralX:** documentación duplicada y estado de contratos/producción reconciliados; se eliminó el consejo de activar modelos por defecto. PR #6 fusionado; 290 pruebas e imagen CLI aprobadas.
 3. **Pirinola:** segundo bootstrap GTM idéntico retirado. PR #2 fusionado, CI/build y check Vercel aprobados.
-4. **Portal:** reglas duplicadas en `.gitignore` propuestas en PR #26; pendiente de revisión/CI.
+4. **Portal:** reglas duplicadas en `.gitignore` eliminadas por PR #26; el check Vercel pasó antes de fusionar.
 5. **Ed25519, productos y VM:** pendientes; no se copiaron, imprimieron ni editaron secretos reales.
 
 ## 6. Orden de cierre
