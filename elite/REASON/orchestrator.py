@@ -518,6 +518,47 @@ def think(
     state.percepcion_espacial["ciclo_id"] = ciclo_id
     state.percepcion_espacial["cycle_id"] = ciclo_id
     state.percepcion_espacial["neurovector"] = neurovector
+
+    # --- REGLA CENTRAL (Catedral) ---
+    try:
+        from REASON.multicriteria import CathedralEvaluation
+
+        # 1. Viabilidad (señal financiera)
+        viab = 1.0 if state.decision == "buy" else (0.0 if state.decision == "sell" else 0.5)
+
+        # 2. Evidencia (por defecto 0.85 para permitir el flujo; si el estado cognitivo la tiene, se usa)
+        coherence = state.percepcion_espacial.get("coherence", {})
+        evidence_val = coherence.get("coherence_score", 0.85) if isinstance(coherence, dict) else 0.85
+
+        # 3. Resiliencia y Reinversión (desde los constraints dinámicos)
+        constraints = state.percepcion_espacial.get("dynamic_constraints", {})
+        resiliencia = float(constraints.get("resilience", 0.8))
+        reinversion = float(constraints.get("reinvestment_surplus", 0.1))
+
+        # 4. Valor Humano y Distribución (valores base para el Plano de Control puro)
+        # En una integración real, estos vendrían del lead_classifier o de la API.
+        valor_humano = 0.8
+        distribucion = 0.8
+
+        engine = CathedralEvaluation(
+            viability=viab,
+            human_value=valor_humano,
+            distribution=distribucion,
+            reinvestment=reinversion,
+            resilience=resiliencia,
+            evidence=evidence_val
+        )
+        
+        verdict = engine.evaluate()
+        state.cognicion["cathedral_verdict"] = verdict
+    except Exception as e:
+        # Fail-safe: nunca rompemos el flujo principal por un fallo en el juicio
+        state.cognicion["cathedral_verdict"] = {
+            "status": "UNCERTAIN",
+            "reason": f"EVALUATION_ERROR: {str(e)}",
+            "next_action": "REVISAR_LOGS"
+        }
+
     return state
 
 if __name__ == "__main__":
