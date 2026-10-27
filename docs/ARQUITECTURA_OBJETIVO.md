@@ -104,3 +104,7 @@ Solo se habilita tras verificar autorización/scopes en todas las rutas, identid
 6. Bloqueo, fallo e incertidumbre nunca se publican como aceptación.
 7. Suite, Ruff, mypy, build y prueba de extremo a extremo pasan en el commit exacto.
 8. Despliegue validado con evidencia de la VM; Vercel `READY` o archivos de configuración no prueban el flujo completo.
+
+## Inventario del ecosistema y conexiones
+
+La matriz de repositorios, vínculos evidenciados, limpiezas aplicadas y brechas de integración está en [`docs/INVENTARIO_ECOSISTEMA_Y_CONEXIONES.md`](docs/INVENTARIO_ECOSISTEMA_Y_CONEXIONES.md).
