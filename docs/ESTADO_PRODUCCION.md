@@ -6,7 +6,7 @@
 
 ## 1. Veredicto
 
-**No declarar el sistema integrado operativo de extremo a extremo todavía.** CatedralX y componentes parciales del motor de agentes existen en código, pero `main` contiene una regresión P0 en las rutas internas, la aceptación Ed25519 no está conectada y no se confirmó un CI verde reciente del commit actual.
+**No declarar el sistema integrado operativo de extremo a extremo todavía.** La regresión P0 de autorización fue corregida y fusionada en `aee4e114ecdc86d9ff8abade69e02799b500d90e`; pruebas, Ruff, mypy y smoke test de imagen pasaron. La aceptación Ed25519 no está conectada y el recorrido real en VM sigue sin verificarse.
 
 La unidad systemd versionada para la API escucha en loopback y configura `CHALAMANDRA_API_ENABLE_MODEL_CALLS=false`. Eso describe el archivo versionado, no demuestra que el servicio esté activo en la VM.
 
@@ -17,7 +17,7 @@ La unidad systemd versionada para la API escucha en loopback y configura `CHALAM
 | CatedralX determinista | Código presente | `BIN/catedral`, `elite/` y `tests/` existen; no se ejecutó la suite completa en esta revisión. |
 | API de agentes | Código presente | `api/server.py` usa JWT y scopes en varias rutas. |
 | TaskBus SQLite | Código presente | `api/task_bus.py` implementa reserva e idempotencia. |
-| Rutas internas | **P0** | En `main`, GET de runs no comprueba `orchestration:read` y llama `_read_all/_tasks_file` no definidos; POST de resultados no comprueba `tasks:complete`. [PR #13](https://github.com/Chalamandra-Magistral-deco/chalamandra-agent-engine/pull/13) propone corregirlo; sigue en borrador. |
+| Rutas internas | **P0** | Corregido en `main` por commit `aee4e114ecdc86d9ff8abade69e02799b500d90e`: GET de runs comprueba `orchestration:read` y usa `task_bus.get_run_tasks()`; POST de resultados comprueba `tasks:complete`. CI completo del PR pasó, pero la VM no se ha revalidado. |
 | Worker | Parcial | `api/worker_loop.py` invoca CatedralX mediante ruta fija. No se encontró una unidad worker en los archivos systemd revisados ni se comprobó el proceso de la VM. |
 | Aceptación | Parcial | HMAC-SHA256 y comprobación de digest existen; el helper Ed25519 no está integrado al gate. |
 | Distribución | Parcial | Store/dispatcher existen; creación de suscripciones y ciclo completo de eventos requieren cerrar el contrato. |
@@ -40,7 +40,7 @@ Un documento fechado 2026-10-25 afirmaba que API, worker, túnel Cloudflare y do
 
 ## 5. Secuencia de remediación
 
-1. **P0:** restaurar scopes/autorización y pruebas de rutas internas; usar el TaskBus SQLite canónico.
+1. **P0 resuelto en código:** confirmar en la VM autorizada que el despliegue usa el commit fusionado y probar las rutas internas con tokens de scopes correctos/incorrectos.
 2. **P1:** unificar el contrato de aceptación e integrar Ed25519, con dependencia declarada y custodia de claves separada.
 3. **P1:** corregir/conectar el parser W3C y validar flags/IDs en pruebas.
 4. **P1:** recuperar el `.env.example` completo, distinguir variables públicas/privadas y documentar generación de claves.
