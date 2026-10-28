@@ -72,6 +72,35 @@ def test_dispatch_task_posts_payload_with_scoped_short_lived_jwt(monkeypatch):
     assert claims["exp"] - claims["iat"] == 60
 
 
+def test_dispatch_sends_w3c_traceparent(monkeypatch):
+    captured = {}
+
+    class Response:
+        status = 202
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"status":"queued","run_id":"r1","task_id":"t1"}'
+
+    def fake_urlopen(request, timeout=5.0):
+        captured["traceparent"] = request.headers.get("Traceparent")
+        return Response()
+
+    monkeypatch.setattr(dispatch_agents, "urlopen", fake_urlopen)
+    parent = "00-12345678901234567890123456789012-1234567890123456-01"
+    dispatch_agents.dispatch_task(
+        "test", {}, "http://127.0.0.1:8766", "secret-for-test-only",
+        traceparent=parent,
+    )
+    assert captured["traceparent"] == parent
+
+
+def test_dispatch_rejects_invalid_w3c_traceparent():
+    with pytest.raises(ValueError, match="traceparent"):
+        dispatch_agents.dispatch_task(
+            "test", {}, "http://127.0.0.1:8766", "secret-for-test-only",
+            traceparent="00-invalid",
+        )
+
 def test_dispatch_requires_jwt_secret():
     with pytest.raises(ValueError, match="CHALAMANDRA_JWT_SECRET"):
         dispatch_agents.dispatch_task(

@@ -10,14 +10,15 @@ ELITE_DIR = Path(__file__).resolve().parents[1]
 if str(ELITE_DIR) not in sys.path:
     sys.path.insert(0, str(ELITE_DIR))
 
-from PERCEIVE.percepcion import from_snapshot
-from PERCEIVE.api_pulse import validate_snapshot_payload
-from PERCEIVE.data_feeder import snapshot_path
-from REASON.orchestrator import execute_cycle
-from FEX.FEEDBACK.feedback_loop import registrar_prediccion
 from contracts.builder import build_decision_result
 from contracts.result_store import append_result
 from DSX.DEFENSE import defense
+from FEX.FEEDBACK.feedback_loop import registrar_prediccion
+from PERCEIVE.api_pulse import validate_snapshot_payload
+from PERCEIVE.data_feeder import snapshot_path
+from PERCEIVE.percepcion import from_snapshot
+
+from REASON.orchestrator import execute_cycle
 
 
 def _no_cycle(reason: str) -> int:
@@ -73,9 +74,17 @@ def main() -> int:
     
     # FASE 1a: Generar contrato DecisionResult y persistir
     cognitive_data = state.cognicion if hasattr(state, "cognicion") else {}
-    decision_contract = build_decision_result(state, cognitive_data)
+    decision_contract = build_decision_result(
+        state,
+        cognitive_data,
+        cycle_id=state.percepcion_espacial.get("cycle_id"),
+        trace_id=os.getenv("CATEDRALX_TRACE_ID"),
+    )
     append_result(decision_contract)
     result["decision_result"] = decision_contract
+    result["evaluation_hash"] = decision_contract.get("evaluation_hash")
+    result["evaluation_gate"] = decision_contract.get("evaluation_gate")
+    result["trace_id"] = decision_contract.get("trace_id")
 
     print(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False))
     return 0

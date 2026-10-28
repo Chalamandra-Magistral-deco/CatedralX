@@ -13,9 +13,11 @@ import hmac
 import ipaddress
 import json
 import os
+import re
 import socket
 import sys
 import time
+import uuid
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
@@ -44,6 +46,18 @@ def _make_service_jwt(secret: str, now: int | None = None) -> str:
     )
     signature = hmac.new(secret.encode("utf-8"), signing_input.encode("ascii"), hashlib.sha256).digest()
     return signing_input + "." + _b64url(signature)
+
+
+def _make_traceparent(value: str | None = None) -> str:
+    """Return a strict W3C traceparent; generate a fresh root when none is supplied."""
+    candidate = value or f"00-{uuid.uuid4().hex}-{uuid.uuid4().hex[:16]}-01"
+    match = re.fullmatch(r"([0-9a-f]{2})-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})", candidate)
+    if not match:
+        raise ValueError("traceparent no cumple el formato W3C Trace Context")
+    version, trace_id, parent_id, _flags = match.groups()
+    if version == "ff" or trace_id == "0" * 32 or parent_id == "0" * 16:
+        raise ValueError("traceparent contiene identificadores W3C inválidos")
+    return candidate
 
 
 def _validate_api_url(api_url: str) -> str:
@@ -93,6 +107,7 @@ def dispatch_task(
     secret: str,
     timeout: float = 5.0,
     idempotency_key: str | None = None,
+    traceparent: str | None = None,
 ) -> dict:
     if not isinstance(objective, str) or not objective.strip():
         raise ValueError("El objetivo debe ser texto no vacío")
@@ -107,6 +122,7 @@ def dispatch_task(
     ):
         raise ValueError("Idempotency-Key debe tener entre 8 y 128 caracteres válidos")
     base_url = _validate_api_url(api_url)
+    parent = _make_traceparent(traceparent)
     token = _make_service_jwt(secret)
     body = {
         "objective": objective.strip(),
@@ -123,6 +139,7 @@ def dispatch_task(
             "Authorization": "Bearer " + token,
             "Content-Type": "application/json",
             "Accept": "application/json",
+            "traceparent": parent,
             **({"Idempotency-Key": idempotency_key} if idempotency_key else {}),
         },
         method="POST",
@@ -152,6 +169,7 @@ def main() -> int:
         help="Ledger económico (solo para --cycle-id; por defecto usa CATEDRALX_IMPACT_LEDGER_PATH)",
     )
     parser.add_argument("--idempotency-key", help="Clave para impedir la duplicación de tareas")
+    parser.add_argument("--traceparent", help="W3C traceparent entrante; se genera uno si se omite")
     parser.add_argument(
         "--api-url",
         default=os.getenv("CHALAMANDRA_API_URL", "http://127.0.0.1:8766"),
@@ -193,6 +211,7 @@ def main() -> int:
             os.getenv("CHALAMANDRA_JWT_SECRET", ""),
             timeout=args.timeout,
             idempotency_key=idempotency_key,
+            traceparent=args.traceparent,
         )
     except (OSError, json.JSONDecodeError, ValueError, TypeError, RuntimeError) as exc:
         print(json.dumps({"status": "error", "reason": str(exc)}, ensure_ascii=False), file=sys.stderr)

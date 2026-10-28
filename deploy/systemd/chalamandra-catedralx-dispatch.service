@@ -1,0 +1,17 @@
+[Unit]
+Description=Dispatch authorized CatedralX economic cycles to Agents API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=azureuser
+WorkingDirectory=/home/azureuser/workspace/repos/CatedralX
+EnvironmentFile=/home/azureuser/.config/chalamandra/catedralx-dispatch.env
+Environment=CHALAMANDRA_API_URL=http://127.0.0.1:8766
+ExecStart=/usr/bin/python3 /home/azureuser/workspace/repos/CatedralX/elite/bin/dispatch_authorized_cycles.py
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/azureuser/.local/state/chalamandra/catedralx

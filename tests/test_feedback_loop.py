@@ -198,6 +198,7 @@ def test_reason_output_includes_prediction_id_and_observed_reference(
         regimen="INDEFINIDO",
         señal_combinada="lateral",
         free_energy=0.2,
+        cognicion={"cathedral_verdict": {"evaluation_hash": "a" * 64, "status": "ACCEPTED"}},
         percepcion_espacial={
             "hurst": 0.5,
             "analisis_financiero": {"latest_price": 100.29},
