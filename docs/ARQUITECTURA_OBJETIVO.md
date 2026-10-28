@@ -1,150 +1,110 @@
-# Arquitectura Objetivo — Chalamandra Magistral
+# Arquitectura objetivo — Chalamandra Magistral DecoX
 
-**Estado:** Diseño cerrado, implementación parcial
-**Última actualización:** 2026-10-25
+**Estado:** diseño objetivo con estado de implementación revisado en código  
+**Fecha de revisión de código:** 2026-10-26  
+**Regla de evidencia:** código versionado no demuestra por sí solo que un servicio esté desplegado u operativo en la VM.
 
-## 1. Los 3 Planos Arquitectónicos
+## 1. Principio rector: La Catedral
 
-### 1.1 Plano de Control (CatedralX)
-- **Rol:** Gobernanza, motor determinista, evaluación de criterios de aceptación
-- **Autoridad:** Ningún modelo generativo o agente LLM puede sobrescribir las reglas
-- **Implementación:** elite/REASON/orchestrator.py, elite/contracts/actions.py, elite/REASON/cognitive_state.py
+La Catedral coordina el ciclo de creación de valor: diagnosticar necesidades reales, crear y validar soluciones, capturar valor de forma sostenible, reinvertir en capacidades colectivas, medir y aprender, e institucionalizar lo que funcione. La rentabilidad es una dimensión, no el único objetivo; valor humano, distribución, resiliencia y calidad de evidencia también requieren indicadores explícitos.
 
-### 1.2 Plano de Evidencia (Registro y Verificación)
-- **Rol:** Trazabilidad completa, procedencia, contraevidencia, pruebas
-- **Regla invariable:** Una afirmación no es un hecho verificado por el simple acto de ser generada por un agente
-- **Implementación:** elite/FEX/FEEDBACK/feedback_loop.py, elite/FEX/GOVERNANCE/sustainability.py, elite/MSX/provenance.py
+## 2. Componentes canónicos y límites de autoridad
 
-### 1.3 Plano de Entrega (Membrana API)
-- **Rol:** Punto de entrada/salida seguro, validación de contratos, autorización
-- **Implementación:** elite/bin/inyector-vitral (CatedralX), agents/api/server.py (agents)
+### CatedralX — núcleo analítico
+Aplica reglas explícitas, cálculos reproducibles y criterios versionados; declara incertidumbre y límites. Los modelos no pueden sobrescribir sus reglas. Las etiquetas financieras `buy`, `sell` y `hold` son salidas analíticas, no órdenes.
 
-## 2. Los 3 Modos de Causalidad
+### Malla de agentes — capacidades especializadas
+Investiga, ejecuta herramientas permitidas, critica y busca contraevidencia. Un agente produce un candidato con evidencia; no puede convertir una afirmación propia en hecho validado ni autoaceptarla.
 
-### 2.1 Modo 1 — Reactivo / Síncrono
-Usuario → API → CatedralX → Agentes → Verificación → API → Usuario
+### Membrana API — frontera de acceso y entrega
+Autentica, autoriza scopes, valida contratos y límites, controla idempotencia y entrega estado/resultados. HTTP 200/202 no equivale a aceptación epistemológica.
 
-### 2.2 Modo 2 — Retorno / Asíncrono
-CatedralX → Agentes → Verificación → API → Notificación
-Conserva job_id + trace_id.
+### Plano de evidencia y aceptación
+Registra entradas, versiones, procedencia, contraevidencia, pruebas, digests y decisiones de aceptación. La aceptación debe proceder de un verificador independiente en permisos y custodia de claves.
 
-### 2.3 Modo 3 — Proactivo / Por Eventos
-Scheduler/Evento → CatedralX → Agentes → Verificación → Alerta
+### Sustrato de ejecución — VM y servicios
+Sostiene procesos, almacenamiento, conectividad, secretos y observabilidad. La VM no es una etapa lógica del análisis; su estado real exige inspección de procesos, systemd, variables, puertos, red y logs. Un archivo de servicio en Git no prueba que esté activo.
 
-## 3. Las 5 Garantías Arquitectónicas
+## 3. Tres planos independientes
 
-1. **CatedralX dirige:** Define criterios, autoriza alcance, aplica reglas explícitas
-2. **Los agentes proponen:** CandidateResult != AcceptanceDecision. No se auto-aceptan
-3. **La verificación evalúa:** AcceptanceDecision viene de verificador independiente con criterios versionados
-4. **La API controla la entrega:** HTTP 200 != ACCEPTED. Valida contrato, permisos y aceptación antes de publicar
-5. **Los 3 modos comparten trazabilidad:** job_id identifica la tarea, trace_id enlaza eventos y evidencias
+- **Control:** tarea, prioridad, permisos, deadline, criterios de éxito y condición de parada.
+- **Evidencia:** observaciones, fuentes, hashes, versiones, supuestos, contradicciones, pruebas y resultados de verificación.
+- **Entrega:** publicación solo cuando contrato, autorización y aceptación lo permiten.
 
-## 4. Principio de Aceptación Explícita
+La autoridad de control, la producción de evidencia y la aceptación final no deben residir en el mismo agente.
 
-Un resultado técnicamente correcto NO se convierte automáticamente en un resultado autorizado.
+## 4. Tres modos de causalidad sobre el mismo núcleo
 
-- needs_evidence, rejected, blocked NO se publican como accepted
-- UNCERTAIN no es fallo técnico: es ejecución satisfactoria sin evidencia suficiente
-- El verificador independiente decide, no el worker que generó el candidato
+1. **Reactivo:** Usuario/producto → API → TaskBus → worker → CatedralX y herramientas de agentes → candidato/evidencia → verificador → API → consumidor.
+2. **Retorno:** candidato/resultado → verificador independiente → evento autorizado → webhook/distribuidor → producto/usuario.
+3. **Proactivo:** evento o condición → API interna autorizada → TaskBus → worker → evidencia/verificación → alerta/entrega.
 
-## 5. Estado de Implementación (2026-10-25)
+La existencia de un endpoint que acepta disparadores no prueba que exista un scheduler desplegado. Los tres modos deben compartir IDs consistentes, trazabilidad, permisos, deduplicación, límites y condiciones de parada.
 
-| Componente | Estado |
-|---|---|
-| CatedralX motor determinista | ✅ 281 tests verdes |
-| agents workers + tool registry | ✅ 132 tests verdes |
-| Circuito API->agents->CatedralX | ⚠️ Inicial (sin gate independiente) |
-| AcceptanceDecision | ❌ Pendiente |
-| Modo 2 (Retorno async) | ❌ Pendiente |
-| Modo 3 (Proactivo) | ❌ Pendiente |
-| result_store persistente | ❌ Pendiente |
-| JWT user/service | ❌ Pendiente |
-| Redis queue | ❌ Pendiente |
-| Dockerfiles + TLS | ❌ Pendiente |
+## 5. Contrato mínimo del ciclo
 
-## 6. Contratos OpenAPI
+### Entrada
+- ID de solicitud/clave de idempotencia, trace ID validado y versión de contrato.
+- Objetivo, tipo de tarea y payload con esquema explícito.
+- Fuentes y tiempos de observación, si proceden.
+- Herramientas/permisos autorizados, deadline y criterios de éxito.
 
-- contracts/request_flow.yaml — Entrada pública (jobs, results) — NO IMPLEMENTADO
-- contracts/distribution_flow.yaml — Salida pública (subscriptions, webhooks) — NO IMPLEMENTADO
-- contracts/orchestration_flow.yaml — Orquestación interna (runs, acceptance) — NO IMPLEMENTADO
+### Salida candidata
+- `candidate_id`, ID de tarea, versión del motor/contrato y estado.
+- Decisión analítica, métricas, evidencia estructurada y digests reproducibles.
+- Procedencia, fecha, supuestos, contraevidencia, contradicciones y datos faltantes.
+- Pruebas ejecutadas, límites y siguiente acción sugerida.
 
-## 7. Referencias
+### Aceptación
+La decisión debe referenciar el candidato y el digest exacto, criterios evaluados, razones/faltantes, identidad del verificador y fecha. La firma debe comprobarse con la clave pública correspondiente; la clave privada no debe estar en la API/worker que recibe candidatos.
 
-- Especificación original §1-§6
-- AUDITORIA_CONSOLIDACION_PERGAMINO.md — auditoría formal de CatedralX
-- PROMPT_AGENTS.md — contrato maestro de AGENTS (en repo agents)
-Conserva job_id + trace_id.
+## 6. Mapa inicial de repositorios
 
-### 2.3 Modo 3 — Proactivo / Por Eventos
-Scheduler/Evento → CatedralX → Agentes → Verificación → Alerta
+| Repositorio | Rol objetivo | Límite |
+|---|---|---|
+| `Chalamandra-Magistral-deco/CatedralX` | Núcleo analítico determinista y contratos. | No permitir que un LLM sustituya reglas ni ejecutar órdenes financieras. |
+| `Chalamandra-Magistral-deco/chalamandra-agent-engine` | Agentes, API local, TaskBus, worker, stores y distribución. | Consume CatedralX; no debe concederse autoridad de aceptación al worker. |
+| `Chalamandra-Magistral-deco/CHALAMANDRA-MAGISTRAL` | Portal institucional y captación. | El formulario/Worker externo no se considera conectado hasta probar entrega y recibo. |
+| `Tricentric-Integration`, `SYSTEM_DECODE_MAGIS-v12.0-FLUX`, `INTERACTIVE-DECOX` | Productos web independientes. | Integrar como clientes solo cuando haya un caso de uso y contrato concreto. |
+| `OMNI-CHALAMANDRA-decox`, `Chalamandra-Triada`, `CHMADEX-DIAL`, `Insightify-Chalamandra`, `Challamandra-Analisis-cognitivo`, `chalamandra-6-sombreros` | Productos/capacidades cognitivas especializadas. | El posible solapamiento funcional no justifica eliminar ni fusionar sin evaluar código, uso, despliegue, clientes y dependencias. |
+| `Chalamandra-Magistral-Decodificadora`, `Pirinola-`, `Blueprint-Chalamandra---SRAP-Barrio-Edition` | Portafolio, experiencias de marca o prototipos. | Estado comercial y conexiones por verificar por separado. |
+| `Bunker-magistral`, `CHALAMANDRA-S-BUNKER`, `Chalamandra-all`, `brand.kit`, `demo-repository` | Infraestructura, identidad, documentación o demo por clasificar con evidencia. | No tratarlos como núcleo canónico ni eliminarlos por su nombre. |
 
-## 3. Las 5 Garantías Arquitectónicas
+Esta clasificación es preliminar: se basa en metadatos, README y archivos accesibles. No prueba que todos los productos estén conectados entre sí.
 
-1. **CatedralX dirige:** Define criterios, autoriza alcance, aplica reglas explícitas
-2. **Los agentes proponen:** CandidateResult != AcceptanceDecision. No se auto-aceptan
-3. **La verificación evalúa:** AcceptanceDecision viene de verificador independiente con criterios versionados
-4. **La API controla la entrega:** HTTP 200 != ACCEPTED. Valida contrato, permisos y aceptación antes de publicar
-5. **Los 3 modos comparten trazabilidad:** job_id identifica la tarea, trace_id enlaza eventos y evidencias
+## 7. Estado observado en el código (2026-10-26)
 
-## 4. Principio de Aceptación Explícita
+| Componente | Observación | Estado |
+|---|---|---|
+| CatedralX | Código determinista, `BIN/catedral` y pruebas presentes. | Código presente; suite completa no ejecutada en esta revisión. |
+| TaskBus | SQLite, reserva e idempotencia presentes en `api/task_bus.py`. | Código presente; integración completa pendiente. |
+| Worker | `api/worker_loop.py` invoca CatedralX desde una ruta fija. | Código presente; proceso activo en la VM no verificado. |
+| Request flow | Rutas de creación/consulta de trabajos y resultados presentes. | Parcial; no se demostró recorrido completo hasta resultado aceptado. |
+| Aceptación | `acceptance_store` usa HMAC-SHA256 y compara el digest de evidencia. | Parcial; helper Ed25519 existe pero no está conectado al store. |
+| Distribución | Store de suscripciones y webhook dispatcher presentes. | Parcial; no se confirmó `POST /v1/subscriptions`. |
+| Orquestación interna | Endpoints de runs y resultados presentes. | **Corrección P0 fusionada:** commit `aee4e114ecdc86d9ff8abade69e02799b500d90e` restaura `orchestration:read` y `tasks:complete`, usa `task_bus.get_run_tasks()` y pasa CI de pruebas, Ruff, mypy y smoke test de imagen. La operación real en VM sigue sin comprobarse. |
+| Parser W3C | `api/trace_parser.py` existe en agentes. | No integrado en `api/server.py`; requiere validar semántica W3C. |
+| Modo proactivo | Endpoint de disparo interno presente. | Scheduler desplegado no confirmado. |
+| VM/API/túnel | Unidad systemd para API versionada. | Estado real de procesos, entorno, red, DNS y logs no verificado. |
+| CI | No hay resultado completo reciente confirmado para el commit actual. | No declarar verde. |
 
-Un resultado técnicamente correcto NO se convierte automáticamente en un resultado autorizado.
+## 8. Regla de configuración segura
 
-- needs_evidence, rejected, blocked NO se publican como accepted
-- UNCERTAIN no es fallo técnico: es ejecución satisfactoria sin evidencia suficiente
-- El verificador independiente decide, no el worker que generó el candidato
+`CHALAMANDRA_API_ENABLE_MODEL_CALLS` permanece **deshabilitado por defecto**. No se cambia a `true` solo porque la arquitectura contemple agentes generativos.
 
-## 5. Estado de Implementación (2026-10-25)
+Solo se habilita tras verificar autorización/scopes en todas las rutas, identidad de servicio separada, herramientas permitidas, límites de costos/deadlines, aceptación independiente, custodia de secretos, pruebas de la vertical slice, CI completo y política de red. Esta definición no modifica ni reinicia producción.
 
-| Componente | Estado |
-|---|---|
-| CatedralX motor determinista | ✅ 281 tests verdes |
-| agents workers + tool registry | ✅ 132 tests verdes |
-| Circuito API->agents->CatedralX | ⚠️ Inicial (sin gate independiente) |
-| AcceptanceDecision | ❌ Pendiente |
-| Modo 2 (Retorno async) | ❌ Pendiente |
-| Modo 3 (Proactivo) | ❌ Pendiente |
-| result_store persistente | ❌ Pendiente |
-| JWT user/service | ❌ Pendiente |
-| Redis queue | ❌ Pendiente |
-| Dockerfiles + TLS | ❌ Pendiente |
+## 9. Criterios de aceptación antes de ampliar la arquitectura
 
-## 6. Contratos OpenAPI
+1. Mismas entradas y versión producen la misma salida determinista en CatedralX.
+2. API valida schemas, scopes, límites, idempotencia y estado antes de entregar resultados.
+3. Worker no puede firmar ni aceptar sus propios candidatos.
+4. Digest y firma detectan alteraciones; la clave privada del verificador está fuera del worker/API.
+5. Los modos conservan trazas y mapeos únicos entre tarea, candidato, resultado y decisión.
+6. Bloqueo, fallo e incertidumbre nunca se publican como aceptación.
+7. Suite, Ruff, mypy, build y prueba de extremo a extremo pasan en el commit exacto.
+8. Despliegue validado con evidencia de la VM; Vercel `READY` o archivos de configuración no prueban el flujo completo.
 
-- contracts/request_flow.yaml — Entrada pública (jobs, results) — NO IMPLEMENTADO
-- contracts/distribution_flow.yaml — Salida pública (subscriptions, webhooks) — NO IMPLEMENTADO
-- contracts/orchestration_flow.yaml — Orquestación interna (runs, acceptance) — NO IMPLEMENTADO
+## Inventario del ecosistema y conexiones
 
-## 7. Referencias
-
-- Especificación original §1-§6
-- AUDITORIA_CONSOLIDACION_PERGAMINO.md — auditoría formal de CatedralX
-- PROMPT_AGENTS.md — contrato maestro de AGENTS (en repo agents)
-
-## 8. Nota sobre `CHALAMANDRA_API_ENABLE_MODEL_CALLS`
-
-**Decisión:** Este flag debe permanecer en `true` en producción.
-
-**Razón:** Los 3 flujos DecoX (Normal, Inverso, Invertido) requieren que los agentes especializados usen LLMs para:
-- Modo 1: Investigar y buscar contraevidencia.
-- Modo 2: Contextualizar resultados cacheados.
-- Modo 3: Ejecutar tareas proactivas.
-
-**Seguridad:** La separación de poderes no se logra apagando los LLMs, sino mediante:
-1. CatedralX (núcleo determinista) que define las reglas.
-2. El Gate de Aceptación (Fase 2) que exige firma independiente.
-3. El aislamiento de red (loopback + NSG) que impide acceso externo.
-
-Un agente puede investigar con LLM, pero **no puede autorizar su propio resultado**.
-
-## 9. Actualización post-auditoría (2026-10-25)
-
-El estado anterior de este documento indicaba "implementación parcial". Tras las correcciones de auditoría (commits `cdc15c2` y `330a3de` en `agents`), el estado real es:
-
-- **Los 3 modos** (Reactivo, Retorno, Proactivo) están unificados a través del TaskBus SQLite.
-- **El Gate de Aceptación** exige firma HMAC y valida el `evidence_digest` SHA-256 contra el candidato almacenado.
-- **El Worker persistente** procesa tareas reales (no simuladas) y genera evidencia verificable.
-- **Todas las rutas** exigen JWT con `exp` y scopes específicos.
-- **Fail-closed:** `task_validator` devuelve `NOT_EVALUATED` y `executor` exige `is_pass`.
-
-La deuda técnica restante (Ed25519, Redis, Docker/TLS, JWT `iss`/`aud`, worker token) está documentada en `ESTADO_PRODUCCION.md` §4.
+La matriz de repositorios, vínculos evidenciados, limpiezas aplicadas y brechas de integración está en [`docs/INVENTARIO_ECOSISTEMA_Y_CONEXIONES.md`](docs/INVENTARIO_ECOSISTEMA_Y_CONEXIONES.md).
