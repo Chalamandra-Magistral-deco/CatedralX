@@ -188,6 +188,55 @@ def registrar_evento(
     return identifier
 
 
+
+def cargar_propuesta_autorizada(path: str | Path, cycle_id: str) -> dict[str, Any]:
+    """Load and validate one authorized proposal using the canonical economic ledger."""
+    identifier = _text(cycle_id, "cycle_id")
+    records = _read(Path(path).expanduser())
+    events = [row for row in records if row.get("cycle_id") == identifier]
+    kinds = [row.get("event_type") for row in events]
+    if kinds != ["measure", "evaluate", "propose", "authorize"]:
+        raise ValueError(
+            "El ciclo debe contener measure → evaluate → propose → authorize, "
+            "sin etapas adicionales ni omisiones"
+        )
+    by_type = {row["event_type"]: row.get("payload") for row in events}
+    measure, evaluation, proposal, authorization = (
+        by_type["measure"], by_type["evaluate"], by_type["propose"], by_type["authorize"]
+    )
+    if not all(isinstance(item, dict) for item in (measure, evaluation, proposal, authorization)):
+        raise ValueError("El ciclo contiene un payload inválido")
+    if authorization.get("approved") is not True:
+        raise ValueError("La propuesta no cuenta con autorización humana explícita")
+    for field in ("metric", "source", "period", "unit", "formula", "observed_at"):
+        _text(measure.get(field), field)
+    _number(measure.get("value"), "value")
+    _timestamp(measure.get("observed_at"), "observed_at")
+    for field in ("assessment", "evidence"):
+        _text(evaluation.get(field), field)
+    for field in ("proposal", "expected_outcome", "verification_plan"):
+        _text(proposal.get(field), field)
+    for field in ("approver", "rationale"):
+        _text(authorization.get(field), field)
+
+    return {
+        "origin": "CatedralX.FEX.GOVERNANCE.economic_cycle",
+        "cycle_id": identifier,
+        "measurement": dict(measure),
+        "assessment": dict(evaluation),
+        "proposal": dict(proposal),
+        "authorization": dict(authorization),
+        "execution_boundary": {
+            "allowed": ["analysis", "research", "candidate_generation"],
+            "prohibited": [
+                "publications", "external_contact", "ad_spend", "purchases",
+                "financial_orders", "automatic_reinvestment",
+            ],
+            "independent_acceptance_required": True,
+        },
+    }
+
+
 def resumir_ciclos(path: str | Path | None = None) -> dict[str, Any]:
     """Return a read-only summary of stages and governance controls."""
     target = Path(path).expanduser() if path else ledger_path()
