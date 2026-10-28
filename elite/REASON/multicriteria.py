@@ -11,23 +11,23 @@ from __future__ import annotations
 from typing import Any, Dict
 
 
-EVIDENCE_MIN = 0.85
-REINVESTMENT_MIN = 0.0
-SCORE_MIN = 0.70
-W_VIABILITY = 0.35
-W_RESILIENCE = 0.25
-W_HUMAN = 0.20
-W_DISTRIBUTION = 0.20
+EVIDENCE_MIN_BP = 8500
+REINVESTMENT_MIN_BP = 0
+SCORE_MIN_BP = 7000
+W_VIABILITY_BP = 3500
+W_RESILIENCE_BP = 2500
+W_HUMAN_BP = 2000
+W_DISTRIBUTION_BP = 2000
 
 
-def _clamp01(v: Any, default: float = 0.0) -> float:
+def _clamp_bp(v: Any, default: int = 0) -> int:
     try:
         f = float(v)
     except (TypeError, ValueError):
         return default
     if f != f:  # NaN
         return default
-    return max(0.0, min(1.0, f))
+    return max(0, min(10000, int(round(f * 10000))))
 
 
 class CathedralEvaluation:
@@ -41,17 +41,17 @@ class CathedralEvaluation:
         evidence: float,
     ):
         self.dimensions = {
-            "viability": _clamp01(viability),
-            "human_value": _clamp01(human_value),
-            "distribution": _clamp01(distribution),
+            "viability": _clamp_bp(viability),
+            "human_value": _clamp_bp(human_value),
+            "distribution": _clamp_bp(distribution),
             "reinvestment": float(reinvestment) if reinvestment is not None else 0.0,
-            "resilience": _clamp01(resilience),
-            "evidence": _clamp01(evidence),
+            "resilience": _clamp_bp(resilience),
+            "evidence": _clamp_bp(evidence),
         }
 
     def evaluate(self) -> Dict[str, Any]:
         # Compuerta 1: Evidencia
-        if self.dimensions["evidence"] < EVIDENCE_MIN:
+        if self.dimensions["evidence"] < EVIDENCE_MIN_BP:
             return {
                 "status": "BLOCKED_UNCERTAINTY",
                 "score": 0.0,
@@ -61,7 +61,7 @@ class CathedralEvaluation:
             }
 
         # Compuerta 2: Reinversión
-        if self.dimensions["reinvestment"] <= REINVESTMENT_MIN:
+        if self.dimensions["reinvestment"] <= REINVESTMENT_MIN_BP:
             return {
                 "status": "BLOCKED_DEFICIT",
                 "score": 0.0,
@@ -72,13 +72,13 @@ class CathedralEvaluation:
 
         # Score compuesto
         score = (
-            W_VIABILITY * self.dimensions["viability"]
-            + W_RESILIENCE * self.dimensions["resilience"]
-            + W_HUMAN * self.dimensions["human_value"]
-            + W_DISTRIBUTION * self.dimensions["distribution"]
+            (W_VIABILITY_BP * self.dimensions["viability"]
+            + W_RESILIENCE_BP * self.dimensions["resilience"]
+            + W_HUMAN_BP * self.dimensions["human_value"]
+            + W_DISTRIBUTION_BP * self.dimensions["distribution"]) // 10000
         )
 
-        if score >= SCORE_MIN:
+        if score >= SCORE_MIN_BP:
             return {
                 "status": "ACCEPTED",
                 "score": round(score, 4),
