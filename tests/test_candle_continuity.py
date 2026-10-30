@@ -1,7 +1,6 @@
 """Regression tests for contiguous one-minute market candles."""
 
 import pytest
-
 from PERCEIVE.stream_altar import build_observation_from_klines
 
 

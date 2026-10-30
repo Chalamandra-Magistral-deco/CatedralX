@@ -7,7 +7,6 @@ from scripts.backtest_public_candles import evaluate, future_label
 
 
 def synthetic_candles(count: int, drift: float = 0.0008):
-    from datetime import datetime, timezone
 
     start = 1_800_000_000_000
     rows = []

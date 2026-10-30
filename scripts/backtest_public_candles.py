@@ -12,16 +12,18 @@ import math
 import statistics
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from itertools import pairwise
 from typing import Any
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
 ROOT = __import__("pathlib").Path(__file__).resolve().parents[1]
 ELITE = ROOT / "elite"
 if str(ELITE) not in sys.path:
     sys.path.insert(0, str(ELITE))
 
+from PERCEIVE.http_transport import open_no_redirect_request as urlopen
 from REASON.financial_engine import analyze_financial_market
 
 ENDPOINT = "https://data-api.binance.vision/api/v3/klines"
@@ -33,7 +35,7 @@ SIGNALS = ("buy", "sell", "hold")
 
 
 def utc_iso(milliseconds: int) -> str:
-    return datetime.fromtimestamp(milliseconds / 1000, tz=timezone.utc).isoformat()
+    return datetime.fromtimestamp(milliseconds / 1000, tz=UTC).isoformat()
 
 
 def fetch_history(symbol: str = "BTCUSDT", days: int = 7, timeout: float = 10.0) -> list[dict[str, Any]]:
@@ -62,9 +64,12 @@ def fetch_history(symbol: str = "BTCUSDT", days: int = 7, timeout: float = 10.0)
         with urlopen(request, timeout=timeout) as response:
             if getattr(response, "status", 200) != 200:
                 raise RuntimeError(f"market provider returned HTTP {response.status}")
-            batch = json.loads(response.read(2_000_000).decode("utf-8"))
+            raw = response.read(2_000_001)
+            if len(raw) > 2_000_000:
+                raise ValueError("market provider response exceeds 2 MB")
+            batch = json.loads(raw.decode("utf-8"))
         if not isinstance(batch, list):
-            raise ValueError("market provider did not return a list of candles")
+            raise TypeError("market provider did not return a list of candles")
         if not batch:
             break
         raw_rows.extend(batch)
@@ -111,7 +116,7 @@ def fetch_history(symbol: str = "BTCUSDT", days: int = 7, timeout: float = 10.0)
     candles = [unique[key] for key in sorted(unique)]
     if len(candles) < MIN_WINDOW + 10:
         raise ValueError(f"too few closed candles for evaluation: {len(candles)}")
-    for previous, current in zip(candles, candles[1:]):
+    for previous, current in pairwise(candles):
         delta = current["open_time_ms"] - previous["open_time_ms"]
         if delta != INTERVAL_MS:
             raise ValueError(
@@ -253,7 +258,7 @@ def main() -> int:
                     "second_chronological_half": evaluated["second_chronological_half"],
                 }
             report["horizon_comparison"] = comparison
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - CLI boundary fails closed and never enables trading.
         print(json.dumps({
             "status": "EVALUATION_FAILED",
             "error_type": type(exc).__name__,

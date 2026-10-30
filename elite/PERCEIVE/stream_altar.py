@@ -4,17 +4,20 @@ Only public spot candles are read; this module has no order/trading API.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
 import math
 import os
 import re
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from datetime import UTC, datetime
+from itertools import pairwise
+from typing import Any
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
 from .data_feeder import write_observation
+from .http_transport import open_no_redirect_request as urlopen
 
 BINANCE_KLINES_URL = "https://data-api.binance.vision/api/v3/klines"
 DEFAULT_SYMBOL = "BTCUSDT"
@@ -32,7 +35,7 @@ def run_once(fetcher: Callable[[], dict[str, Any]], *, writer: Callable = write_
     """Fetch exactly one observation from an explicitly configured provider."""
     payload = fetcher()
     if not isinstance(payload, dict):
-        raise ValueError("provider must return a dictionary")
+        raise TypeError("provider must return a dictionary")
     return writer(payload)
 
 
@@ -48,7 +51,7 @@ def build_observation_from_klines(
     never added. The gap and inertia fields are simple return-derived features.
     """
     if not isinstance(rows, list):
-        raise ValueError("provider response must be a list of klines")
+        raise TypeError("provider response must be a list of klines")
     current_ms = int(time.time() * 1000) if now_ms is None else int(now_ms)
     closed: list[tuple[int, float, float, int]] = []
     for index, row in enumerate(rows):
@@ -77,7 +80,7 @@ def build_observation_from_klines(
     if open_times != sorted(set(open_times)):
         raise ValueError("provider candles must have unique, ascending open times")
 
-    for previous, current in zip(open_times, open_times[1:]):
+    for previous, current in pairwise(open_times):
         if current - previous != CANDLE_INTERVAL_MS:
             raise ValueError(
                 "provider candles must be contiguous 1-minute intervals"
@@ -94,7 +97,7 @@ def build_observation_from_klines(
     latest_open = closed[-1][1]
     latest_close = prices[-1]
     observed_at = datetime.fromtimestamp(
-        last_close_time / 1000, tz=timezone.utc
+        last_close_time / 1000, tz=UTC
     ).isoformat()
 
     return {
@@ -132,7 +135,9 @@ def fetch_binance_spot_observation(
     with urlopen(request, timeout=float(timeout)) as response:
         if getattr(response, "status", 200) != 200:
             raise RuntimeError(f"market provider returned HTTP {response.status}")
-        raw = response.read(2_000_000)
+        raw = response.read(2_000_001)
+        if len(raw) > 2_000_000:
+            raise ValueError("market provider response exceeds 2 MB")
     try:
         rows = json.loads(raw.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:

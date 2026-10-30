@@ -26,7 +26,7 @@ class FakeResponse:
     def __exit__(self, *args):
         return False
 
-    def read(self):
+    def read(self, amount=-1):
         return b'{"run_id":"run-test-1","status":"queued","trace_id":"trace-test-1"}'
 
 
@@ -72,6 +72,29 @@ def test_dispatch_task_posts_payload_with_scoped_short_lived_jwt(monkeypatch):
     assert claims["exp"] - claims["iat"] == 60
 
 
+def test_cli_uses_dedicated_catedralx_service_secret(monkeypatch, tmp_path, capsys):
+    captured = {}
+    payload_file = tmp_path / "payload.json"
+    payload_file.write_text('{"fixture": true}', encoding="utf-8")
+
+    def fake_dispatch_task(objective, payload, api_url, secret, **kwargs):
+        captured.update(objective=objective, payload=payload, secret=secret, api_url=api_url)
+        return {"status": "queued", "run_id": "run-test", "task_id": "task-test"}
+
+    monkeypatch.setattr(dispatch_agents, "dispatch_task", fake_dispatch_task)
+    monkeypatch.setenv("CHALAMANDRA_JWT_SECRET", "general-key-must-not-be-used")
+    monkeypatch.setenv("CHALAMANDRA_CATEDRALX_JWT_SECRET", "dedicated-service-test-key")
+    monkeypatch.setattr("sys.argv", [str(SCRIPT), "--objective", "synthetic_review",
+                                     "--payload-file", str(payload_file),
+                                     "--api-url", "http://127.0.0.1:8766"])
+
+    assert dispatch_agents.main() == 0
+    assert captured["secret"] == "dedicated-service-test-key"
+    assert captured["secret"] != "general-key-must-not-be-used"
+    assert captured["payload"] == {"fixture": True}
+    assert '"status": "queued"' in capsys.readouterr().out
+
+
 def test_dispatch_sends_w3c_traceparent(monkeypatch):
     captured = {}
 
@@ -79,7 +102,7 @@ def test_dispatch_sends_w3c_traceparent(monkeypatch):
         status = 202
         def __enter__(self): return self
         def __exit__(self, *args): return False
-        def read(self): return b'{"status":"queued","run_id":"r1","task_id":"t1"}'
+        def read(self, amount=-1): return b'{"status":"queued","run_id":"r1","task_id":"t1"}'
 
     def fake_urlopen(request, timeout=5.0):
         captured["traceparent"] = request.headers.get("Traceparent")
@@ -102,13 +125,48 @@ def test_dispatch_rejects_invalid_w3c_traceparent():
         )
 
 def test_dispatch_requires_jwt_secret():
-    with pytest.raises(ValueError, match="CHALAMANDRA_JWT_SECRET"):
+    with pytest.raises(ValueError, match="CHALAMANDRA_CATEDRALX_JWT_SECRET"):
         dispatch_agents.dispatch_task(
             "financial_analysis", {}, "http://127.0.0.1:8766", ""
         )
 
 
 def test_dispatch_rejects_non_loopback_plain_http():
+    with pytest.raises(ValueError, match="loopback"):
+        dispatch_agents._validate_api_url("http://8.8.8.8:8766")
+
+
+def _mock_private_candidate_dns(monkeypatch):
+    monkeypatch.setattr(
+        dispatch_agents.socket,
+        "getaddrinfo",
+        lambda host, port, type: [
+            (dispatch_agents.socket.AF_INET, dispatch_agents.socket.SOCK_STREAM, 6, "", ("172.24.0.2", port))
+        ],
+    )
+
+
+def test_private_network_http_requires_explicit_opt_in(monkeypatch):
+    _mock_private_candidate_dns(monkeypatch)
+    monkeypatch.delenv("CHALAMANDRA_API_ALLOW_PRIVATE_HTTP", raising=False)
+
+    with pytest.raises(ValueError, match="loopback"):
+        dispatch_agents._validate_api_url("http://candidate-api:8766")
+
+
+def test_private_network_http_allowed_only_with_explicit_opt_in(monkeypatch):
+    _mock_private_candidate_dns(monkeypatch)
+    monkeypatch.setenv("CHALAMANDRA_API_ALLOW_PRIVATE_HTTP", "true")
+
+    assert (
+        dispatch_agents._validate_api_url("http://candidate-api:8766")
+        == "http://candidate-api:8766"
+    )
+
+
+def test_private_http_opt_in_still_rejects_public_destination(monkeypatch):
+    monkeypatch.setenv("CHALAMANDRA_API_ALLOW_PRIVATE_HTTP", "true")
+
     with pytest.raises(ValueError, match="loopback"):
         dispatch_agents._validate_api_url("http://8.8.8.8:8766")
 

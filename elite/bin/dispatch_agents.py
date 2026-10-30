@@ -21,7 +21,13 @@ import uuid
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import Request
+
+ELITE = Path(__file__).resolve().parents[1]
+if str(ELITE) not in sys.path:
+    sys.path.insert(0, str(ELITE))
+
+from PERCEIVE.http_transport import open_no_redirect_request as urlopen
 
 
 def _b64url(data: bytes) -> str:
@@ -30,7 +36,7 @@ def _b64url(data: bytes) -> str:
 
 def _make_service_jwt(secret: str, now: int | None = None) -> str:
     if not secret:
-        raise ValueError("CHALAMANDRA_JWT_SECRET no está configurado")
+        raise ValueError("CHALAMANDRA_CATEDRALX_JWT_SECRET no está configurado")
     issued = int(time.time()) if now is None else int(now)
     header = {"alg": "HS256", "typ": "JWT"}
     claims = {
@@ -60,6 +66,33 @@ def _make_traceparent(value: str | None = None) -> str:
     return candidate
 
 
+def _host_resolves_only_to_private_addresses(host: str, port: int) -> bool:
+    """Return true only when every resolved address is private and non-special.
+
+    This supports an explicitly opted-in HTTP hop on an isolated private service
+    network. Public, loopback, link-local, multicast, unspecified and reserved
+    destinations are not accepted by this exception.
+    """
+    try:
+        addresses = [ipaddress.ip_address(host)]
+    except ValueError:
+        try:
+            records = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+            addresses = [ipaddress.ip_address(item[4][0]) for item in records]
+        except (OSError, ValueError, IndexError):
+            return False
+
+    return bool(addresses) and all(
+        address.is_private
+        and not address.is_loopback
+        and not address.is_link_local
+        and not address.is_multicast
+        and not address.is_unspecified
+        and not address.is_reserved
+        for address in addresses
+    )
+
+
 def _validate_api_url(api_url: str) -> str:
     parsed = urlsplit(api_url)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
@@ -81,7 +114,15 @@ def _validate_api_url(api_url: str) -> str:
                 except (OSError, ValueError):
                     loopback = False
         if not loopback:
-            raise ValueError("HTTP sin TLS solo se permite en loopback")
+            private_http_enabled = os.getenv("CHALAMANDRA_API_ALLOW_PRIVATE_HTTP", "").lower() == "true"
+            private_destination = _host_resolves_only_to_private_addresses(
+                parsed.hostname, parsed.port or 80
+            )
+            if not (private_http_enabled and private_destination):
+                raise ValueError(
+                    "HTTP sin TLS solo se permite en loopback; destinos privados requieren "
+                    "CHALAMANDRA_API_ALLOW_PRIVATE_HTTP=true"
+                )
     return api_url.rstrip("/")
 
 
@@ -146,10 +187,18 @@ def dispatch_task(
     )
     try:
         with urlopen(request, timeout=timeout) as response:
-            response_body = response.read().decode("utf-8")
-            result = json.loads(response_body) if response_body else {}
+            response_body = response.read(1_000_001)
+            if len(response_body) > 1_000_000:
+                raise RuntimeError("Agents API devolvió una respuesta que excede 1 MB")
+            response_text = response_body.decode("utf-8", "replace")
             if response.status != 202:
-                raise RuntimeError(f"Agents API respondió HTTP {response.status}")
+                raise RuntimeError(f"Agents API respondió HTTP {response.status}: {response_text[:1000]}")
+            try:
+                result = json.loads(response_text) if response_text else {}
+            except json.JSONDecodeError as exc:
+                raise RuntimeError("Agents API devolvió JSON inválido") from exc
+            if not isinstance(result, dict):
+                raise TypeError("Agents API devolvió una respuesta JSON no-objeto")
             return result
     except HTTPError as exc:
         detail = exc.read(1000).decode("utf-8", "replace")
@@ -208,7 +257,7 @@ def main() -> int:
             objective,
             payload,
             args.api_url,
-            os.getenv("CHALAMANDRA_JWT_SECRET", ""),
+            os.getenv("CHALAMANDRA_CATEDRALX_JWT_SECRET", ""),
             timeout=args.timeout,
             idempotency_key=idempotency_key,
             traceparent=args.traceparent,
