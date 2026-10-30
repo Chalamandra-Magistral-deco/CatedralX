@@ -1,7 +1,7 @@
 # Arquitectura objetivo — Chalamandra Magistral DecoX
 
 **Estado:** diseño objetivo con estado de implementación revisado en código  
-**Fecha de revisión de código:** 2026-10-26  
+**Fecha de revisión de código:** 2026-10-28
 **Regla de evidencia:** código versionado no demuestra por sí solo que un servicio esté desplegado u operativo en la VM.
 
 ## 1. Principio rector: La Catedral
@@ -72,21 +72,21 @@ La decisión debe referenciar el candidato y el digest exacto, criterios evaluad
 
 Esta clasificación es preliminar: se basa en metadatos, README y archivos accesibles. No prueba que todos los productos estén conectados entre sí.
 
-## 7. Estado observado en el código (2026-10-26)
+## 7. Estado observado en el código (2026-10-28)
 
 | Componente | Observación | Estado |
 |---|---|---|
-| CatedralX | Código determinista, `BIN/catedral` y pruebas presentes. | Código presente; suite completa no ejecutada en esta revisión. |
+| CatedralX | Código determinista, `BIN/catedral` y pruebas presentes. | Suite local verificada el 2026-10-28: 337 passed; Ruff global aún reporta diagnósticos heredados por revisar. |
 | TaskBus | SQLite, reserva e idempotencia presentes en `api/task_bus.py`. | Código presente; integración completa pendiente. |
-| Worker | `api/worker_loop.py` invoca CatedralX desde una ruta fija. | Código presente; proceso activo en la VM no verificado. |
-| Request flow | Rutas de creación/consulta de trabajos y resultados presentes. | Parcial; no se demostró recorrido completo hasta resultado aceptado. |
-| Aceptación | `acceptance_store` usa HMAC-SHA256 y compara el digest de evidencia. | Parcial; helper Ed25519 existe pero no está conectado al store. |
-| Distribución | Store de suscripciones y webhook dispatcher presentes. | Parcial; no se confirmó `POST /v1/subscriptions`. |
+| Worker | `api/worker_loop.py` invoca CatedralX; `chalamandra-worker.service` se observó activo en el checkout WIP el 2026-10-28. | El worker puede correr una revisión distinta a la imagen de API; controlar la compatibilidad de estado antes de promover. |
+| Request flow | Rutas de runs/jobs, TaskBus SQLite, creación de candidatos y aceptación independiente existen en el checkout de trabajo. | Pruebas locales pasan; no declarar la imagen estable certificada por esos resultados únicamente. |
+| Aceptación | El checkout de trabajo contiene `api/acceptance_store.py` con verificación Ed25519, clave pública y digest; el firmador está en `verifier/independent_acceptance_verifier.py`. | Código actual observado; la separación real de claves debe comprobarse por entorno y contenedor. |
+| Distribución | `api/server.py` expone suscripciones y publicación interna; `subscription_store`, `webhook_dispatcher` y `distribution_store` implementan política SSRF, firma HMAC de webhook e idempotencia global/por suscriptor. | Código presente y pruebas de distribución; contrato OpenAPI actualizado de forma parcial el 2026-10-28. |
 | Orquestación interna | Endpoints de runs y resultados presentes. | **Corrección P0 fusionada:** commit `aee4e114ecdc86d9ff8abade69e02799b500d90e` restaura `orchestration:read` y `tasks:complete`, usa `task_bus.get_run_tasks()` y pasa CI de pruebas, Ruff, mypy y smoke test de imagen. La operación real en VM sigue sin comprobarse. |
-| Parser W3C | `api/trace_parser.py` existe en agentes. | No integrado en `api/server.py`; requiere validar semántica W3C. |
-| Modo proactivo | Endpoint de disparo interno presente. | Scheduler desplegado no confirmado. |
-| VM/API/túnel | Unidad systemd para API versionada. | Estado real de procesos, entorno, red, DNS y logs no verificado. |
-| CI | No hay resultado completo reciente confirmado para el commit actual. | No declarar verde. |
+| Parser W3C | `api/trace_parser.py` está conectado a la API y a `webhook_dispatcher`; los registros HTTP se escriben mediante `api/trace_store.py` en la revisión de trabajo. | Código presente; verificar en la imagen concreta antes de liberar. |
+| Modo proactivo | `elite/bin/dispatch_authorized_cycles.py` realiza un escaneo one-shot de ciclos elegibles y despacha por API autorizada. | No se confirmó timer periódico habilitado. |
+| VM/API/túnel | API Docker en 127.0.0.1:8766 y worker systemd activos; API responde healthz 200. | API estable usa imagen rollback antigua; worker carga checkout WIP. DNS/túnel y tráfico externo no forman parte de esta verificación. |
+| CI | No se verificó CI remoto del HEAD actual. Las suites locales se ejecutaron en la VM. | No declarar CI remoto verde sin evidencia del commit exacto. |
 
 ## 8. Regla de configuración segura
 

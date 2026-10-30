@@ -50,3 +50,20 @@ El etiquetador usa el precio y timestamp del snapshot real, calcula el rendimien
 El informe calcula predicciones identificadas y pendientes, exactitud por horizonte, matriz de confusión, precisión y recall por clase, y métricas por régimen. El retorno alineado excluye hold y no incluye comisiones, spread, deslizamiento, dimensionamiento de posición ni contexto de cartera: no representa P&L de una estrategia ni demuestra ventaja predictiva. signal_strength sigue siendo una fuerza heurística, no una probabilidad, por lo que no se calculan métricas de calibración probabilística.
 
 El historial append-only se guarda por defecto en ~/.local/state/chalamandra/catedralx/feedback.jsonl; puede redirigirse mediante CATEDRALX_FEEDBACK_PATH. El reporte es de solo lectura. No hay reentrenamiento automático ni ejecución de órdenes. El etiquetado requiere una acción explícita tras observar cada horizonte; esta versión no incluye un programador o servicio de etiquetado continuo. Las predicciones históricas sin ID se contabilizan como registros heredados no vinculables y no se pueden puntuar retrospectivamente mediante este esquema.
+
+
+## Retroalimentación directa del usuario
+
+Además de la evaluación offline de predicciones y precios observados, CatedralX dispone de un ledger separado para comentarios sobre utilidad, claridad y corrección de un resultado. Registra un rating de 1 a 5, evaluación, motivo opcional, siguiente paso preferido y un vínculo a result_id o cycle_id. No captura identidad personal y no cambia automáticamente la política ni reentrena el motor.
+
+Para registrar:
+
+    ./BIN/catedral user-feedback --result-id RESULT_ID --rating 4 --assessment useful
+
+Para consultar el agregado de solo lectura:
+
+    ./BIN/catedral user-feedback --report
+
+La ruta por defecto es ~/.local/state/chalamandra/catedralx/user_feedback.jsonl. Se puede definir CATEDRALX_USER_FEEDBACK_PATH. No ingreses secretos ni datos personales en la corrección opcional. La integración del formulario/API externo debe implementarse y verificarse en el repositorio de Agents/producto.
+
+Diseño mecánico, flujos, pruebas y candidatos de limpieza pendientes de confirmación: docs/ARQUITECTURA_MECANICA_RETROALIMENTACION.md.

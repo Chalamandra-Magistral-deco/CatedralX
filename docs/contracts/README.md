@@ -1,22 +1,24 @@
 # Contratos OpenAPI — Chalamandra Magistral DecoX
 
-**Revisión de código:** 2026-10-26.  
+**Revisión de código:** 2026-10-28 (checkout de trabajo).
+
+El código versionado y el estado de contenedores se documentan por separado; los contratos se contrastan con agents/`api/server.py`, no se asume conformidad por similitud de nombres.
 Los contratos describen el comportamiento deseado; tener rutas con nombres similares no prueba conformidad ni despliegue.
 
 | Contrato | Función objetivo | Estado observado |
 |---|---|---|
-| `request_flow.yaml` | Crear trabajos, consultar estado y recuperar resultados aceptados. | **Parcial.** Existen rutas `/v1/jobs`, `/v1/jobs/{id}` y `/v1/results/{id}`; no se verificó el recorrido real hasta aceptación independiente. |
-| `distribution_flow.yaml` | Crear/listar/deshabilitar suscripciones y distribuir solo resultados aceptados. | **Parcial.** Existen `subscription_store` y `webhook_dispatcher`; no se confirmó `POST /v1/subscriptions`. Hay desajustes de scopes y falta revisar la defensa SSRF ante redirecciones. |
-| `orchestration_flow.yaml` | Disparar runs, consultar estado y recibir resultados del worker con token de servicio. | **Corrección P0 fusionada** en commit `aee4e114ecdc86d9ff8abade69e02799b500d90e`: se restauraron scopes, consulta canónica SQLite y pruebas; los dos workflows pasaron. Validación del runtime en VM pendiente. |
+| `request_flow.yaml` | Crear trabajos, consultar estado y recuperar resultados aceptados. | Implementación en `api/server.py` + `api/task_bus.py` + `api/candidate_store.py`; el recorrido end-to-end debe validarse contra el commit y la imagen que se liberen. |
+| `distribution_flow.yaml` | Suscripciones y distribución de resultados aceptados. | Rutas GET/POST/DELETE /v1/subscriptions y POST /internal/v1/distributions presentes. El handler actual solo distribuye result.accepted; respuestas: 202 dispatched/already_dispatched, 409 en conflicto/en progreso y 502/503 ante entrega no satisfactoria o indisponibilidad. Este contrato se reconcilió parcialmente el 2026-10-28. |
+| `orchestration_flow.yaml` | Disparar runs, consultar estado y recibir resultados del worker con token de servicio. | Rutas presentes en `api/server.py`; el token de servicio de CatedralX exige scope y subject. La existencia de la ruta no demuestra que el scheduler esté desplegado ni habilitado. |
 
 ## Componentes relacionados
 
 - **TaskBus:** SQLite, reserva de tareas e idempotencia existen en `api/task_bus.py`.
 - **Candidate store:** persiste candidatos y calcula un digest SHA-256 de evidencia.
-- **Acceptance store:** usa HMAC-SHA256 y contrasta el digest. Esto depende de un secreto compartido, no demuestra firma asimétrica independiente.
-- **Ed25519:** `api/crypto_signer.py` existe y PyNaCl ya está declarada en `requirements.txt` y `pyproject.toml`, pero el flujo de aceptación continúa usando HMAC-SHA256 y aún no utiliza Ed25519.
-- **Worker:** el código existe en `api/worker_loop.py`; el servicio activo en VM no se ha verificado.
-- **Modo proactivo:** existe endpoint interno de disparo; scheduler desplegado no comprobado.
+- **Acceptance store:** `api/acceptance_store.py` persiste decisiones append-only y valida firma/digest Ed25519 mediante la clave pública configurada. La semilla de firma privada no debe residir en la API ni en el worker ordinario.
+- **Ed25519:** `api/crypto_signer.py` verifica con nacl.signing.VerifyKey; `verifier/independent_acceptance_verifier.py` es el firmador independiente que custodia la semilla fuera de la API. Confirmar que los entornos y volúmenes reales mantienen esa separación antes de liberar.
+- **Worker:** `api/worker_loop.py` existe y `chalamandra-worker.service` se encontró activo/habilitado en la VM el 2026-10-28; corre desde el checkout de trabajo, por lo que su versión puede diferir de la imagen del API en Docker.
+- **Modo proactivo:** existe `elite/bin/dispatch_authorized_cycles.py` para escanear ciclos elegibles una vez. No hay timer de CatedralX/feedback/dispatch habilitado confirmado; no inferir planificación periódica a partir del script.
 
 ## Criterio de finalización
 

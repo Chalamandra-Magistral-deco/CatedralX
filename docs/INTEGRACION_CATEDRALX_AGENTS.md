@@ -171,3 +171,20 @@ Se corrigió el contenedor principal manteniendo la imagen candidata y el volume
 - El operador expuso credenciales de API/verificador/JWT en el chat. Tratar esos valores como comprometidos y rotarlos coordinando los consumidores; no volver a copiarlos en registros, salidas ni documentación.
 
 Sin timer habilitado, sin commit/push y sin cambios al volumen persistente durante la corrección.
+
+
+## Estado posterior de la VM verificado el 2026-10-28T15:40:30-06:00
+
+Esta sección corrige cualquier interpretación de las notas de promoción anteriores. El estado vivo se determinó mediante container inspect y GET /healthz; no se cambió ningún contenedor.
+
+- API estable: imagen backup-pre-e6d67db, image ID sha256:3cbf4831dafcac7f832178cd2f6fd32d1928d6f696080f099367afef982f99ad, publicada en 127.0.0.1:8766, healthy, cero reinicios. GET /healthz = 200; execution_enabled=false; llamadas a modelos desactivadas.
+- API de prueba: imagen reconciled-canonical-20261028-r2, image ID sha256:e515d23c6146e638b93d461cafcf56a78da39b400c4d28b899e88fe1fe91cb14, puerto loopback 18774, volumen chalamandra_canonical_test_20261028. El entorno efectivo tiene CHALAMANDRA_API_ENABLE_MODEL_CALLS=true y variables de semilla/clave privada presentes por nombre; no se le enviaron requests funcionales durante esta revisión.
+- Worker de prueba: imagen reconciled-candidate-20261028-1430-fixed-dedup, image ID sha256:ce711d760bbd47fb4cfc3222c898dd5fd3b2d79983453c1472843b4b5cf2c39a, volumen chalamandra_dedup_test_20261028. Este volumen no es el del API de prueba.
+- El worker toma tareas con task_bus.get_next_task() y persiste candidatos localmente; no se encontró un transporte HTTP alternativo de tareas. Por tanto, esos dos contenedores no prueban un recorrido API→worker compartido.
+- El contenedor estable tiene acceptance.jsonl; la candidata emplea acceptance_store.jsonl y añade trace_store/distribution_store. No promover sin migración de estado/compatibilidad explícita.
+- chalamandra-distribution-fixture-api corre image ID sha256:0792feb133465f775e94b0b605cfb7414528ad638f4369e2361fab14f0320e25; la etiqueta distribution-test-20261028-r1 apunta a sha256:b2c4422f538a19abeac189f3bbd10c8206722bdc978de73cf5d8850a95012aa8. La identidad del fixture debe fijarse por digest.
+- chalamandra-worker.service sigue active/enabled desde el checkout WIP del host; chalamandra-agents-api.service está inactive/disabled. No se encontró timer de dispatch/feedback habilitado.
+- La rama Agents está en HEAD 151efdf3e0f0. Ese commit apareció en el historial durante esta sesión; esta revisión no ejecutó commit ni push. La eliminación de api/distribution.py permanece sin stage.
+- La suite Agents pasa 217/217 tras aislar ALLOW_CONTAINER_BIND en el test; Ruff Agents pasa. CatedralX pasa 310 tests; su Ruff global sigue con 277 diagnósticos. Oráculo pasa 6 tests, TypeScript y Vite build.
+
+Bloqueo de seguridad: no utilizar la API de prueba para peticiones de modelo hasta desactivar las llamadas de modelo y quitar la clave privada del proceso API/worker. Coordinarlo con quien administra el test; no detener ni recrear ese contenedor sin reconciliar el proceso concurrente.
