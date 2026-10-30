@@ -27,7 +27,8 @@
       "enum": [
         "ACCEPTED",
         "UNCERTAIN",
-        "REJECTED"
+        "REJECTED",
+        "BLOCKED_MISSING_INPUT"
       ]
     },
     "engine": {
@@ -90,13 +91,26 @@
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
     },
+    "missing_inputs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "blocking_reasons": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "evaluation_reason": {
+      "type": [ "string", "null" ]
+    },
     "evaluation_gate": {
       "type": "string",
       "enum": [
         "ACCEPTED",
         "REJECTED",
         "BLOCKED_EVIDENCE",
-        "BLOCKED_REINVERSION"
+        "BLOCKED_REINVERSION",
+        "BLOCKED_UNCERTAINTY",
+        "BLOCKED_DEFICIT"
       ]
     },
     "cycle_id": {

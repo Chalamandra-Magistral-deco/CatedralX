@@ -523,41 +523,56 @@ def think(
     try:
         from REASON.multicriteria import CathedralEvaluation
 
-        # 1. Viabilidad (señal financiera)
-        viab = 1.0 if state.decision == "buy" else (0.0 if state.decision == "sell" else 0.5)
+        # Scores from this motor are integer BP. Direction alone maps only viability;
+        # other dimensions must arrive explicitly in central_dimensions_bp.
+        viability_bp = (
+            10000 if state.decision == "buy"
+            else 0 if state.decision == "sell"
+            else 5000
+        )
+        central_dimensions = state.percepcion_espacial.get("central_dimensions_bp", {})
+        if not isinstance(central_dimensions, dict):
+            central_dimensions = {}
 
-        # 2. Evidencia (por defecto 0.85 para permitir el flujo; si el estado cognitivo la tiene, se usa)
-        coherence = state.percepcion_espacial.get("coherence", {})
-        evidence_val = coherence.get("coherence_score", 0.85) if isinstance(coherence, dict) else 0.85
-
-        # 3. Resiliencia y Reinversión (desde los constraints dinámicos)
+        # Missing governance is a block, not permission. The central rule consumes
+        # the dynamic-governance report; it does not infer calibration from defaults.
         constraints = state.percepcion_espacial.get("dynamic_constraints", {})
-        resiliencia = float(constraints.get("resilience", 0.8))
-        reinversion = float(constraints.get("reinvestment_surplus", 0.1))
-
-        # 4. Valor Humano y Distribución (valores base para el Plano de Control puro)
-        # En una integración real, estos vendrían del lead_classifier o de la API.
-        valor_humano = 0.8
-        distribucion = 0.8
+        if not isinstance(constraints, dict) or constraints.get("growth_allowed") is not True:
+            raw_reasons = constraints.get("issues", []) if isinstance(constraints, dict) else []
+            blocking_reasons = [str(reason) for reason in raw_reasons if str(reason)]
+            if not blocking_reasons:
+                blocking_reasons = ["DYNAMIC_GOVERNANCE_NOT_VERIFIED"]
+        else:
+            blocking_reasons = []
 
         engine = CathedralEvaluation(
-            viability=viab,
-            human_value=valor_humano,
-            distribution=distribucion,
-            reinvestment=reinversion,
-            resilience=resiliencia,
-            evidence=evidence_val
+            viability=viability_bp,
+            human_value=central_dimensions.get("human_value_bp"),
+            distribution=central_dimensions.get("distribution_bp"),
+            reinvestment=central_dimensions.get("reinvestment_surplus"),
+            resilience=central_dimensions.get("resilience_bp"),
+            evidence=central_dimensions.get("evidence_bp"),
         )
-        
-        verdict = engine.evaluate()
+        verdict = engine.evaluate(blocking_reasons=blocking_reasons)
         state.cognicion["cathedral_verdict"] = verdict
     except Exception as e:
-        # Fail-safe: nunca rompemos el flujo principal por un fallo en el juicio
-        state.cognicion["cathedral_verdict"] = {
-            "status": "UNCERTAIN",
-            "reason": f"EVALUATION_ERROR: {str(e)}",
-            "next_action": "REVISAR_LOGS"
-        }
+        # Fail-safe: evaluation errors are blocked and hashed, never accepted.
+        try:
+            from REASON.multicriteria import blocked_uncertainty
+
+            state.cognicion["cathedral_verdict"] = blocked_uncertainty(
+                reason="EVALUATION_ERROR",
+                next_action="REVISAR_LOGS",
+                blocking_reasons=[type(e).__name__],
+            )
+        except Exception:
+            # If the central rule itself cannot be imported, preserve an explicit
+            # blocked state. The result contract will reject it without a hash.
+            state.cognicion["cathedral_verdict"] = {
+                "status": "BLOCKED_UNCERTAINTY",
+                "reason": "CENTRAL_RULE_UNAVAILABLE",
+                "next_action": "REVISAR_LOGS",
+            }
 
     return state
 

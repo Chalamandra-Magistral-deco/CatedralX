@@ -81,3 +81,43 @@ def test_build_decision_result_fails_closed_without_central_hash():
     cognitive["cathedral_verdict"].pop("evaluation_hash")
     with pytest.raises(ValueError, match="evaluation_hash SHA-256"):
         build_decision_result(state, cognitive)
+
+
+@pytest.mark.parametrize("gate_status", ["BLOCKED_UNCERTAINTY", "BLOCKED_DEFICIT"])
+def test_new_blocked_gate_statuses_map_to_uncertain(gate_status):
+    result = build_decision_result(
+        _make_state(decision="buy"),
+        _make_cognitive(disonancia=0.1, contraevidencia=0.1, gate_status=gate_status),
+    )
+    assert result["evaluation_gate"] == gate_status
+    assert result["status"] == "UNCERTAIN"
+    assert result["next_action"] == "Manual review required"
+
+
+def test_missing_central_inputs_have_explicit_block_code_and_preserve_reasons(tmp_path):
+    cognitive = _make_cognitive(gate_status="BLOCKED_UNCERTAINTY")
+    cognitive["cathedral_verdict"].update({
+        "reason": "ENTRADAS_CUANTITATIVAS_INVALIDAS_O_FALTANTES",
+        "invalid_inputs": ["evidence", "human_value", "reinvestment"],
+        "blocking_reasons": ["DYNAMIC_GOVERNANCE_NOT_VERIFIED"],
+    })
+    result = build_decision_result(_make_state(), cognitive)
+
+    assert result["status"] == "BLOCKED_MISSING_INPUT"
+    assert result["evaluation_gate"] == "BLOCKED_UNCERTAINTY"
+    assert result["missing_inputs"] == ["evidence", "human_value", "reinvestment"]
+    assert result["blocking_reasons"] == ["DYNAMIC_GOVERNANCE_NOT_VERIFIED"]
+    assert result["evaluation_reason"] == "ENTRADAS_CUANTITATIVAS_INVALIDAS_O_FALTANTES"
+    result_id = append_result(result, path=tmp_path / "results.jsonl")
+    assert get_result(result_id, path=tmp_path / "results.jsonl")["status"] == "BLOCKED_MISSING_INPUT"
+
+
+@pytest.mark.parametrize(
+    "gate_status",
+    ["BLOCKED_EVIDENCE", "BLOCKED_REINVERSION", "BLOCKED_UNCERTAINTY", "BLOCKED_DEFICIT"],
+)
+def test_high_cognitive_dissonance_cannot_override_a_blocked_gate(gate_status):
+    cognitive = _make_cognitive(disonancia=0.99, contraevidencia=0.99, gate_status=gate_status)
+    result = build_decision_result(_make_state(decision="buy"), cognitive)
+    assert result["evaluation_gate"] == gate_status
+    assert result["status"] == "UNCERTAIN"

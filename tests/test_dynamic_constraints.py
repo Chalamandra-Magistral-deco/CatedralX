@@ -100,3 +100,24 @@ def test_orchestrator_holds_directional_signal_on_measured_hard_breach(tmp_path)
     assert state.percepcion_espacial["dynamic_constraints"]["state"] == "MANTENIMIENTO"
     assert state.percepcion_espacial["growth_allowed"] is False
     assert state.percepcion_espacial["analisis_financiero"]["trading_enabled"] is False
+
+
+def test_orchestrator_cannot_accept_when_dynamic_constraints_are_missing(tmp_path):
+    from REASON import orchestrator
+    from REASON.schemas import SensoryInput
+
+    orchestrator._think_orchestrator.transductor.output_path = tmp_path / "state.json"
+    prices = [100.0 * math.exp(0.001 * index) for index in range(60)]
+    state = orchestrator.execute_cycle(SensoryInput(
+        precio_historico=prices,
+        precio_actual=prices[-1],
+        dynamic_constraints={},
+    ), cycle_id="p0-empty-governance-regression")
+
+    report = state.percepcion_espacial["dynamic_constraints"]
+    verdict = state.cognicion["cathedral_verdict"]
+    assert report["growth_allowed"] is False
+    assert "METRICAS_NO_CALIBRADAS" in report["issues"]
+    assert verdict["status"] == "BLOCKED_UNCERTAINTY"
+    assert verdict["status"] != "ACCEPTED"
+    assert verdict["reason"] == "GOBERNANZA_NO_VERIFICADA"

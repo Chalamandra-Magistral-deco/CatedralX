@@ -35,13 +35,13 @@ def _validate_decision_result(record: dict[str, Any]) -> None:
     missing = sorted(required - set(record))
     if missing:
         raise ValueError("DecisionResult incompleto: faltan " + ", ".join(missing))
-    if record.get("status") not in {"ACCEPTED", "UNCERTAIN", "REJECTED"}:
+    if record.get("status") not in {"ACCEPTED", "UNCERTAIN", "REJECTED", "BLOCKED_MISSING_INPUT"}:
         raise ValueError("DecisionResult.status inválido")
     if record.get("engine") != "CatedralX":
         raise ValueError("DecisionResult.engine debe ser CatedralX")
     if not isinstance(record.get("evaluation_hash"), str) or not re.fullmatch(r"[0-9a-f]{64}", record["evaluation_hash"]):
         raise ValueError("DecisionResult requiere evaluation_hash SHA-256 válido")
-    if record.get("evaluation_gate") not in {"ACCEPTED", "REJECTED", "BLOCKED_EVIDENCE", "BLOCKED_REINVERSION"}:
+    if record.get("evaluation_gate") not in {"ACCEPTED", "REJECTED", "BLOCKED_EVIDENCE", "BLOCKED_REINVERSION", "BLOCKED_UNCERTAINTY", "BLOCKED_DEFICIT"}:
         raise ValueError("DecisionResult.evaluation_gate inválido")
     trace_id = record.get("trace_id")
     if not isinstance(trace_id, str) or not re.fullmatch(r"[0-9a-f]{32}", trace_id) or trace_id == "0" * 32:
