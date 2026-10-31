@@ -1,0 +1,21 @@
+{
+  "sagrada_version": "4.2",
+  "inventario_real": 174,
+  "bin_canonico": "BIN/catedral",
+  "vectores": {
+    "RSX": {"rol": "Pulmones", "ruta_real": "elite/PERCEIVE/", "archivos": ["bunker.py", "data_feeder.py", "stream_altar.py", "http_transport.py", "radar_watcher.py"], "pilar": 2},
+    "SCX": {"rol": "Cerebro", "ruta_real": "elite/REASON/", "archivos": ["orchestrator.py:540 gate growth_allowed", "cognitive_state.py", "multicriteria.py"], "pilar": 1},
+    "MCX": {"rol": "Corazón", "ruta_real": "elite/MCX/OPTIMIZE/", "archivos": ["kelly_vince.py", "ganancias.py", "poder_real.py", "affective.py", "hormonas.json"], "pilar": 5},
+    "MSX": {"rol": "Brazos", "ruta_real": "elite/bin/", "archivos": ["nexus.py", "dispatch_agents.py", "dispatch_authorized_cycles.py", "feed_once.py", "impact_cycle.py"], "nota": "MSX/ solo tiene provenance.py - bin/ ES MSX real", "pilar": 7},
+    "AEX": {"rol": "Motor", "ruta_real": "elite/AEX/", "archivos": ["DECISION/", "ejecutor.py"], "pilar": 5},
+    "DSX": {"rol": "Escudo", "ruta_real": "elite/DSX/DEFENSE/", "archivos": ["guardian.py", "guardian_ram.py"], "pilar": 3},
+    "FEX": {"rol": "ADN", "ruta_real": "elite/FEX/FEEDBACK/", "archivos": ["feedback_loop.py", "user_feedback.py"], "fuera_repo": "~/.local/state/chalamandra/catedralx/approvals/", "pilar": 6},
+    "SFX": {"rol": "Esqueleto", "ruta_real": "03-OUTPUT/ + config/ + /dev/shm/", "archivos": ["cathedral_snapshot.json dual fcntl", "elite.env"], "nota": "No existe carpeta SFX, su función es 03-OUTPUT", "pilar": 2}
+  },
+  "pilares_8": ["1 Abstracción Total self.modulos", "2 Flujo Neguentrópico TARGETS->WORKSPACE->OUTPUT", "3 Defensa Lateral guardian_ram", "4 Conciencia Fractal Hurst", "5 Corazón Biomimético VRFB", "6 Sagrario Modelos trainer.py", "7 Invocación Sagrada BIN/catedral", "8 Axioma Final propósito"],
+  "flujos_3_con_VM": {
+    "Normal": "Usuario(fuera) -> API(dentro VM) -> Agente(dentro VM) -> CatedralX(dentro VM)",
+    "Inverso": "CatedralX(dentro VM) -> Agente(dentro VM) -> API(dentro VM) -> Usuario(fuera)",
+    "Invertido": "CatedralX(dentro VM) origina -> Agentes(dentro VM) -> API(dentro VM) -> Productos(fuera)"
+  }
+}
