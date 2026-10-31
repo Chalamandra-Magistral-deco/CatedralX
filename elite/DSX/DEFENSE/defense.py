@@ -10,7 +10,7 @@ import psutil
 # One configurable source of truth shared by defense and order-generation code.
 PATH_PANIC = Path(
     os.path.expanduser(
-        os.environ.get("CATEDRALX_PANIC_PATH", "~/LAB/03-OUTPUT/.panic")
+        os.environ.get("CATEDRALX_PANIC_PATH", "~/.local/state/chalamandra/catedralx/.panic")
     )
 )
 

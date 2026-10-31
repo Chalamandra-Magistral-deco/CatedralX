@@ -14,7 +14,8 @@ from typing import Any, Dict
 from DSX.DEFENSE import defense
 from DSX.DEFENSE.guards import verificar_autorizacion_ejecucion
 
-COMMAND_OUTPUT = Path(__file__).parents[3] / "03-OUTPUT" / "orden.json"
+BASE_STATE = Path(os.environ.get("CATEDRALX_STATE_DIR", "~/.local/state/chalamandra/catedralx")).expanduser()
+COMMAND_OUTPUT = Path(os.environ.get("CATEDRALX_OUTPUT", str(BASE_STATE / "orden.json"))).expanduser()
 APPROVAL_DIR = Path(os.environ.get("CATEDRALX_APPROVAL_DIR", str(COMMAND_OUTPUT.parent / "approvals"))).expanduser()
 APPROVAL_TTL_SECONDS = 120
 STOP_LOSS_PCT = 0.02
