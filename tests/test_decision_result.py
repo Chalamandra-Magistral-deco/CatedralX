@@ -39,6 +39,71 @@ def test_build_decision_result_accepted():
     assert result["orders_executed"] is False
     assert "result_id" in result
 
+def test_build_decision_result_extracts_canonical_msx_cycle_trace():
+    cognitive_record = {
+        "id": "SCX:cognitive:1735689600:aaaaaaaaaaaaaaaa",
+        "vector": "SCX",
+        "modulo": "elite.REASON.cognitive_state",
+        "version": "1.0",
+        "timestamp": 1735689600,
+        "input_hash": "a" * 64,
+        "status": "computed",
+    }
+    source_record = {
+        "id": "RSX:market:1735689601:bbbbbbbbbbbbbbbb",
+        "vector": "RSX",
+        "modulo": "elite.PERCEIVE.market_data",
+        "version": "2.0",
+        "timestamp": 1735689601,
+        "input_hash": "b" * 64,
+        "status": "observed_heuristic_not_calibrated",
+    }
+    cognitive = _make_cognitive(prov_records={
+        "cognitive_report": cognitive_record,
+        "sources": {"market_data": source_record},
+        "cycle_trace": {
+            "cycle_id": "test-cycle-123",
+            "records": [cognitive_record, source_record],
+            "record_count": 2,
+            "status": "aggregated",
+        },
+    })
+
+    result = build_decision_result(
+        _make_state(),
+        cognitive,
+        trace_id="1234567890abcdef1234567890abcdef",
+    )
+
+    assert result["provenance"] == [cognitive_record["id"], source_record["id"]]
+    assert len(result["evidence"]) == 2
+    assert result["evidence"][0]["source"] == "elite.REASON.cognitive_state"
+    assert result["evidence"][0]["vector"] == "SCX"
+    assert result["evidence"][0]["version"] == "1.0"
+    assert result["evidence"][0]["digest"] == "a" * 64
+    assert result["evidence"][0]["observed_at"] == "2025-01-01T00:00:00+00:00"
+    assert result["evidence"][1]["source"] == "elite.PERCEIVE.market_data"
+    assert result["evidence"][1]["digest"] == "b" * 64
+
+
+def test_build_decision_result_preserves_legacy_provenance_list():
+    record = {
+        "id": "SCX:legacy:1:cccccccccccccccc",
+        "module": "legacy.module",
+        "hash": "c" * 64,
+        "status": "computed",
+    }
+    result = build_decision_result(
+        _make_state(),
+        _make_cognitive(prov_records=[record]),
+        trace_id="1234567890abcdef1234567890abcdef",
+    )
+
+    assert result["provenance"] == [record["id"]]
+    assert result["evidence"][0]["source"] == "legacy.module"
+    assert result["evidence"][0]["digest"] == "c" * 64
+
+
 def test_build_decision_result_uncertain():
     state = _make_state(decision="hold")
     cognitive = _make_cognitive(disonancia=0.5, contraevidencia=0.1)

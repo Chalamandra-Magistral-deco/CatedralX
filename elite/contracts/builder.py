@@ -10,6 +10,39 @@ _TRACE_ID_RE = re.compile(r"^[0-9a-f]{32}$")
 _EVALUATION_HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
+def _extract_provenance_records(value: Any) -> list[dict[str, Any]]:
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, dict)]
+    if not isinstance(value, dict):
+        return []
+
+    trace = value.get("cycle_trace")
+    if isinstance(trace, dict) and isinstance(trace.get("records"), list):
+        return [item for item in trace["records"] if isinstance(item, dict)]
+
+    records = value.get("records")
+    if isinstance(records, list):
+        return [item for item in records if isinstance(item, dict)]
+
+    result = []
+    report = value.get("cognitive_report")
+    if isinstance(report, dict):
+        result.append(report)
+    sources = value.get("sources")
+    if isinstance(sources, dict):
+        result.extend(item for item in sources.values() if isinstance(item, dict))
+    return result
+
+
+def _provenance_time(timestamp: Any, fallback: str) -> str:
+    if isinstance(timestamp, (int, float)) and not isinstance(timestamp, bool):
+        try:
+            return datetime.fromtimestamp(float(timestamp), timezone.utc).isoformat()
+        except (OverflowError, OSError, ValueError):
+            pass
+    return fallback
+
+
 def build_decision_result(
     state: Any,
     cognitive: dict[str, Any],
@@ -57,23 +90,24 @@ def build_decision_result(
         elif disonancia > 0.4 or contraevidencia > 0.35:
             status = "UNCERTAIN"
 
-    prov_records = cognitive.get("provenance", [])
-    if isinstance(prov_records, dict) and "records" in prov_records:
-        prov_records = prov_records["records"]
+    prov_records = _extract_provenance_records(cognitive.get("provenance", []))
 
     evidence = []
     prov_ids = []
     now_iso = datetime.now(timezone.utc).isoformat()
     for item in prov_records:
-        if not isinstance(item, dict):
+        identifier = item.get("id")
+        if not isinstance(identifier, str) or not identifier:
             continue
-        prov_ids.append(item.get("id", ""))
+        prov_ids.append(identifier)
         evidence.append({
-            "evidence_id": item.get("id", str(uuid.uuid4())),
+            "evidence_id": identifier,
             "kind": "calculation",
-            "source": item.get("module", "unknown"),
-            "observed_at": now_iso,
-            "digest": item.get("hash"),
+            "source": item.get("modulo", item.get("module", "unknown")),
+            "vector": item.get("vector"),
+            "version": item.get("version"),
+            "observed_at": _provenance_time(item.get("timestamp"), now_iso),
+            "digest": item.get("input_hash") or item.get("input_hash_sha256") or item.get("hash"),
             "notes": item.get("status", ""),
         })
 
