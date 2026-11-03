@@ -5,12 +5,13 @@ feedback evaluation. This is not the production market-data loop or executor.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from DSX.DEFENSE.guards import cognitive_execution_guard
 from MSX.provenance import aggregate_cycle, build_provenance
+
 from REASON.cognitive_state import counterevidence, pairwise_coherence
 from REASON.core_contract import build_cycle
 from REASON.fex_feedback_adapter import evaluate_ledger
@@ -33,7 +34,7 @@ def run_synthetic_master_cycle(
     FEX feedback is evaluated only when the caller explicitly supplies a ledger
     path. The cycle never writes predictions/outcomes or trains a model.
     """
-    timestamp = datetime.now(timezone.utc).isoformat()
+    timestamp = datetime.now(UTC).isoformat()
     coherence = pairwise_coherence(signals)
     opposing = counterevidence(requested_decision, signals)
     dsx = cognitive_execution_guard(coherence, opposing, panic=panic)

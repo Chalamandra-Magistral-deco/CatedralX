@@ -1,5 +1,6 @@
 """Evidence-based business surplus allocation for CatedralX."""
 from __future__ import annotations
+
 import math
 from typing import Any
 

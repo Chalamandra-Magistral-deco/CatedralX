@@ -1,6 +1,6 @@
 """Angular market state with a two-state extended Kalman filter."""
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -12,7 +12,7 @@ def extended_kalman_filter(
     x_prev: np.ndarray,
     p_prev: np.ndarray,
     dt: float = 1.0,
-) -> Tuple[np.ndarray, np.ndarray, float]:
+) -> tuple[np.ndarray, np.ndarray, float]:
     """Estimate angular velocity and bias from a raw angular observation."""
     transition = np.array([[1.0, -dt], [0.0, 1.0]])
     process_noise = np.diag([0.01, 0.001])
@@ -33,9 +33,9 @@ def extended_kalman_filter(
 
 
 def gyro_state(
-    precios: List[float],
-    estado_previo: Optional[Tuple[np.ndarray, np.ndarray]] = None,
-) -> Dict[str, Any]:
+    precios: list[float],
+    estado_previo: tuple[np.ndarray, np.ndarray] | None = None,
+) -> dict[str, Any]:
     """Return phase, direction, angular velocity and Hurst diagnostics."""
     if len(precios) < 10:
         return {

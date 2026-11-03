@@ -1,6 +1,7 @@
 """Flag unusually large single-step observed price changes."""
 import math
-from typing import Sequence
+from collections.abc import Sequence
+
 
 def detectar_movimiento(precios: Sequence[float], threshold: float = 0.002) -> dict:
     if not math.isfinite(threshold) or threshold <= 0:

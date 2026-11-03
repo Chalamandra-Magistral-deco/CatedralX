@@ -1,7 +1,7 @@
 """Delta-neutral hedge recommendations for the execution layer."""
 
 import time
-from typing import Any, Dict
+from typing import Any
 
 
 class DeltaNeutral:
@@ -28,7 +28,7 @@ class DeltaNeutral:
         hurst: float,
         volatilidad: float,
         precio: float,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Calculate and store the hedge required to offset spot delta."""
         self.posicion_neta = float(posicion_spot)
         delta = self.calcular_delta(float(precio), float(hurst), float(volatilidad))
@@ -47,7 +47,7 @@ class DeltaNeutral:
             "timestamp": self.ultimo_ajuste,
         }
 
-    def estado(self) -> Dict[str, Any]:
+    def estado(self) -> dict[str, Any]:
         """Return the current hedge state."""
         return {
             "delta_total": round(self.delta_total, 4),

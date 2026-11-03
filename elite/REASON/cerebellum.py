@@ -1,7 +1,6 @@
 """Stochastic decision collapse for the Catedral motor layer."""
 
 import random
-from typing import Tuple
 
 
 def colapsar_qubit(

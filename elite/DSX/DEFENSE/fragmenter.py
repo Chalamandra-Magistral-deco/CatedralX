@@ -1,6 +1,8 @@
 """Safe backup helper. Copies only when explicitly invoked; never scatters to temp/cache."""
-from pathlib import Path
 import shutil
+from pathlib import Path
+
+
 def backup_file(source: str, destination: str) -> Path:
     src, dst = Path(source).expanduser(), Path(destination).expanduser()
     if not src.is_file():

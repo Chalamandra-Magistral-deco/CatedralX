@@ -5,12 +5,11 @@ import os
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 
 from .state_paths import canonical_state_path
-
 
 RUTA_HORMONAS = canonical_state_path()
 
@@ -42,12 +41,12 @@ class ProcesadorEndocrino:
             if output_path is not None
             else canonical_state_path()
         )
-        self.conc: Dict[str, float] = {
+        self.conc: dict[str, float] = {
             "oxitocina_O": 0.45, "dopamina_D": 0.60, "serotonina_S": 0.50,
             "cortisol_C": 0.30, "adrenalina_A": 0.40, "melatonina_M": 0.20,
         }
-        self.contexto: Dict[str, Any] = {"market_phase": "desconocido", "señal_combinada": "LATERAL"}
-        self._estado: Dict[str, Any] = {"concentracion_actual": self.conc.copy()}
+        self.contexto: dict[str, Any] = {"market_phase": "desconocido", "señal_combinada": "LATERAL"}
+        self._estado: dict[str, Any] = {"concentracion_actual": self.conc.copy()}
         self._cargar()
 
     def _cargar(self) -> None:
@@ -64,7 +63,7 @@ class ProcesadorEndocrino:
         except (FileNotFoundError, OSError, json.JSONDecodeError, TypeError, ValueError):
             return
 
-    def actualizar(self, inputs: Dict[str, Any]) -> Dict[str, float]:
+    def actualizar(self, inputs: dict[str, Any]) -> dict[str, float]:
         """Advance hormone concentrations by one homeostatic step."""
         sorpresa = min(abs(float(inputs.get("sorpresa", 0.0))), 2.0)
         gap = min(abs(float(inputs.get("gap", 0.0))), 0.05)
@@ -78,7 +77,7 @@ class ProcesadorEndocrino:
         self.conc["melatonina_M"] = float(np.clip(self.conc["melatonina_M"] + PARAMS["prod_M"] - PARAMS["decay_M"] * self.conc["melatonina_M"], 0.0, 1.0))
         return self.conc.copy()
 
-    def guardar(self) -> Dict[str, Any]:
+    def guardar(self) -> dict[str, Any]:
         """Persist the current endocrine state atomically."""
         data = {
             "timestamp": datetime.now().isoformat(),
@@ -108,7 +107,7 @@ class ProcesadorEndocrino:
         self._estado = data
         return data
 
-    def volcar_estado_quimico(self, inputs_entorno: Dict[str, Any]) -> None:
+    def volcar_estado_quimico(self, inputs_entorno: dict[str, Any]) -> None:
         """Compatibility entry point used by the reasoning orchestrator."""
         perception = inputs_entorno.get("percepcion_espacial", {})
         self.contexto = inputs_entorno.get("contexto", self.contexto)
@@ -120,11 +119,11 @@ class ProcesadorEndocrino:
         })
         self.guardar()
 
-    def leer_estado_actual(self) -> Dict[str, Any]:
+    def leer_estado_actual(self) -> dict[str, Any]:
         return self._estado
 
 
-def procesar_estado_integrado(inputs_entorno: Dict[str, Any]) -> Dict[str, Any]:
+def procesar_estado_integrado(inputs_entorno: dict[str, Any]) -> dict[str, Any]:
     """Compatibility API delegated to the canonical orchestrator transducer."""
     from .orchestrator import _think_orchestrator
 

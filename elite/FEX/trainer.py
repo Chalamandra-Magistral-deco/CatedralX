@@ -7,13 +7,12 @@ for callers using the historical ``FEX.trainer`` import path.
 """
 from __future__ import annotations
 
-from typing import List, Tuple
-
 import numpy as np
 
 from FEX.FEEDBACK.trainer import (
     actualizar_modelo as _actualizar_modelo,
-    perdida_logistica,
+)
+from FEX.FEEDBACK.trainer import (
     sgd_step as _sgd_step,
 )
 
@@ -27,9 +26,9 @@ def sgd_paso(
 
 
 def entrenar_paso(
-    entradas: List[float],
+    entradas: list[float],
     objetivo: float,
     pesos: np.ndarray,
     tasa: float = 0.01,
-) -> Tuple[np.ndarray, float]:
+) -> tuple[np.ndarray, float]:
     return _actualizar_modelo(entradas, objetivo, pesos, tasa)

@@ -1,15 +1,15 @@
 """Topological market regime from anharmonic structure and gyroscope dynamics."""
 
-from typing import Any, Dict, List
+from typing import Any
 
 from . import anharmonic, gyroscope
 
 
 def analyze_geometry(
-    precios: List[float],
+    precios: list[float],
     umbral_tendencia: float = 0.3,
     umbral_rango: float = 0.6,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Combine projective structure and short-term dynamics into one signal."""
     if len(precios) < 10:
         return {

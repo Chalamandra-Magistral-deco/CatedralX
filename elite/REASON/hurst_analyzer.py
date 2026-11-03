@@ -1,10 +1,10 @@
 """Estimador del exponente de Hurst mediante analisis R/S."""
 
-from typing import List, Union
+from typing import Union
 
 import numpy as np
 
-SerieNumerica = Union[List[float], np.ndarray]
+SerieNumerica = Union[list[float], np.ndarray]
 
 
 def calcular_hurst(serie: SerieNumerica) -> float:

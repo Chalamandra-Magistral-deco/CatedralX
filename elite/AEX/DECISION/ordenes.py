@@ -1,15 +1,15 @@
 """Build pending orders only after authenticated, one-time approval and safety checks."""
 
+import fcntl
 import hashlib
 import hmac
 import json
 import math
 import os
-import time
 import tempfile
-import fcntl
+import time
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from DSX.DEFENSE import defense
 from DSX.DEFENSE.guards import verificar_autorizacion_ejecucion
@@ -26,7 +26,7 @@ APPROVER_IDENTITY_VERIFIER = None
 _REQUIRED_APPROVAL_PERMISSION = "financial_order_approve"
 
 
-def verificar_identidad_aprobador(identity_assertion: Any, decision: Dict[str, Any], precio_actual: float) -> Dict[str, Any]:
+def verificar_identidad_aprobador(identity_assertion: Any, decision: dict[str, Any], precio_actual: float) -> dict[str, Any]:
     """Validate an assertion through a trusted external identity provider; deny by default."""
     verifier = APPROVER_IDENTITY_VERIFIER
     if not callable(verifier):
@@ -81,7 +81,7 @@ def _approval_key(key_id: str | None = None) -> bytes:
     return keys[selected]
 
 
-def crear_token_aprobacion(decision: Dict[str, Any], precio_actual: float, *, identity_assertion: Any, emitido_en: int | None = None) -> str:
+def crear_token_aprobacion(decision: dict[str, Any], precio_actual: float, *, identity_assertion: Any, emitido_en: int | None = None) -> str:
     """Create a signed approval only after trusted external identity and permission checks."""
     identity = verificar_identidad_aprobador(identity_assertion, decision, precio_actual)
     active_key_id, _ = _approval_keyring()
@@ -102,7 +102,7 @@ def crear_token_aprobacion(decision: Dict[str, Any], precio_actual: float, *, id
     return json.dumps({"payload": payload, "signature": signature}, sort_keys=True, separators=(",", ":"))
 
 
-def _consumir_token_aprobacion(token: str, decision: Dict[str, Any], precio_actual: float) -> str:
+def _consumir_token_aprobacion(token: str, decision: dict[str, Any], precio_actual: float) -> str:
     """Verify a signed approval token, bind it to this exact order, and consume it once."""
     try:
         envelope = json.loads(token)
@@ -163,7 +163,7 @@ def _hash_token_aprobacion(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-def _cargar_orden_idempotente(token: str) -> Dict[str, Any] | None:
+def _cargar_orden_idempotente(token: str) -> dict[str, Any] | None:
     """Return the already-persisted order for this exact approval, if present."""
     if not COMMAND_OUTPUT.is_file():
         return None
@@ -231,7 +231,7 @@ def recuperar_memoria_desde_orden() -> bool:
         return False
 
 
-def _guardar_memoria(decision: Dict[str, Any]) -> None:
+def _guardar_memoria(decision: dict[str, Any]) -> None:
     """Persist a compact decision history without requiring another module."""
     history_path = COMMAND_OUTPUT.with_name("decisiones.jsonl")
     history_path.parent.mkdir(parents=True, exist_ok=True)
@@ -248,13 +248,13 @@ def _guardar_memoria(decision: Dict[str, Any]) -> None:
 
 
 def _generar_orden_bajo_bloqueo(
-    decision: Dict[str, Any],
+    decision: dict[str, Any],
     precio_actual: float,
     *,
     token_aprobacion: str | None = None,
     autorizacion_explicita: bool = False,
-    dsx_authorization: Dict[str, Any] | None = None,
-) -> Dict[str, Any] | None:
+    dsx_authorization: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
     """Persist a pending order only with signed, fresh, one-time approval and safe state."""
     # Legacy boolean deliberately does not grant permission.
     if not token_aprobacion:
@@ -329,13 +329,13 @@ def _generar_orden_bajo_bloqueo(
 
 
 def generar_orden(
-    decision: Dict[str, Any],
+    decision: dict[str, Any],
     precio_actual: float,
     *,
     token_aprobacion: str | None = None,
     autorizacion_explicita: bool = False,
-    dsx_authorization: Dict[str, Any] | None = None,
-) -> Dict[str, Any] | None:
+    dsx_authorization: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
     """Serialize order recovery/persistence so a crash can be retried safely."""
     if not token_aprobacion:
         raise PermissionError("Se requiere token_aprobacion firmado; un booleano no autoriza")

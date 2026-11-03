@@ -1,9 +1,8 @@
 """Projective cross-ratio features for a price series."""
 
-from typing import List, Tuple
 
 
-def analyze(precios: List[float]) -> Tuple[float, float]:
+def analyze(precios: list[float]) -> tuple[float, float]:
     """Return the cross-ratio and an elliptical-structure score."""
     if len(precios) < 4:
         return 0.0, 0.0

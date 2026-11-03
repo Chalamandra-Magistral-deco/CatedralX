@@ -1,5 +1,7 @@
 """Small in-memory rolling rate limiter."""
 import time
+
+
 def rate_limited(timestamps: list[float], max_calls: int = 10, window_seconds: float = 60.0,
                  now: float | None = None) -> bool:
     if max_calls < 1 or window_seconds <= 0:

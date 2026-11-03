@@ -11,7 +11,7 @@ import math
 import os
 import uuid
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -107,7 +107,7 @@ def record_user_feedback(
         "schema_version": SCHEMA_VERSION,
         "record_type": "user_feedback",
         "feedback_id": str(uuid.uuid4()),
-        "recorded_at": datetime.now(timezone.utc).isoformat(),
+        "recorded_at": datetime.now(UTC).isoformat(),
         "result_id": result_id,
         "cycle_id": cycle_id,
         "rating": rating,

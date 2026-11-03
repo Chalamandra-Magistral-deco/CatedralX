@@ -1,9 +1,14 @@
 """Atomic snapshot writer. Callers must supply observed data."""
 from __future__ import annotations
-import json, os, tempfile
+
+import json
+import os
+import tempfile
 from pathlib import Path
 from typing import Any
+
 from .sensors import normalize_market_payload
+
 
 def snapshot_path() -> Path:
     return Path(os.environ.get("CATEDRALX_SNAPSHOT_PATH", "/dev/shm/cathedral_snapshot.json")).expanduser()

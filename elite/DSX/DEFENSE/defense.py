@@ -3,7 +3,7 @@
 import os
 import time
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import psutil
 
@@ -27,7 +27,7 @@ def riesgo_ram_monitor() -> float:
 
 
 def limitar_tasa(
-    timestamps: List[float],
+    timestamps: list[float],
     max_calls: int = 10,
     ventana: int = 60,
 ) -> bool:
@@ -60,7 +60,7 @@ def desactivar_panic() -> None:
         path.unlink()
 
 
-def estado_defensivo(estado_sistema: Dict[str, Any]) -> Dict[str, Any]:
+def estado_defensivo(estado_sistema: dict[str, Any]) -> dict[str, Any]:
     """Return normalized risk details and current blocking state."""
     riesgo_ram = riesgo_ram_monitor()
     riesgo_codigo = estado_sistema.get("entropia", 0.5)

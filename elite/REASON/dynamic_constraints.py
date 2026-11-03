@@ -7,32 +7,32 @@ from __future__ import annotations
 
 import math
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, Optional, TypeGuard
+from typing import Any, TypeGuard
 
 
 @dataclass(frozen=True)
 class DynamicConstraintInputs:
-    reinvestment_surplus: Optional[float] = None
-    entropy_rate: Optional[float] = None
-    entropy_time_scale: Optional[float] = None
-    loop_gain: Optional[float] = None
-    dominant_signal_weight: Optional[float] = None
-    minimum_confidence: Optional[float] = None
-    signal_count: Optional[int] = None
-    optimal_signal_count: Optional[int] = None
-    exposure: Optional[float] = None
-    max_exposure: Optional[float] = None
-    resilience: Optional[float] = None
-    minimum_resilience: Optional[float] = None
-    degradation_rate: Optional[float] = None
-    accumulated_noise: Optional[float] = None
+    reinvestment_surplus: float | None = None
+    entropy_rate: float | None = None
+    entropy_time_scale: float | None = None
+    loop_gain: float | None = None
+    dominant_signal_weight: float | None = None
+    minimum_confidence: float | None = None
+    signal_count: int | None = None
+    optimal_signal_count: int | None = None
+    exposure: float | None = None
+    max_exposure: float | None = None
+    resilience: float | None = None
+    minimum_resilience: float | None = None
+    degradation_rate: float | None = None
+    accumulated_noise: float | None = None
 
 
-def _finite(value: Optional[float]) -> TypeGuard[float]:
+def _finite(value: float | None) -> TypeGuard[float]:
     return value is not None and not isinstance(value, bool) and math.isfinite(float(value))
 
 
-def evaluate_dynamic_constraints(inputs: DynamicConstraintInputs) -> Dict[str, Any]:
+def evaluate_dynamic_constraints(inputs: DynamicConstraintInputs) -> dict[str, Any]:
     """Evaluate only calibrated constraints; missing metrics never authorize growth.
 
     Entropy gate: B >= T * dS/dt. Loop stability: G < 1. Scale gate:

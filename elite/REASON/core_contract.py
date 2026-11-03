@@ -6,11 +6,12 @@ explicit independent gate result; a missing/invalid gate fails closed.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import hashlib
 import json
 import math
-from typing import Any, Mapping, TypeGuard
+from collections.abc import Mapping
+from datetime import datetime
+from typing import Any, TypeGuard
 
 SCHEMA_VERSION = "chalamandra-core/1.0"
 MODES = {"RESEARCH", "BACKTEST", "PAPER", "LIVE"}

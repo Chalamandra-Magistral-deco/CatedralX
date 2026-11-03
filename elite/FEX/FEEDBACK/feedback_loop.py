@@ -465,8 +465,8 @@ def evaluar_feedback(path: str | Path | None = None) -> dict[str, Any]:
 
 def resumir_memoria_decisiones(decisions: list[str], max_history: int = 50) -> dict[str, Any]:
     """Summarize observed decision labels; never infer PnL, accuracy, or outcomes."""
-    from collections import Counter
     import math
+    from collections import Counter
 
     if not isinstance(max_history, int) or max_history < 1:
         raise ValueError("max_history debe ser entero positivo")

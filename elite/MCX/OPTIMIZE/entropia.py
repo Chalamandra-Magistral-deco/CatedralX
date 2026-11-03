@@ -1,6 +1,8 @@
 """Shannon entropy over categorical observations, measured in bits."""
 from collections import Counter
 from math import log2
+
+
 def entropia(observaciones) -> float:
     values = list(observaciones)
     if not values:

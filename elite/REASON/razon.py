@@ -71,7 +71,7 @@ def main() -> int:
         "orders_executed": False,
     }
     result["prediction_id"] = registrar_prediccion(result)
-    
+
     # FASE 1a: Generar contrato DecisionResult y persistir
     cognitive_data = state.cognicion if hasattr(state, "cognicion") else {}
     decision_contract = build_decision_result(

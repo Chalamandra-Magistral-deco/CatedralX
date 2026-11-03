@@ -1,8 +1,12 @@
 """Translate validated RSX payloads into the SCX sensory contract."""
 from __future__ import annotations
+
 from typing import Any
+
 from REASON.schemas import SensoryInput
+
 from .sensors import normalize_market_payload
+
 
 def construir_sensory_input(payload: dict[str, Any], free_energy_prev: float = 0.0) -> SensoryInput:
     data = normalize_market_payload(payload)

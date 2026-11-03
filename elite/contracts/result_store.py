@@ -60,11 +60,11 @@ def append_result(record: dict[str, Any], path: str | Path | None = None) -> str
     _validate_decision_result(record)
     target = Path(path) if path else default_result_store_path()
     target.parent.mkdir(parents=True, exist_ok=True)
-    
+
     result_id = record.get("result_id")
     if not isinstance(result_id, str) or not result_id.strip():
         raise ValueError("El record debe tener un 'result_id' válido")
-        
+
     with target.open("a", encoding="utf-8") as stream:
         stream.write(json.dumps(record, ensure_ascii=False, allow_nan=False, sort_keys=True) + "\n")
     return result_id
@@ -74,7 +74,7 @@ def get_result(result_id: str, path: str | Path | None = None) -> dict[str, Any]
     target = Path(path) if path else default_result_store_path()
     if not target.exists():
         return None
-        
+
     with target.open("r", encoding="utf-8") as stream:
         for line in stream:
             line = line.strip()

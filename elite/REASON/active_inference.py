@@ -1,6 +1,5 @@
 """Active-inference engine for market return surprise and free energy."""
 
-from typing import List, Tuple
 
 import numpy as np
 
@@ -14,10 +13,10 @@ class ActiveInferenceEngine:
 
     def inferir(
         self,
-        retornos_recientes: List[float],
+        retornos_recientes: list[float],
         precio_actual: float,
         precio_previo: float,
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """Return KL divergence and variational free energy for recent returns."""
         if len(retornos_recientes) < 2 or precio_actual <= 0.0 or precio_previo <= 0.0:
             return 0.0, 0.0

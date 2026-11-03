@@ -1,6 +1,5 @@
 """Kelly clásico y Optimal-f de Ralph Vince para gestión de capital."""
 
-from typing import List
 
 import numpy as np
 
@@ -21,7 +20,7 @@ def kelly_clasico(
     return float(max(0.0, min(0.5, fraction)))
 
 
-def optimal_f_vince(returns: List[float]) -> float:
+def optimal_f_vince(returns: list[float]) -> float:
     """Estimate Vince's Optimal-f by maximizing mean log growth."""
     if len(returns) < 10:
         return 0.02

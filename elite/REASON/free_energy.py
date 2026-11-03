@@ -1,6 +1,5 @@
 """Variational free-energy surprise using only stdlib and numpy."""
 
-import numpy as np
 
 
 def free_energy(

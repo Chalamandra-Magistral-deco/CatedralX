@@ -1,13 +1,18 @@
 """Read-only status summary for CatedralX."""
 from __future__ import annotations
-import json, sys, time
+
+import json
+import sys
+import time
 from pathlib import Path
+
 BASE_DIR = Path(__file__).resolve().parents[1]
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 from PERCEIVE.api_pulse import check_snapshot
 from PERCEIVE.data_feeder import snapshot_path as rsx_path
 from REASON.state_paths import canonical_state_path
+
 
 def state_path() -> Path:
     return canonical_state_path()

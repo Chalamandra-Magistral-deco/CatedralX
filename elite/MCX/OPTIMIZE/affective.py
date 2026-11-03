@@ -1,6 +1,8 @@
 """Bounded deterministic internal state; not a biological measurement."""
 from __future__ import annotations
+
 import math
+
 
 def actualizar_estado(cortisol: float = 0.3, dopamina: float = 0.5, sorpresa: float = 0.0,
                       volatilidad: float = 0.0) -> dict[str, float]:

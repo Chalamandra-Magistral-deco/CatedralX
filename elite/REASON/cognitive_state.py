@@ -10,7 +10,8 @@ Unknown evidence stays unknown; heuristic strength is never relabeled as probabi
 from __future__ import annotations
 
 import math
-from typing import Any, Iterable, TypeGuard
+from collections.abc import Iterable
+from typing import Any, TypeGuard
 
 SCHEMA_VERSION = "4.2-cognitive-draft"
 DIRECTIONS = {"buy": 1, "compra": 1, "bullish": 1, "alcista": 1,

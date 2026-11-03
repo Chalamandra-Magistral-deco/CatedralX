@@ -1,10 +1,10 @@
 """Validate snapshot schema and market-observation freshness."""
 from __future__ import annotations
 
-from datetime import datetime
 import json
 import math
 import time
+from datetime import datetime
 from pathlib import Path
 
 from .data_feeder import snapshot_path

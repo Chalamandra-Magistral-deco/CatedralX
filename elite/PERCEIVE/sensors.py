@@ -1,7 +1,9 @@
 """Validate observed market observations; never invent missing prices."""
 from __future__ import annotations
+
 import math
 from typing import Any
+
 
 def validate_price_history(values: Any, minimum: int = 30) -> list[float]:
     if not isinstance(values, (list, tuple)):

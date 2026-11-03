@@ -3,43 +3,41 @@
 
 import json
 import math
-import os
 import time
 import uuid
-from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
-
-from PERCEIVE.api_pulse import validate_snapshot_payload
+from AEX.ejecutor import preparar_intencion
 from DSX.DEFENSE import defense
 from DSX.DEFENSE.guards import (
-    cognitive_execution_guard, final_execution_guard, verificar_autorizacion_ejecucion,
+    cognitive_execution_guard,
+    final_execution_guard,
+    verificar_autorizacion_ejecucion,
 )
-from AEX.ejecutor import preparar_intencion
-
-from . import anharmonic, cerebellum, free_energy, gyroscope, hurst_analyzer, mental_power
-from . import geometry
-from .financial_engine import analyze_financial_market
-from .report_composition import build_cognitive_report
 from FEX.FEEDBACK.feedback_loop import resumir_memoria_decisiones
+from PERCEIVE.api_pulse import validate_snapshot_payload
+from PERCEIVE.data_feeder import snapshot_path as rsx_snapshot_path
+
+from . import anharmonic, cerebellum, free_energy, geometry, gyroscope, hurst_analyzer, mental_power
+from .dynamic_constraints import DynamicConstraintInputs, evaluate_dynamic_constraints
+from .financial_engine import analyze_financial_market
 from .hamiltonian import HamiltonianEngine
 from .procesador import TransductorEndocrino
-from .state_paths import canonical_state_path
-from PERCEIVE.data_feeder import snapshot_path as rsx_snapshot_path
+from .report_composition import build_cognitive_report
 from .schemas import CathedralState, SensoryInput
-from .dynamic_constraints import DynamicConstraintInputs, evaluate_dynamic_constraints
+from .state_paths import canonical_state_path
 
 SNAPSHOT_PATH = rsx_snapshot_path()  # CANONICO RSX desde data_feeder - consolidado Paso2
 HAMILTONIAN_PROTECTION_LIMIT = 45.0
 
 
 def construir_neurovector(
-    gyro: Dict[str, Any],
-    geo: Dict[str, Any],
+    gyro: dict[str, Any],
+    geo: dict[str, Any],
     hurst: float,
     energia_libre: float,
-) -> List[float]:
+) -> list[float]:
     """Build a compact state vector from the repository's dict-based outputs."""
     señal = geo.get("señal_combinada", "lateral")
     señal_valor = {"compra": 1.0, "venta": -1.0}.get(señal, 0.0)
@@ -66,13 +64,13 @@ class Orchestrator:
         self._decision_history: list[str] = []
         self.hamiltonian_engine = HamiltonianEngine()
 
-    def _leer_snapshot_percibido(self) -> Dict[str, Any]:
+    def _leer_snapshot_percibido(self) -> dict[str, Any]:
         try:
             return json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
         except (FileNotFoundError, json.JSONDecodeError):
             return {}
 
-    def _construir_sensory_input(self, datos_percibidos: Dict[str, Any]) -> SensoryInput:
+    def _construir_sensory_input(self, datos_percibidos: dict[str, Any]) -> SensoryInput:
         perceive = datos_percibidos.get("PERCEIVE", {})
         if not isinstance(perceive, dict):
             raise ValueError("PERCEIVE debe ser un objeto con precios observados.")
@@ -337,7 +335,7 @@ class Orchestrator:
             "memoria_status": "process_local_not_persistent",
         }
 
-        decisions: List[Dict[str, Any]] = []
+        decisions: list[dict[str, Any]] = []
         if decision == "buy" and not financial["risk_flags"]:
             decisions = [{
                 "accion": "COMPRAR",
@@ -468,7 +466,7 @@ _think_orchestrator = Orchestrator()
 
 def think(
     sensory_input: SensoryInput,
-    historial_precios: List[float],
+    historial_precios: list[float],
     ciclo_id: str,
 ) -> CathedralState:
     """Run deterministic financial analysis plus optional geometry diagnostics."""

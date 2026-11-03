@@ -1,6 +1,7 @@
 """BTC/gold ratio from caller-supplied observed prices."""
 import math
 
+
 def ratio_btc_oro(precio_btc: float, precio_oro: float) -> dict:
     btc, oro = float(precio_btc), float(precio_oro)
     if not all(math.isfinite(x) and x > 0 for x in (btc, oro)):

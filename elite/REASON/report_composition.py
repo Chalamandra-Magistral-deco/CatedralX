@@ -5,10 +5,12 @@ integration layer; it does not enforce decisions or authorize financial executio
 """
 from __future__ import annotations
 
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 from FEX.FEEDBACK.feedback_loop import resumir_memoria_decisiones
 from MSX.provenance import aggregate_cycle, build_provenance
+
 from .cognitive_state import (
     SCHEMA_VERSION,
     counterevidence,

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 _TRACE_ID_RE = re.compile(r"^[0-9a-f]{32}$")
@@ -37,7 +37,7 @@ def _extract_provenance_records(value: Any) -> list[dict[str, Any]]:
 def _provenance_time(timestamp: Any, fallback: str) -> str:
     if isinstance(timestamp, (int, float)) and not isinstance(timestamp, bool):
         try:
-            return datetime.fromtimestamp(float(timestamp), timezone.utc).isoformat()
+            return datetime.fromtimestamp(float(timestamp), UTC).isoformat()
         except (OverflowError, OSError, ValueError):
             pass
     return fallback
@@ -94,7 +94,7 @@ def build_decision_result(
 
     evidence = []
     prov_ids = []
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
     for item in prov_records:
         identifier = item.get("id")
         if not isinstance(identifier, str) or not identifier:

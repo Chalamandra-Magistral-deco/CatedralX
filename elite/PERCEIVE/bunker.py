@@ -6,20 +6,20 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from REASON.orchestrator import execute_cycle
-from REASON.schemas import SensoryInput
-from PERCEIVE.percepcion import from_snapshot
-from PERCEIVE.api_pulse import validate_snapshot_payload
-from PERCEIVE.data_feeder import snapshot_path
 from DSX.DEFENSE import defense
 from DSX.DEFENSE.guardian_ram import hay_suficiente_recurso
+from REASON.orchestrator import execute_cycle
+from REASON.schemas import SensoryInput
 
+from PERCEIVE.api_pulse import validate_snapshot_payload
+from PERCEIVE.data_feeder import snapshot_path
+from PERCEIVE.percepcion import from_snapshot
 
 RITMO_SEGUNDOS = 15
 SNAPSHOT_PATH = snapshot_path()
@@ -46,7 +46,7 @@ class BunkerDaemon:
                 logger.exception("Error in RSX cycle")
             await asyncio.sleep(self.ritmo)
 
-    def _ciclo(self) -> Optional[Dict[str, Any]]:
+    def _ciclo(self) -> dict[str, Any] | None:
         # An emergency marker blocks new reasoning cycles before snapshot I/O.
         # This is an analysis gate; it does not place or cancel financial orders.
         panic_path = Path(defense.PATH_PANIC).expanduser()
@@ -98,14 +98,14 @@ class BunkerDaemon:
         return snapshot
 
     @staticmethod
-    def _leer_snapshot() -> Dict[str, Any]:
+    def _leer_snapshot() -> dict[str, Any]:
         try:
             return json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
         except (FileNotFoundError, json.JSONDecodeError):
             return {}
 
     @staticmethod
-    def _construir_entrada(snapshot: Dict[str, Any]) -> SensoryInput:
+    def _construir_entrada(snapshot: dict[str, Any]) -> SensoryInput:
         # No fallback prices: missing or insufficient observations fail closed.
         return from_snapshot(snapshot)
 
