@@ -129,6 +129,7 @@ class Orchestrator:
         if not isinstance(supplied_constraints, dict):
             supplied_constraints = {}
         unknown_constraint_keys = sorted(set(supplied_constraints) - allowed_constraint_keys)
+        constraints_report: dict[str, Any]
         if unknown_constraint_keys:
             constraints_report = {
                 "state": "RESTRICCIONES_NO_VERIFICADAS",
@@ -350,7 +351,7 @@ class Orchestrator:
                 "modo": "ANALISIS_FINANCIERO",
             }]
 
-        package = {
+        package: dict[str, Any] = {
             "cycle_id": cycle_id,
             "timestamp": int(time.time()),
             "economic_feedback": {

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TypeGuard
 
 
 @dataclass(frozen=True)
@@ -28,7 +28,7 @@ class DynamicConstraintInputs:
     accumulated_noise: Optional[float] = None
 
 
-def _finite(value: Optional[float]) -> bool:
+def _finite(value: Optional[float]) -> TypeGuard[float]:
     return value is not None and not isinstance(value, bool) and math.isfinite(float(value))
 
 
@@ -63,6 +63,19 @@ def evaluate_dynamic_constraints(inputs: DynamicConstraintInputs) -> Dict[str, A
     feedback_ok = False
     scale_ok = False
     if not invalid and not missing:
+        # Defensa en profundidad: missing/invalid ya garantizan no-None y finitos.
+        # Los asserts documentan el invariante para mypy y fallan rápido si la
+        # validación previa se rompe.
+        assert inputs.reinvestment_surplus is not None
+        assert inputs.entropy_time_scale is not None
+        assert inputs.entropy_rate is not None
+        assert inputs.loop_gain is not None
+        assert inputs.signal_count is not None
+        assert inputs.optimal_signal_count is not None
+        assert inputs.exposure is not None
+        assert inputs.max_exposure is not None
+        assert inputs.resilience is not None
+        assert inputs.minimum_resilience is not None
         entropy_ok = float(inputs.reinvestment_surplus) >= float(inputs.entropy_time_scale) * float(inputs.entropy_rate)
         feedback_ok = float(inputs.loop_gain) < 1.0
         scale_ok = (

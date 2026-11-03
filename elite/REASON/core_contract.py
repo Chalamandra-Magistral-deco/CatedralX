@@ -10,14 +10,14 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import math
-from typing import Any, Mapping
+from typing import Any, Mapping, TypeGuard
 
 SCHEMA_VERSION = "chalamandra-core/1.0"
 MODES = {"RESEARCH", "BACKTEST", "PAPER", "LIVE"}
 LIVE_DEFAULT_ENABLED = False
 
 
-def _finite_number(value: Any) -> bool:
+def _finite_number(value: Any) -> TypeGuard[float]:
     return (
         isinstance(value, (int, float))
         and not isinstance(value, bool)
@@ -96,7 +96,7 @@ def build_cycle(
     else:
         prediction_error = {"value": None, "status": "awaiting_observed_outcome"}
 
-    payload = {
+    payload: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "cycle_id": cycle_id,
         "observed_at": observed_at,

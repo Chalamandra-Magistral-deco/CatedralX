@@ -10,7 +10,7 @@ Unknown evidence stays unknown; heuristic strength is never relabeled as probabi
 from __future__ import annotations
 
 import math
-from typing import Any, Iterable
+from typing import Any, Iterable, TypeGuard
 
 SCHEMA_VERSION = "4.2-cognitive-draft"
 DIRECTIONS = {"buy": 1, "compra": 1, "bullish": 1, "alcista": 1,
@@ -18,7 +18,7 @@ DIRECTIONS = {"buy": 1, "compra": 1, "bullish": 1, "alcista": 1,
               "hold": 0, "lateral": 0, "neutral": 0, "flat": 0}
 
 
-def _finite(value: Any) -> bool:
+def _finite(value: Any) -> TypeGuard[float]:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(float(value))
 
 
@@ -91,7 +91,7 @@ def counterevidence(decision: Any, signals: Iterable[dict[str, Any]], abort_thre
     if not _finite(abort_threshold) or not 0 <= float(abort_threshold) <= 1:
         raise ValueError("abort_threshold debe estar entre 0 y 1")
     target = _direction(decision)
-    opposing = []
+    opposing: list[dict[str, Any]] = []
     total = 0.0
     if target not in (-1, 1):
         return {"senales_opuestas": [], "fuerza_contra": None, "umbral_abortar": float(abort_threshold),
@@ -140,9 +140,13 @@ def metacognition(*, coherence: dict[str, Any], epistemic_sigma: float | None = 
     else:
         learning = "estable"
     w1, w2, w3, w4 = weights
-    components = (dissonance, u.get("u_total"), gap, historical_accuracy)
-    if all(_finite(x) for x in components):
-        z = w1 * float(dissonance) + w2 * float(u["u_total"]) + w3 * float(gap) - w4 * float(historical_accuracy)
+    u_total = u.get("u_total")
+    if _finite(dissonance) and _finite(u_total) and _finite(gap) and _finite(historical_accuracy):
+        assert dissonance is not None
+        assert u_total is not None
+        assert gap is not None
+        assert historical_accuracy is not None
+        z = w1 * float(dissonance) + w2 * float(u_total) + w3 * float(gap) - w4 * float(historical_accuracy)
         z = max(-60.0, min(60.0, z))
         chaos = 1.0 / (1.0 + math.exp(-z))
     else:

@@ -286,7 +286,7 @@ def _safe_signal(prediction: dict[str, Any]) -> str | None:
 
 def _safe_return(outcome: dict[str, Any]) -> float | None:
     value = outcome.get("realized_return_pct")
-    if isinstance(value, bool):
+    if value is None or isinstance(value, bool):
         return None
     try:
         number = float(value)

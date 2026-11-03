@@ -56,7 +56,10 @@ def validate_snapshot_payload(
             value = float(price)
             if not math.isfinite(value) or value <= 0:
                 raise ValueError
-        latest = float(perceive.get("precio", prices[-1]))
+        latest_value = perceive.get("precio", prices[-1])
+        if latest_value is None or isinstance(latest_value, bool):
+            raise ValueError
+        latest = float(latest_value)
         if not math.isfinite(latest) or latest <= 0:
             raise ValueError
     except (TypeError, ValueError, OverflowError):

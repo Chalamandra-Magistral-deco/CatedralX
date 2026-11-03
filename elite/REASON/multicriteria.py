@@ -144,8 +144,32 @@ class CathedralEvaluation:
                 "dimensions": dict(self.dimensions),
             })
 
-        # All score dimensions are now validated built-in integers in [0, 10000].
-        evidence_bp = self.dimensions["evidence"]
+        # Revalidate mutable dimensions before using them in the score.
+        required_scores = (
+            "viability", "human_value", "distribution", "resilience", "evidence"
+        )
+        validated_scores: dict[str, int] = {}
+        invalid_score_dimensions: list[str] = []
+
+        for name in required_scores:
+            value = _basis_points(self.dimensions.get(name))
+            if value is None:
+                invalid_score_dimensions.append(name)
+            else:
+                validated_scores[name] = value
+
+        if invalid_score_dimensions:
+            return _attach_evaluation_hash({
+                "status": "BLOCKED_UNCERTAINTY",
+                "score": 0,
+                "reason": "ENTRADAS_CUANTITATIVAS_INVALIDAS_O_FALTANTES",
+                "next_action": "VALIDAR_DATOS_Y_ESCALA_BP",
+                "invalid_inputs": sorted(invalid_score_dimensions),
+                "blocking_reasons": [],
+                "dimensions": dict(self.dimensions),
+            })
+
+        evidence_bp = validated_scores["evidence"]
         if evidence_bp < EVIDENCE_MIN_BP:
             return _attach_evaluation_hash({
                 "status": "BLOCKED_EVIDENCE",
@@ -157,7 +181,19 @@ class CathedralEvaluation:
             })
 
         # The surplus is a finite Decimal; no inferred default is permitted.
-        if self._reinvestment_value <= Decimal(REINVESTMENT_MIN_BP):
+        reinvestment_value = self._reinvestment_value
+        if reinvestment_value is None:
+            return _attach_evaluation_hash({
+                "status": "BLOCKED_UNCERTAINTY",
+                "score": 0,
+                "reason": "ENTRADAS_CUANTITATIVAS_INVALIDAS_O_FALTANTES",
+                "next_action": "VALIDAR_DATOS_Y_ESCALA_BP",
+                "invalid_inputs": ["reinvestment"],
+                "blocking_reasons": [],
+                "dimensions": dict(self.dimensions),
+            })
+
+        if reinvestment_value <= Decimal(REINVESTMENT_MIN_BP):
             return _attach_evaluation_hash({
                 "status": "BLOCKED_DEFICIT",
                 "score": 0,
@@ -168,10 +204,10 @@ class CathedralEvaluation:
             })
 
         score = (
-            W_VIABILITY_BP * self.dimensions["viability"]
-            + W_RESILIENCE_BP * self.dimensions["resilience"]
-            + W_HUMAN_BP * self.dimensions["human_value"]
-            + W_DISTRIBUTION_BP * self.dimensions["distribution"]
+            W_VIABILITY_BP * validated_scores["viability"]
+            + W_RESILIENCE_BP * validated_scores["resilience"]
+            + W_HUMAN_BP * validated_scores["human_value"]
+            + W_DISTRIBUTION_BP * validated_scores["distribution"]
         ) // 10000
 
         if score >= SCORE_MIN_BP:

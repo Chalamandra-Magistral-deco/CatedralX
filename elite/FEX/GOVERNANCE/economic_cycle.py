@@ -204,7 +204,13 @@ def cargar_propuesta_autorizada(path: str | Path, cycle_id: str) -> dict[str, An
     measure, evaluation, proposal, authorization = (
         by_type["measure"], by_type["evaluate"], by_type["propose"], by_type["authorize"]
     )
-    if not all(isinstance(item, dict) for item in (measure, evaluation, proposal, authorization)):
+    if not isinstance(measure, dict):
+        raise ValueError("El ciclo contiene un payload inválido")
+    if not isinstance(evaluation, dict):
+        raise ValueError("El ciclo contiene un payload inválido")
+    if not isinstance(proposal, dict):
+        raise ValueError("El ciclo contiene un payload inválido")
+    if not isinstance(authorization, dict):
         raise ValueError("El ciclo contiene un payload inválido")
     if authorization.get("approved") is not True:
         raise ValueError("La propuesta no cuenta con autorización humana explícita")
