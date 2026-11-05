@@ -11,6 +11,9 @@ RUN if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.
 COPY elite/ ./elite/
 COPY BIN/ ./BIN/
 RUN chmod +x BIN/catedral && chown -R catedralx:catedralx /app
+# Pre-create state volume path as catedralx before dropping privileges
+RUN mkdir -p /home/catedralx/.local/state/chalamandra/catedralx \
+    && chown -R catedralx:catedralx /home/catedralx
 USER catedralx
 # CLI de ejecución puntual: status finaliza el proceso; no aplica HEALTHCHECK de servicio.
 CMD ["catedral","status"]
