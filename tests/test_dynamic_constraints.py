@@ -72,6 +72,7 @@ def test_missing_or_nonfinite_metrics_never_authorize_growth():
 
 def test_orchestrator_holds_directional_signal_on_measured_hard_breach(tmp_path):
     import math
+
     from REASON import orchestrator
     from REASON.schemas import SensoryInput
 
@@ -100,6 +101,67 @@ def test_orchestrator_holds_directional_signal_on_measured_hard_breach(tmp_path)
     assert state.percepcion_espacial["dynamic_constraints"]["state"] == "MANTENIMIENTO"
     assert state.percepcion_espacial["growth_allowed"] is False
     assert state.percepcion_espacial["analisis_financiero"]["trading_enabled"] is False
+
+
+def test_snapshot_carries_central_dimensions_into_central_rule_without_inference(tmp_path):
+    from REASON import orchestrator
+
+    orchestrator._think_orchestrator.transductor.output_path = tmp_path / "state.json"
+    prices = [100.0 * math.exp(0.001 * index) for index in range(60)]
+    dimensions = {
+        "human_value_bp": 8100,
+        "distribution_bp": 7600,
+        "resilience_bp": 9000,
+        "evidence_bp": 9200,
+        "reinvestment_surplus": "125.50",
+    }
+    constraints = {
+        "reinvestment_surplus": 125.5,
+        "entropy_rate": 0.1,
+        "entropy_time_scale": 2.0,
+        "loop_gain": 0.7,
+        "signal_count": 3,
+        "optimal_signal_count": 5,
+        "exposure": 0.2,
+        "max_exposure": 0.5,
+        "resilience": 0.9,
+        "minimum_resilience": 0.7,
+    }
+    snapshot = {
+        "PERCEIVE": {
+            "historial_precios": prices,
+            "precio": prices[-1],
+            "gap": 0.0,
+            "inercia": 0.0,
+        },
+        "CENTRAL_DIMENSIONS_BP": dimensions,
+        "DYNAMIC_CONSTRAINTS": constraints,
+    }
+    sensory = orchestrator._think_orchestrator._construir_sensory_input(snapshot)
+    assert sensory.central_dimensions_bp == dimensions
+    assert sensory.dynamic_constraints == constraints
+    state = orchestrator.execute_cycle(sensory, cycle_id="governance-transport-test")
+    assert state.percepcion_espacial["central_dimensions_bp"] == dimensions
+    assert state.percepcion_espacial["dynamic_constraints_input"] == constraints
+    # The dimensions are carried to the rule, but viability and other policy gates
+    # remain independently evaluated; no transport field itself grants acceptance.
+    assert state.cognicion["cathedral_verdict"]["dimensions"]["human_value"] == 8100
+    assert state.cognicion["cathedral_verdict"]["dimensions"]["distribution"] == 7600
+
+
+def test_snapshot_rejects_non_object_governance_contracts():
+    from REASON import orchestrator
+
+    prices = [100.0 + index for index in range(30)]
+    base = {"PERCEIVE": {"historial_precios": prices, "precio": prices[-1]}}
+    for key in ("DYNAMIC_CONSTRAINTS", "CENTRAL_DIMENSIONS_BP"):
+        invalid = {**base, key: [1, 2, 3]}
+        try:
+            orchestrator._think_orchestrator._construir_sensory_input(invalid)
+        except ValueError as exc:
+            assert "debe ser un objeto" in str(exc)
+        else:
+            raise AssertionError(f"{key} must reject non-object values")
 
 
 def test_orchestrator_cannot_accept_when_dynamic_constraints_are_missing(tmp_path):

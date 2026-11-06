@@ -99,6 +99,9 @@ class Orchestrator:
         dynamic_constraints = datos_percibidos.get("DYNAMIC_CONSTRAINTS", {})
         if not isinstance(dynamic_constraints, dict):
             raise ValueError("DYNAMIC_CONSTRAINTS debe ser un objeto cuando se proporciona")
+        central_dimensions_bp = datos_percibidos.get("CENTRAL_DIMENSIONS_BP", {})
+        if not isinstance(central_dimensions_bp, dict):
+            raise ValueError("CENTRAL_DIMENSIONS_BP debe ser un objeto cuando se proporciona")
         return SensoryInput(
             precio_historico=precios,
             precio_actual=precio_actual,
@@ -106,6 +109,7 @@ class Orchestrator:
             inercia=inercia,
             free_energy_prev=self.ultimo_fe,
             dynamic_constraints=dynamic_constraints,
+            central_dimensions_bp=central_dimensions_bp,
         )
 
     def ejecutar_ciclo(
@@ -488,6 +492,7 @@ def think(
         inercia=inertia_value,
         free_energy_prev=sensory_input.free_energy_prev,
         dynamic_constraints=dict(sensory_input.dynamic_constraints),
+        central_dimensions_bp=dict(sensory_input.central_dimensions_bp),
     )
     # ejecutar_ciclo validates financial inputs before touching persistent state.
     state = _think_orchestrator.ejecutar_ciclo(entrada, cycle_id=ciclo_id)
@@ -517,6 +522,13 @@ def think(
     state.percepcion_espacial["ciclo_id"] = ciclo_id
     state.percepcion_espacial["cycle_id"] = ciclo_id
     state.percepcion_espacial["neurovector"] = neurovector
+    # Preserve upstream governance inputs without deriving or recalibrating them.
+    state.percepcion_espacial["central_dimensions_bp"] = dict(
+        sensory_input.central_dimensions_bp
+    )
+    state.percepcion_espacial["dynamic_constraints_input"] = dict(
+        sensory_input.dynamic_constraints
+    )
 
     # --- REGLA CENTRAL (Catedral) ---
     try:

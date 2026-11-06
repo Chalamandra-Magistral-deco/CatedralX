@@ -36,6 +36,8 @@ class SensoryInput:
     inercia: float = 0.0
     free_energy_prev: float = 0.0
     dynamic_constraints: dict[str, Any] = field(default_factory=dict)
+    # Explicit upstream governance scores; empty means uncalibrated and blocks acceptance.
+    central_dimensions_bp: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
