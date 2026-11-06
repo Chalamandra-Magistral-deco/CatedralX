@@ -1,4 +1,6 @@
-import ast, pathlib
+import ast
+import pathlib
+
 
 def test_kelly_clasico_single_definition():
     """Pergamino §1: una responsabilidad vive en un solo vector/archivo."""

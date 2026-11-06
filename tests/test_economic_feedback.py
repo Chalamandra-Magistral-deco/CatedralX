@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import pytest
 from REASON.economic_feedback import evaluate_economic_cycle
 

@@ -1,8 +1,7 @@
 """FEX adapter tests use temporary paths and never touch default user state."""
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
-
 from REASON.fex_feedback_adapter import (
     evaluate_ledger,
     record_observed_outcome,
@@ -23,7 +22,7 @@ def test_prediction_is_pending_until_an_observed_outcome(tmp_path):
         prediction={
             "decision": "buy",
             "reference_price": 100.0,
-            "observed_at": datetime.now(timezone.utc).isoformat(),
+            "observed_at": datetime.now(UTC).isoformat(),
             "market_source": "synthetic-test",
         },
     )
@@ -38,7 +37,7 @@ def test_prediction_is_pending_until_an_observed_outcome(tmp_path):
 
 def test_observed_outcome_is_scored_only_after_horizon(tmp_path):
     ledger = tmp_path / "feedback.jsonl"
-    start = datetime.now(timezone.utc) - timedelta(seconds=65)
+    start = datetime.now(UTC) - timedelta(seconds=65)
     prediction_id = record_prediction(
         path=ledger,
         prediction={
@@ -54,7 +53,7 @@ def test_observed_outcome_is_scored_only_after_horizon(tmp_path):
         outcome={
             "horizon": "1m",
             "observed_price": 101.0,
-            "observed_at": datetime.now(timezone.utc).isoformat(),
+            "observed_at": datetime.now(UTC).isoformat(),
             "source": "synthetic-test",
         },
     )
@@ -79,7 +78,7 @@ def test_outcome_rejects_mismatched_market_source_without_appending(tmp_path):
         prediction={
             "decision": "buy",
             "reference_price": 100.0,
-            "observed_at": (datetime.now(timezone.utc) - timedelta(seconds=65)).isoformat(),
+            "observed_at": (datetime.now(UTC) - timedelta(seconds=65)).isoformat(),
             "market_source": "source-a",
         },
     )
@@ -91,7 +90,7 @@ def test_outcome_rejects_mismatched_market_source_without_appending(tmp_path):
             outcome={
                 "horizon": "1m",
                 "observed_price": 101.0,
-                "observed_at": datetime.now(timezone.utc).isoformat(),
+                "observed_at": datetime.now(UTC).isoformat(),
                 "source": "source-b",
             },
         )
@@ -105,7 +104,7 @@ def test_outcome_rejects_unelapsed_horizon_without_appending(tmp_path):
         prediction={
             "decision": "buy",
             "reference_price": 100.0,
-            "observed_at": datetime.now(timezone.utc).isoformat(),
+            "observed_at": datetime.now(UTC).isoformat(),
             "market_source": "synthetic-test",
         },
     )
@@ -117,7 +116,7 @@ def test_outcome_rejects_unelapsed_horizon_without_appending(tmp_path):
             outcome={
                 "horizon": "1m",
                 "observed_price": 101.0,
-                "observed_at": datetime.now(timezone.utc).isoformat(),
+                "observed_at": datetime.now(UTC).isoformat(),
                 "source": "synthetic-test",
             },
         )

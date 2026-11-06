@@ -171,7 +171,7 @@ def regime_context(history: Iterable[str], alpha: float = 1.0, max_history: int 
                 "tiempo_en_regimen": None, "P_salida": None, "entropia_contexto_nats": None,
                 "historial_fases": labels, "transition_counts": {}, "transition_probabilities": {},
                 "evidence_status": "insufficient_regime_history"}
-    counts = {a: {b: 0 for b in regimes} for a in regimes}
+    counts = {a: dict.fromkeys(regimes, 0) for a in regimes}
     for a, b in zip(labels, labels[1:]):
         counts[a][b] += 1
     probs = {}

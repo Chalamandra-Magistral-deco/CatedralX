@@ -1,17 +1,14 @@
 """Fail-closed order authorization tests; all writes are isolated under tmp_path."""
 from __future__ import annotations
 
+import json
 import os
 
-import json
-
 import pytest
-
 from AEX.DECISION import operador, ordenes
 from DSX.DEFENSE import defense
 from DSX.DEFENSE.guards import final_execution_guard, verificar_autorizacion_ejecucion
 from FEX.GOVERNANCE.sustainability import evaluar_restricciones_sostenibilidad
-
 
 os.environ.setdefault("CATEDRALX_FEX_EVIDENCE_SECRET", "test-only-fex-evidence-secret-32-bytes")
 
@@ -344,6 +341,7 @@ def test_approval_key_rotation_accepts_overlap_key_and_rejects_removed_key(tmp_p
 
 def test_dsx_key_rotation_accepts_overlap_key_and_rejects_retired_key(monkeypatch):
     import json
+
     from DSX.DEFENSE import guards
 
     old_key = "synthetic-dsx-old-key-material-32-bytes"
@@ -364,6 +362,7 @@ def test_dsx_key_rotation_accepts_overlap_key_and_rejects_retired_key(monkeypatc
 
 def test_fex_key_rotation_accepts_overlap_key_and_rejects_retired_key(monkeypatch):
     import json
+
     from FEX.GOVERNANCE import sustainability
 
     old_key = "synthetic-fex-old-key-material-32-bytes"
@@ -407,6 +406,7 @@ def test_approval_key_rotation_accepts_overlap_key_and_rejects_retired_key(tmp_p
 
 def test_versioned_keyrings_fail_closed_on_missing_active_key(monkeypatch):
     import json
+
     from DSX.DEFENSE import guards
     from FEX.GOVERNANCE import sustainability
 
@@ -431,7 +431,6 @@ def test_versioned_keyrings_fail_closed_on_missing_active_key(monkeypatch):
 
 def test_versioned_dsx_and_fex_key_rotation_keeps_overlap_then_rejects_retired_keys(monkeypatch):
     import json
-    from DSX.DEFENSE.guards import verificar_autorizacion_ejecucion
 
     old_dsx = "old-dsx-test-secret-material-32-bytes"
     new_dsx = "new-dsx-test-secret-material-32-bytes"
@@ -568,7 +567,6 @@ def test_versioned_keyrings_keep_overlap_keys_verifiable_during_rotation(tmp_pat
     monkeypatch.setenv("CATEDRALX_FEX_ACTIVE_KEY_ID", "fex-v1")
     monkeypatch.setenv("CATEDRALX_APPROVAL_ACTIVE_KEY_ID", "approval-v1")
     assert ordenes._consumir_token_aprobacion(approval_token, decision, 100.0) == "synthetic-test-approver"
-    from DSX.DEFENSE.guards import verificar_autorizacion_ejecucion
     assert verificar_autorizacion_ejecucion(dsx_authorization, decision, 100.0) is True
     report = dsx_authorization["sustainability_gate"] if "sustainability_gate" in dsx_authorization else None
     assert report is None or report["financial_execution_authorized"] is False
@@ -580,12 +578,12 @@ def test_versioned_keyrings_fail_closed_for_unknown_key_ids(tmp_path, monkeypatc
     monkeypatch.setenv("CATEDRALX_DSX_AUTH_ACTIVE_KEY_ID", "dsx-v2")
     forged = {"dsx_signed_payload": {"key_id": "dsx-retired", "issued_at": 1},
               "dsx_signature": "not-a-signature"}
-    from DSX.DEFENSE.guards import verificar_autorizacion_ejecucion
     assert verificar_autorizacion_ejecucion(forged, valid_decision(), 100.0) is False
 
 
 def test_dsx_key_rotation_keeps_overlap_key_valid_until_retirement(monkeypatch):
     import json
+
     from DSX.DEFENSE import guards
 
     old_key = "synthetic-old-dsx-key-material-32-bytes"
@@ -614,6 +612,7 @@ def test_dsx_key_rotation_keeps_overlap_key_valid_until_retirement(monkeypatch):
 
 def test_dsx_keyring_missing_active_key_fails_closed(monkeypatch):
     import json
+
     from DSX.DEFENSE import guards
 
     monkeypatch.setenv(guards.DSX_AUTH_KEYRING_ENV, json.dumps({"dsx-v1": "synthetic-dsx-key-material-32-bytes"}))

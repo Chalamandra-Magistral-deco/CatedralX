@@ -1,8 +1,7 @@
-# -*- coding: utf-8 -*-
 """Catedral Modular v4.2: sensibilidad y homeostasis."""
 
 import time
-from typing import Any, Dict
+from typing import Any
 
 
 def palanca_beta(
@@ -20,9 +19,9 @@ def palanca_beta(
 
 
 def estado_homeostatico(
-    hormonas: Dict[str, float],
-    mercado: Dict[str, float],
-) -> Dict[str, Any]:
+    hormonas: dict[str, float],
+    mercado: dict[str, float],
+) -> dict[str, Any]:
     """Build the homeostatic state consumed by downstream modules."""
     beta = palanca_beta(
         hormonas.get("dopamina_D", 0.5),

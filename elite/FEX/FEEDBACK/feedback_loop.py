@@ -296,7 +296,7 @@ def _safe_return(outcome: dict[str, Any]) -> float | None:
 
 
 def _metric_bundle(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    confusion = {pred: {actual: 0 for actual in SIGNALS} for pred in SIGNALS}
+    confusion = {pred: dict.fromkeys(SIGNALS, 0) for pred in SIGNALS}
     correct = 0
     returns: list[float] = []
     aligned_returns: list[float] = []

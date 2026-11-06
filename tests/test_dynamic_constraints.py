@@ -59,6 +59,24 @@ def test_scale_breach_requires_modularization_or_lower_exposure():
     assert result["growth_allowed"] is False
 
 
+def test_signal_counts_must_be_nonnegative_integers():
+    for field, value in (
+        ("signal_count", 2.9),
+        ("signal_count", 2.0),
+        ("signal_count", -1),
+        ("signal_count", True),
+        ("optimal_signal_count", 2.9),
+        ("optimal_signal_count", 2.0),
+        ("optimal_signal_count", -1),
+        ("optimal_signal_count", False),
+    ):
+        inputs = DynamicConstraintInputs(**{**_safe_inputs().__dict__, field: value})
+        result = evaluate_dynamic_constraints(inputs)
+        assert result["growth_allowed"] is False, (field, value)
+        assert "DATOS_INVALIDOS" in result["issues"], (field, value)
+        assert field in result["invalid_metrics"], (field, value)
+
+
 def test_missing_or_nonfinite_metrics_never_authorize_growth():
     missing = evaluate_dynamic_constraints(DynamicConstraintInputs())
     assert missing["growth_allowed"] is False
@@ -147,6 +165,44 @@ def test_snapshot_carries_central_dimensions_into_central_rule_without_inference
     # remain independently evaluated; no transport field itself grants acceptance.
     assert state.cognicion["cathedral_verdict"]["dimensions"]["human_value"] == 8100
     assert state.cognicion["cathedral_verdict"]["dimensions"]["distribution"] == 7600
+
+
+def test_from_snapshot_preserves_governance_contracts():
+    from PERCEIVE.percepcion import from_snapshot
+
+    dimensions = {"human_value_bp": 9000}
+    constraints = {"signal_count": 3, "optimal_signal_count": 5}
+    snapshot = {
+        "PERCEIVE": {
+            "historial_precios": [100.0 + index for index in range(30)],
+            "precio": 129.0,
+        },
+        "CENTRAL_DIMENSIONS_BP": dimensions,
+        "DYNAMIC_CONSTRAINTS": constraints,
+    }
+
+    sensory = from_snapshot(snapshot)
+    assert sensory.central_dimensions_bp == dimensions
+    assert sensory.dynamic_constraints == constraints
+
+
+def test_from_snapshot_rejects_non_object_governance_contracts():
+    from PERCEIVE.percepcion import from_snapshot
+
+    base = {
+        "PERCEIVE": {
+            "historial_precios": [100.0 + index for index in range(30)],
+            "precio": 129.0,
+        }
+    }
+    for key in ("DYNAMIC_CONSTRAINTS", "CENTRAL_DIMENSIONS_BP"):
+        invalid = {**base, key: [1, 2, 3]}
+        try:
+            from_snapshot(invalid)
+        except ValueError as exc:
+            assert "debe ser un objeto" in str(exc)
+        else:
+            raise AssertionError(f"{key} must reject non-object values")
 
 
 def test_snapshot_rejects_non_object_governance_contracts():

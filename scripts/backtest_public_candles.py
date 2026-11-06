@@ -135,7 +135,7 @@ def future_label(return_pct: float, threshold_pct: float) -> str:
 
 
 def score_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    confusion = {pred: {actual: 0 for actual in SIGNALS} for pred in SIGNALS}
+    confusion = {pred: dict.fromkeys(SIGNALS, 0) for pred in SIGNALS}
     for row in rows:
         confusion[row["predicted"]][row["actual"]] += 1
     count = len(rows)
@@ -258,7 +258,7 @@ def main() -> int:
                     "second_chronological_half": evaluated["second_chronological_half"],
                 }
             report["horizon_comparison"] = comparison
-    except Exception as exc:  # noqa: BLE001 - CLI boundary fails closed and never enables trading.
+    except Exception as exc:
         print(json.dumps({
             "status": "EVALUATION_FAILED",
             "error_type": type(exc).__name__,

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
 from FEX.GOVERNANCE.sustainability import (
     CONTINUE,
     DYNAMIC_BRAKE,
@@ -9,7 +8,6 @@ from FEX.GOVERNANCE.sustainability import (
     MODULARIZE,
     evaluar_restricciones_sostenibilidad,
 )
-
 
 BASE = {
     "B": 12,
@@ -105,6 +103,7 @@ def test_non_boolean_early_warning_flag_is_rejected() -> None:
 
 def test_fex_key_rotation_keeps_overlap_key_valid_until_retirement(monkeypatch):
     import json
+
     from FEX.GOVERNANCE.sustainability import (
         FEX_ACTIVE_KEY_ID_ENV,
         FEX_KEYRING_ENV,
@@ -132,6 +131,7 @@ def test_fex_key_rotation_keeps_overlap_key_valid_until_retirement(monkeypatch):
 
 def test_fex_keyring_invalid_configuration_fails_closed(monkeypatch):
     import json
+
     from FEX.GOVERNANCE.sustainability import (
         FEX_ACTIVE_KEY_ID_ENV,
         FEX_KEYRING_ENV,
@@ -149,6 +149,7 @@ def test_fex_legacy_evidence_remains_verifiable_during_key_overlap(monkeypatch):
     import hashlib
     import hmac
     import json
+
     from FEX.GOVERNANCE.sustainability import (
         FEX_ACTIVE_KEY_ID_ENV,
         FEX_KEYRING_ENV,

@@ -5,20 +5,17 @@ or writes to the user's original working tree/state paths.
 """
 from __future__ import annotations
 
-import os
-
 import json
-from datetime import datetime, timedelta, timezone
+import os
+from datetime import UTC, datetime, timedelta
 
 import pytest
-
-from PERCEIVE.api_pulse import validate_snapshot_payload
 from FEX.FEEDBACK.feedback_loop import (
     evaluar_feedback,
     registrar_prediccion,
     registrar_resultado,
 )
-
+from PERCEIVE.api_pulse import validate_snapshot_payload
 
 os.environ.setdefault("CATEDRALX_FEX_EVIDENCE_SECRET", "test-only-fex-evidence-secret-32-bytes")
 
@@ -30,7 +27,7 @@ def observation(*, observed_at: str | None = None, prices=None):
             "historial_precios": values,
             "precio": values[-1] if values else None,
             "source": "synthetic_acceptance_test:ASSET:1m",
-            "observed_at": observed_at or datetime.now(timezone.utc).isoformat(),
+            "observed_at": observed_at or datetime.now(UTC).isoformat(),
         }
     }
 
@@ -42,7 +39,7 @@ def synthetic_prediction():
         "signal_strength_is_probability": False,
         "regime": "SYNTHETIC_TEST",
         "reference_price": 102.9,
-        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "observed_at": datetime.now(UTC).isoformat(),
         "market_source": "synthetic_acceptance_test:ASSET:1m",
         "trading_enabled": False,
         "orders_created": False,
@@ -80,7 +77,7 @@ def test_acceptance_feedback_requires_known_prediction_and_valid_horizon(tmp_pat
             {
                 "horizon": "1m",
                 "observed_price": 103.0,
-                "observed_at": (datetime.now(timezone.utc) + timedelta(minutes=1)).isoformat(),
+                "observed_at": (datetime.now(UTC) + timedelta(minutes=1)).isoformat(),
                 "source": "synthetic_acceptance_test:ASSET:1m",
             },
             ledger,
@@ -95,7 +92,7 @@ def test_acceptance_feedback_requires_known_prediction_and_valid_horizon(tmp_pat
             {
                 "horizon": "1m",
                 "observed_price": 103.0,
-                "observed_at": (datetime.now(timezone.utc) + timedelta(seconds=10)).isoformat(),
+                "observed_at": (datetime.now(UTC) + timedelta(seconds=10)).isoformat(),
                 "source": "synthetic_acceptance_test:ASSET:1m",
             },
             ledger,
@@ -118,7 +115,7 @@ def test_acceptance_feedback_report_keeps_trading_and_retraining_disabled(tmp_pa
 
 
 def test_acceptance_rejects_stale_and_timezone_naive_observations():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     stale = observation(observed_at=(now - timedelta(minutes=10)).isoformat())
     stale_result = validate_snapshot_payload(stale, max_age_seconds=120, now=now.timestamp())
     assert stale_result["healthy"] is False
@@ -135,7 +132,7 @@ def test_acceptance_one_shot_entrypoint_never_executes_stale_snapshot(tmp_path, 
 
     snapshot_path = tmp_path / "stale-snapshot.json"
     snapshot_path.write_text(
-        json.dumps(observation(observed_at=(datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat())),
+        json.dumps(observation(observed_at=(datetime.now(UTC) - timedelta(minutes=10)).isoformat())),
         encoding="utf-8",
     )
     monkeypatch.setenv("CATEDRALX_SNAPSHOT_PATH", str(snapshot_path))
@@ -153,7 +150,7 @@ def test_acceptance_bunker_entrypoint_never_executes_stale_snapshot(tmp_path, mo
 
     snapshot_path = tmp_path / "stale-snapshot.json"
     snapshot_path.write_text(
-        json.dumps(observation(observed_at=(datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat())),
+        json.dumps(observation(observed_at=(datetime.now(UTC) - timedelta(minutes=10)).isoformat())),
         encoding="utf-8",
     )
     monkeypatch.setattr(bunker, "SNAPSHOT_PATH", snapshot_path)
@@ -169,7 +166,6 @@ def test_acceptance_bunker_entrypoint_never_executes_stale_snapshot(tmp_path, mo
 
 def test_acceptance_synthetic_scx_fex_dsx_aex_stub_cycle(monkeypatch):
     """Exercise the vector contract end-to-end without calling the order writer."""
-    import numpy as np
     from DSX.DEFENSE.guards import final_execution_guard
     from FEX.GOVERNANCE.sustainability import evaluar_restricciones_sostenibilidad
     from REASON.report_composition import build_cognitive_report
@@ -243,8 +239,8 @@ def test_acceptance_dsx_rejects_missing_disconnected_and_tampered_fex_report():
 
 def test_acceptance_duplicate_trainers_have_equivalent_math_but_different_api_names():
     import numpy as np
-    from FEX.FEEDBACK import trainer as feedback_trainer
     from FEX import trainer as root_trainer
+    from FEX.FEEDBACK import trainer as feedback_trainer
 
     weights = np.asarray([0.2, -0.1, 0.05], dtype=float)
     inputs = [0.3, 0.8]
@@ -314,7 +310,7 @@ def _run_real_orchestrator_cycle(monkeypatch, tmp_path, *, provider=None, panic=
     monkeypatch.setattr(orchestrator_module, "analyze_financial_market", lambda _prices: {
         "signal": "buy", "signal_strength": 0.7, "risk_flags": [],
         "regime": "SYNTHETIC_TEST", "combined_signal": "compra",
-        "decision_reason": "synthetic-only", 
+        "decision_reason": "synthetic-only",
     })
     monkeypatch.setattr(orchestrator_module, "build_cognitive_report", lambda **_kwargs: {
         "coherencia": {"disonancia": 0.1},

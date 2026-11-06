@@ -3,7 +3,6 @@ from __future__ import annotations
 import math
 
 import pytest
-
 from REASON.financial_engine import analyze_financial_market
 
 

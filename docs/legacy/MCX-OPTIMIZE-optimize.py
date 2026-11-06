@@ -1,6 +1,5 @@
 """Quantum homeostasis and reinforcement optimization primitives."""
 
-from typing import List, Tuple
 
 import numpy as np
 
@@ -19,7 +18,7 @@ def calcular_beta(
     return float(max(0.1, min(5.0, beta)))
 
 
-def softmax(q_values: List[float], beta: float) -> List[float]:
+def softmax(q_values: list[float], beta: float) -> list[float]:
     """Convert Q-values to numerically stable action probabilities."""
     q = np.asarray(q_values, dtype=float)
     if q.size == 0:
@@ -40,7 +39,7 @@ def q_learning_update(
     return float(max(-1.0, min(1.0, nuevo_q)))
 
 
-def optimal_f(returns: List[float], max_loss: float = 0.1) -> float:
+def optimal_f(returns: list[float], max_loss: float = 0.1) -> float:
     """Estimate Kelly/Optimal-f by a small grid search."""
     if not returns or max_loss == 0:
         return 0.02
@@ -64,7 +63,7 @@ def homeostasis_lqr(
     estado: np.ndarray,
     q_matrix: np.ndarray,
     r_matrix: np.ndarray,
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """Return the scalar LQR gain and control signal for the first state."""
     p_matrix = q_matrix
     gain = p_matrix / (p_matrix + r_matrix)

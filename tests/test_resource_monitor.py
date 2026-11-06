@@ -3,7 +3,6 @@
 from types import SimpleNamespace
 
 import pytest
-
 from DSX.DEFENSE import defense, guardian_ram
 
 

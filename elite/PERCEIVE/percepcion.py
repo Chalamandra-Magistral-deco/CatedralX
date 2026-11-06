@@ -16,4 +16,16 @@ def construir_sensory_input(payload: dict[str, Any], free_energy_prev: float = 0
 def from_snapshot(snapshot: dict[str, Any], free_energy_prev: float = 0.0) -> SensoryInput:
     if not isinstance(snapshot, dict) or not isinstance(snapshot.get("PERCEIVE"), dict):
         raise ValueError("snapshot must contain a PERCEIVE object")
-    return construir_sensory_input(snapshot["PERCEIVE"], free_energy_prev)
+
+    dynamic_constraints = snapshot.get("DYNAMIC_CONSTRAINTS", {})
+    if not isinstance(dynamic_constraints, dict):
+        raise ValueError("DYNAMIC_CONSTRAINTS debe ser un objeto cuando se proporciona")
+
+    central_dimensions_bp = snapshot.get("CENTRAL_DIMENSIONS_BP", {})
+    if not isinstance(central_dimensions_bp, dict):
+        raise ValueError("CENTRAL_DIMENSIONS_BP debe ser un objeto cuando se proporciona")
+
+    sensory = construir_sensory_input(snapshot["PERCEIVE"], free_energy_prev)
+    sensory.dynamic_constraints = dict(dynamic_constraints)
+    sensory.central_dimensions_bp = dict(central_dimensions_bp)
+    return sensory

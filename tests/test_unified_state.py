@@ -2,7 +2,7 @@
 
 import json
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -10,7 +10,7 @@ import pytest
 
 
 def _iso(epoch):
-    return datetime.fromtimestamp(epoch, tz=timezone.utc).isoformat()
+    return datetime.fromtimestamp(epoch, tz=UTC).isoformat()
 
 
 def _snapshot(observed_at):
@@ -158,6 +158,7 @@ def test_legacy_integrated_function_delegates_to_shared_transductor(
 ):
     import importlib
     from types import SimpleNamespace
+
     from REASON import orchestrator
 
     processor_module = importlib.import_module("REASON.procesador")
@@ -186,6 +187,7 @@ def test_legacy_integrated_function_delegates_to_shared_transductor(
 
 def test_transductor_guardar_writes_json_and_cleans_temp(tmp_path):
     import json
+
     from REASON.procesador import ProcesadorEndocrino
 
     target = tmp_path / "nested" / "hormonas.json"

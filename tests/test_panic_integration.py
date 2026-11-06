@@ -1,7 +1,7 @@
 """Integration tests for emergency-lock enforcement in the analysis daemon."""
 
-from PERCEIVE import bunker
 from DSX.DEFENSE import defense
+from PERCEIVE import bunker
 
 
 def test_active_panic_marker_prevents_bunker_cycle_before_snapshot_io(tmp_path, monkeypatch):
@@ -44,6 +44,7 @@ def test_bunker_cycle_is_not_blocked_by_nonexistent_marker(tmp_path, monkeypatch
 
 def test_one_shot_entrypoint_refuses_cycle_when_panic_marker_active(tmp_path, monkeypatch, capsys):
     import json
+
     from REASON import razon
 
     marker = tmp_path / ".panic"

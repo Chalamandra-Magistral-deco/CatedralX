@@ -1,6 +1,6 @@
 """Homeostatic sensitivity and reinforcement-learning primitives."""
 
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -19,7 +19,7 @@ def palanca_beta(
     return float(max(0.1, min(5.0, beta)))
 
 
-def softmax(q_values: List[float], beta: float) -> List[float]:
+def softmax(q_values: list[float], beta: float) -> list[float]:
     """Transform Q-values into numerically stable action probabilities."""
     q = np.asarray(q_values, dtype=np.float64)
     if q.size == 0:
@@ -47,7 +47,7 @@ def homeostasis_lqr(
     estado: np.ndarray,
     Q: np.ndarray,
     R: np.ndarray,
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """Return the simplified scalar LQR gain and control signal."""
     p_matrix = Q
     gain = p_matrix / (p_matrix + R)
@@ -56,9 +56,9 @@ def homeostasis_lqr(
 
 
 def estado_homeostatico(
-    hormonas: Dict[str, float],
-    mercado: Dict[str, float],
-) -> Dict[str, Any]:
+    hormonas: dict[str, float],
+    mercado: dict[str, float],
+) -> dict[str, Any]:
     """Build the optimizer state consumed by the orchestrator."""
     beta = palanca_beta(
         hormonas.get("dopamina_D", 0.5),

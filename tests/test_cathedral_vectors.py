@@ -1,19 +1,20 @@
 from __future__ import annotations
-import math
-import json
-from pathlib import Path
-import pytest
 
-from PERCEIVE.sensors import validate_price_history, normalize_market_payload
-from PERCEIVE.percepcion import construir_sensory_input
-from PERCEIVE.radar_watcher import detectar_movimiento
-from MCX.OPTIMIZE.affective import actualizar_estado
-from MCX.OPTIMIZE.homeostasis import parametros_homeostaticos
-from MCX.OPTIMIZE.entropia import entropia
-from MCX.OPTIMIZE.resico import estimar_reserva
-from AEX.ejecutor import preparar_intencion, execute_order
+import json
+import math
+
+import pytest
+from AEX.ejecutor import execute_order, preparar_intencion
 from DSX.DEFENSE.lateral_core import rate_limited
 from FEX.FEEDBACK.feedback_loop import registrar_prediccion
+from MCX.OPTIMIZE.affective import actualizar_estado
+from MCX.OPTIMIZE.entropia import entropia
+from MCX.OPTIMIZE.homeostasis import parametros_homeostaticos
+from MCX.OPTIMIZE.resico import estimar_reserva
+from PERCEIVE.percepcion import construir_sensory_input
+from PERCEIVE.radar_watcher import detectar_movimiento
+from PERCEIVE.sensors import validate_price_history
+
 
 def test_rsx_rejects_synthetic_or_invalid_history():
     with pytest.raises(ValueError):
@@ -120,7 +121,6 @@ def test_legacy_qubit_diagnostic_is_deterministic_and_defensive():
 
 
 def test_financial_engine_holds_when_short_and_medium_momentum_disagree():
-    import math
     from REASON.financial_engine import analyze_financial_market
 
     returns = [0.0] * 9 + [-0.005] * 15 + [0.01] * 5

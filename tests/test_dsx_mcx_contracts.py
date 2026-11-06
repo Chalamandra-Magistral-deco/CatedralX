@@ -1,7 +1,6 @@
 """Contract tests for DSX (Defense) and MCX (Optimization) gates.
 Validates that the system enforces Fail-Closed behavior mathematically.
 """
-import pytest
 import sys
 from pathlib import Path
 
@@ -10,17 +9,18 @@ if str(ELITE_DIR) not in sys.path:
     sys.path.insert(0, str(ELITE_DIR))
 
 from DSX.DEFENSE.guards import cognitive_execution_guard
-from REASON.dynamic_constraints import evaluate_dynamic_constraints, DynamicConstraintInputs
+from REASON.dynamic_constraints import DynamicConstraintInputs, evaluate_dynamic_constraints
+
 
 class TestDSXDefenseContracts:
     """Valida que el Gate de Defensa DSX funcione como contrato inquebrantable."""
-    
+
     def test_cognitive_execution_guard_allows_coherent_signals(self):
         """Si la disonancia es baja y no hay pánico, el gate debe aprobar."""
         # Inyectamos coherencia explícitamente segura para probar la vía de aprobación
         coherence = {"disonancia": 0.10, "evidence_status": "computed"}
         opposing = {"fuerza_contra": 0.10, "evidence_status": "no_opposing_signal_observed"}
-        
+
         result = cognitive_execution_guard(coherence, opposing, panic=False)
         assert result["allowed"] is True
         assert result["blocked"] is False
@@ -30,7 +30,7 @@ class TestDSXDefenseContracts:
         """Si hay pánico (panic button), el gate debe vetar sin importar la coherencia."""
         coherence = {"disonancia": 0.10, "evidence_status": "computed"}
         opposing = {"fuerza_contra": 0.10, "evidence_status": "no_opposing_signal_observed"}
-        
+
         result = cognitive_execution_guard(coherence, opposing, panic=True)
         assert result["allowed"] is False
         assert result["blocked"] is True
@@ -38,7 +38,7 @@ class TestDSXDefenseContracts:
 
 class TestMCXOptimizationContracts:
     """Valida que las restricciones dinámicas de MCX fallen en modo cerrado (Fail-Closed)."""
-    
+
     def test_dynamic_constraints_fail_closed_on_missing_metrics(self):
         """Si faltan métricas de gobernanza, growth_allowed DEBE ser false."""
         incomplete_inputs = DynamicConstraintInputs(
@@ -53,9 +53,9 @@ class TestMCXOptimizationContracts:
             resilience=None,
             minimum_resilience=None
         )
-        
+
         result = evaluate_dynamic_constraints(incomplete_inputs)
-        
+
         assert result["state"] == "RESTRICCIONES_NO_VERIFICADAS"
         assert result["growth_allowed"] is False
         assert "METRICAS_NO_CALIBRADAS" in result["issues"]
@@ -80,9 +80,9 @@ class TestMCXOptimizationContracts:
             resilience=0.9,
             minimum_resilience=0.8
         )
-        
+
         result = evaluate_dynamic_constraints(valid_inputs)
-        
+
         assert result["state"] != "RESTRICCIONES_NO_VERIFICADAS"
         assert "MANTENIMIENTO_ENTROPICO" not in result["issues"]
         assert result["growth_allowed"] is True

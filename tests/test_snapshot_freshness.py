@@ -3,9 +3,9 @@
 import json
 import os
 import time
-import pytest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
+import pytest
 from PERCEIVE.api_pulse import check_snapshot, validate_snapshot_payload
 
 
@@ -22,7 +22,7 @@ def make_snapshot(observed_at, count=30):
 
 
 def iso_time(epoch):
-    return datetime.fromtimestamp(epoch, tz=timezone.utc).isoformat()
+    return datetime.fromtimestamp(epoch, tz=UTC).isoformat()
 
 
 def test_rejects_old_observations_even_when_file_is_recent(tmp_path):
@@ -152,6 +152,7 @@ def test_bunker_uses_shared_cycle_without_overwriting_snapshot(
     tmp_path, monkeypatch
 ):
     from types import SimpleNamespace
+
     from PERCEIVE import bunker
 
     snapshot_path = tmp_path / "fresh_bunker.json"
@@ -177,7 +178,7 @@ def test_bunker_uses_shared_cycle_without_overwriting_snapshot(
             "analisis_financiero": {"signal": "hold"},
         },
     )
-    setattr(state, "señal_combinada", "lateral")
+    state.señal_combinada = "lateral"
 
     calls = []
     monkeypatch.setattr(

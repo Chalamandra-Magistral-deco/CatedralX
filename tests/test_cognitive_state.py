@@ -1,11 +1,15 @@
 import math
 
+from elite.FEX.FEEDBACK.feedback_loop import resumir_memoria_decisiones
+from elite.MSX.provenance import build_provenance
 from elite.REASON.cognitive_state import (
-    counterevidence, metacognition, pairwise_coherence, regime_context, uncertainty,
+    counterevidence,
+    metacognition,
+    pairwise_coherence,
+    regime_context,
+    uncertainty,
 )
 from elite.REASON.report_composition import build_cognitive_report
-from elite.MSX.provenance import build_provenance
-from elite.FEX.FEEDBACK.feedback_loop import resumir_memoria_decisiones
 
 
 def test_opposing_signals_report_dissonance_without_enforcing_block():

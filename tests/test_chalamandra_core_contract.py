@@ -1,15 +1,14 @@
 """Tests for the additive Chalamandra Core master-cycle contract."""
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-
 from REASON.core_contract import build_cycle
 
 
 def _cycle(**overrides):
     data = {
         "cycle_id": "synthetic-001",
-        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "observed_at": datetime.now(UTC).isoformat(),
         "source_status": "valid",
         "context_ref": "fixture:market-sample-01",
         "signals": [{"name": "trend", "direction": "up", "confidence": 0.7}],

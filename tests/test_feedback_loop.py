@@ -2,11 +2,10 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
-
 from FEX.FEEDBACK.feedback_loop import (
     evaluar_feedback,
     registrar_prediccion,
@@ -15,7 +14,7 @@ from FEX.FEEDBACK.feedback_loop import (
 
 
 def stamp(offset_seconds: int = 0) -> str:
-    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    base = datetime(2026, 1, 1, tzinfo=UTC)
     return (base + timedelta(seconds=offset_seconds)).isoformat()
 
 
@@ -172,11 +171,11 @@ def test_malformed_feedback_line_fails_closed(tmp_path):
 def test_reason_output_includes_prediction_id_and_observed_reference(
     tmp_path, monkeypatch, capsys
 ):
+    from datetime import datetime
+
     from REASON import razon
 
-    from datetime import datetime, timezone
-
-    observed_at = datetime.now(timezone.utc).isoformat()
+    observed_at = datetime.now(UTC).isoformat()
     snapshot_path = tmp_path / "snapshot.json"
     snapshot_path.write_text(
         json.dumps({

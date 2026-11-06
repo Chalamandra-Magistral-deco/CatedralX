@@ -46,13 +46,19 @@ def evaluate_dynamic_constraints(inputs: DynamicConstraintInputs) -> dict[str, A
     values = asdict(inputs)
     missing = [name for name in required if values[name] is None]
     invalid = [
-        name for name, value in asdict(inputs).items()
+        name for name, value in values.items()
         if value is not None and (
             isinstance(value, bool)
             or not isinstance(value, (int, float))
             or not math.isfinite(float(value))
         )
     ]
+    # Signal counts are discrete, non-negative quantities: never truncate floats.
+    for name in ("signal_count", "optimal_signal_count"):
+        value = values[name]
+        if value is not None and (type(value) is not int or value < 0) and name not in invalid:
+            invalid.append(name)
+
     issues = []
     if invalid:
         issues.append("DATOS_INVALIDOS")
@@ -79,7 +85,7 @@ def evaluate_dynamic_constraints(inputs: DynamicConstraintInputs) -> dict[str, A
         entropy_ok = float(inputs.reinvestment_surplus) >= float(inputs.entropy_time_scale) * float(inputs.entropy_rate)
         feedback_ok = float(inputs.loop_gain) < 1.0
         scale_ok = (
-            int(inputs.signal_count) <= int(inputs.optimal_signal_count)
+            inputs.signal_count <= inputs.optimal_signal_count
             and float(inputs.exposure) <= float(inputs.max_exposure)
             and float(inputs.resilience) >= float(inputs.minimum_resilience)
         )
