@@ -10,3 +10,17 @@ __pycache__
 *.egg-info
 docs/archive/
 .env
+**/.env
+**/.env.*
+**/secrets/
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.sqlite
+**/*.db
+**/__pycache__/
+**/*.pyc
+.mypy_cache/
+.ruff_cache/
+tests/
