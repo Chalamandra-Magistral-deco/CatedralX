@@ -137,6 +137,9 @@ def load_authorized_proposal(ledger_path: Path, cycle_id: str) -> dict:
     """Compatibility wrapper around CatedralX's canonical proposal validator."""
     try:
         return cargar_propuesta_autorizada(ledger_path, cycle_id)
+    except PermissionError:
+        # Preserve fail-closed identity/governance denials across the adapter.
+        raise
     except OSError as exc:
         raise ValueError(f"No se pudo leer el ledger económico: {exc}") from exc
 

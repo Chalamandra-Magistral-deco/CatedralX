@@ -216,14 +216,16 @@ components:
         trace_id: { type: string }
     RunStatus:
       type: object
-      required: [run_id, status, trace_id, updated_at]
+      required: [run_id, status, trace_id, updated_at, task_ids, task_statuses]
       properties:
         run_id: { type: string }
-        status: { type: string, enum: [queued, planning, executing, verifying, accepted, blocked, failed, timed_out] }
+        status: { type: string, enum: [executing, completed_with_errors, awaiting_acceptance, accepted, completed] }
         task_ids: { type: array, items: { type: string } }
+        task_statuses:
+          type: array
+          items: { type: string, enum: [queued, running, candidate, blocked, failed, accepted] }
         updated_at: { type: string, format: date-time }
         trace_id: { type: string }
-        reason: { type: [string, 'null'] }
   responses:
     Problem:
       description: Error en formato problem+json.

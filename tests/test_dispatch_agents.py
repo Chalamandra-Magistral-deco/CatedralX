@@ -201,6 +201,7 @@ def _write_approved_cycle(path: Path, cycle_id: str, *, approved: bool = True) -
             "approved": approved,
             "approver": "owner-test",
             "rationale": "Prueba aislada; solo análisis y generación de candidatos",
+            "identity_assertion": {"signed": "test-only-assertion"},
         }),
     ]
     path.write_text(
@@ -218,7 +219,20 @@ def _write_approved_cycle(path: Path, cycle_id: str, *, approved: bool = True) -
     )
 
 
-def test_load_authorized_proposal_from_catedralx_ledger(tmp_path):
+@pytest.fixture
+def trusted_cycle_identity(monkeypatch):
+    from AEX.DECISION import ordenes
+    monkeypatch.setattr(
+        ordenes, "APPROVER_IDENTITY_VERIFIER",
+        lambda assertion, decision, price: {
+            "verified": assertion == {"signed": "test-only-assertion"},
+            "subject": "owner-test",
+            "permissions": ["economic_cycle_authorize"],
+        },
+    )
+
+
+def test_load_authorized_proposal_from_catedralx_ledger(tmp_path, trusted_cycle_identity):
     ledger = tmp_path / "impact.jsonl"
     _write_approved_cycle(ledger, "cycle-approved")
 
@@ -228,11 +242,14 @@ def test_load_authorized_proposal_from_catedralx_ledger(tmp_path):
     assert proposal["cycle_id"] == "cycle-approved"
     assert proposal["proposal"]["expected_outcome"].startswith("Generar")
     assert proposal["authorization"]["approved"] is True
+    assert proposal["authorization"]["identity_verified"] is True
+    assert proposal["authorization"]["approver"] == "owner-test"
+    assert "identity_assertion" not in proposal["authorization"]
     assert proposal["execution_boundary"]["independent_acceptance_required"] is True
     assert "ad_spend" in proposal["execution_boundary"]["prohibited"]
 
 
-def test_load_proposal_fails_closed_without_human_approval(tmp_path):
+def test_load_proposal_fails_closed_without_human_approval(tmp_path, trusted_cycle_identity):
     ledger = tmp_path / "impact.jsonl"
     _write_approved_cycle(ledger, "cycle-pending", approved=False)
 
@@ -240,7 +257,7 @@ def test_load_proposal_fails_closed_without_human_approval(tmp_path):
         dispatch_agents.load_authorized_proposal(ledger, "cycle-pending")
 
 
-def test_load_proposal_rejects_cycle_after_authorize_or_missing_stages(tmp_path):
+def test_load_proposal_rejects_cycle_after_authorize_or_missing_stages(tmp_path, trusted_cycle_identity):
     ledger = tmp_path / "impact.jsonl"
     _write_approved_cycle(ledger, "cycle-approved")
     with ledger.open("a", encoding="utf-8") as stream:
@@ -254,3 +271,35 @@ def test_load_proposal_rejects_cycle_after_authorize_or_missing_stages(tmp_path)
 
     with pytest.raises(ValueError, match="sin etapas adicionales"):
         dispatch_agents.load_authorized_proposal(ledger, "cycle-approved")
+
+
+def test_load_proposal_fails_closed_without_identity_verifier(tmp_path, monkeypatch):
+    from AEX.DECISION import ordenes
+    monkeypatch.setattr(ordenes, "APPROVER_IDENTITY_VERIFIER", None)
+    ledger = tmp_path / "impact.jsonl"
+    _write_approved_cycle(ledger, "cycle-no-verifier")
+    with pytest.raises(PermissionError, match="APPROVER_IDENTITY_VERIFIER"):
+        dispatch_agents.load_authorized_proposal(ledger, "cycle-no-verifier")
+
+
+def test_load_proposal_rejects_subject_mismatch_and_missing_permission(tmp_path, monkeypatch):
+    from AEX.DECISION import ordenes
+    ledger = tmp_path / "impact.jsonl"
+    _write_approved_cycle(ledger, "cycle-bad-identity")
+    monkeypatch.setattr(ordenes, "APPROVER_IDENTITY_VERIFIER", lambda *args: {
+        "verified": True, "subject": "different-person",
+        "permissions": ["economic_cycle_authorize"],
+    })
+    with pytest.raises(PermissionError, match="no coincide"):
+        dispatch_agents.load_authorized_proposal(ledger, "cycle-bad-identity")
+    monkeypatch.setattr(ordenes, "APPROVER_IDENTITY_VERIFIER", lambda *args: {
+        "verified": True, "subject": "owner-test", "permissions": [],
+    })
+    with pytest.raises(PermissionError, match="carece"):
+        dispatch_agents.load_authorized_proposal(ledger, "cycle-bad-identity")
+    monkeypatch.setattr(ordenes, "APPROVER_IDENTITY_VERIFIER", lambda *args: {
+        "verified": False, "subject": "owner-test",
+        "permissions": ["economic_cycle_authorize"],
+    })
+    with pytest.raises(PermissionError, match="no verificada"):
+        dispatch_agents.load_authorized_proposal(ledger, "cycle-bad-identity")

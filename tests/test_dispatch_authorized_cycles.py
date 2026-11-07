@@ -18,7 +18,7 @@ SPEC = importlib.util.spec_from_file_location(
 assert SPEC and SPEC.loader
 scanner = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(scanner)
-from FEX.GOVERNANCE.economic_cycle import registrar_evento
+from FEX.GOVERNANCE.economic_cycle import registrar_evento  # noqa: E402
 
 
 def _authorized_cycle(path: Path) -> str:
@@ -47,13 +47,27 @@ def _authorized_cycle(path: Path) -> str:
         }, path=path, cycle_id=cycle_id,
     )
     registrar_evento(
-        "authorize", {"approved": True, "approver": "test-owner", "rationale": "analysis only"},
+        "authorize", {"approved": True, "approver": "test-owner", "rationale": "analysis only",
+                      "identity_assertion": {"signed": "test-only-assertion"}},
         path=path, cycle_id=cycle_id,
     )
     return cycle_id
 
 
+def _inject_test_identity_verifier(monkeypatch):
+    from AEX.DECISION import ordenes
+    monkeypatch.setattr(
+        ordenes, "APPROVER_IDENTITY_VERIFIER",
+        lambda assertion, decision, price: {
+            "verified": assertion == {"signed": "test-only-assertion"},
+            "subject": "test-owner",
+            "permissions": ["economic_cycle_authorize"],
+        },
+    )
+
+
 def test_scan_dispatches_authorized_cycle_once_with_idempotency(monkeypatch, tmp_path):
+    _inject_test_identity_verifier(monkeypatch)
     ledger = tmp_path / "impact_cycle.jsonl"
     dispatch_log = tmp_path / "dispatches.jsonl"
     cycle_id = _authorized_cycle(ledger)

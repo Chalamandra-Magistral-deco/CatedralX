@@ -22,7 +22,135 @@ STOP_LOSS_PCT = 0.02
 TAKE_PROFIT_PCT = 0.04
 _ACTIVE_ACTIONS = {"ENTRAR_LARGO", "ENTRAR_CORTO"}
 # Production must inject a trusted OIDC/IdP verifier. Never trust caller-supplied names.
-APPROVER_IDENTITY_VERIFIER = None
+# CX-01b: Verificador Ed25519 real. El worker solo conoce la PUBLIC_KEY.
+# La PRIVATE_KEY nunca entra a la VM. El verificador solo verifica firma/tiempo/nonce/subject
+# y devuelve permisos tal cual. Cada llamador comprueba su propio permiso:
+# - ordenes financieras: financial_order_approve
+# - ciclos economicos: economic_cycle_authorize
+def _canonical_json_ed25519(obj: dict) -> bytes:
+    data = {k: v for k, v in obj.items() if k != "signature"}
+    return json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+def _load_approver_public_key() -> bytes:
+    hexkey = os.getenv("CHALAMANDRA_APPROVER_PUBLIC_KEY", "").strip()
+    if not hexkey:
+        raise PermissionError("APPROVER_IDENTITY_VERIFIER: CHALAMANDRA_APPROVER_PUBLIC_KEY no configurada")
+    try:
+        raw = bytes.fromhex(hexkey)
+    except Exception as e:
+        raise PermissionError("APPROVER_IDENTITY_VERIFIER: PUBLIC_KEY no es hex valido") from e
+    if len(raw) != 32:
+        raise PermissionError("APPROVER_IDENTITY_VERIFIER: PUBLIC_KEY debe ser 32 bytes (64 hex)")
+    return raw
+
+def _nonce_ledger_path_ed25519():
+    base = os.getenv("CATEDRALX_STATE_DIR") or str(Path("~/.local/state/chalamandra/catedralx").expanduser())
+    return Path(base) / "approver_nonces.jsonl"
+
+def _nonce_usado_ed25519(nonce: str) -> bool:
+    # Legacy: solo lectura. NO usar para decision de replay. Usar _reclamar_nonce_atomico.
+    p = _nonce_ledger_path_ed25519()
+    if not p.exists():
+        return False
+    for line in p.read_text(errors="ignore").splitlines():
+        if not line.strip():
+            continue
+        try:
+            if json.loads(line).get("nonce") == nonce:
+                return True
+        except Exception:
+            continue
+    return False
+
+def _reclamar_nonce_atomico(nonce: str, subject: str, cycle_id: str) -> bool:
+    """Check + register nonce under ONE LOCK_EX. Devuelve False si ya existia (replay)."""
+    p = _nonce_ledger_path_ed25519()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    # Abrir a+ para leer y escribir sin truncar, crear si no existe
+    with open(p, "a+", encoding="utf-8") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            f.seek(0)
+            for line in f.read().splitlines():
+                if not line.strip():
+                    continue
+                try:
+                    if json.loads(line).get("nonce") == nonce:
+                        return False
+                except Exception:
+                    continue
+            rec = {"nonce": nonce, "subject": subject, "cycle_id": cycle_id, "used_at": int(time.time())}
+            f.seek(0, 2)
+            f.write(json.dumps(rec, sort_keys=True) + "\n")
+            f.flush()
+            return True
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
+
+def _registrar_nonce_ed25519(nonce: str, subject: str, cycle_id: str) -> None:
+    # Legacy wrapper: delega a atomico, ignora replay (para compatibilidad con llamadores viejos)
+    _reclamar_nonce_atomico(nonce, subject, cycle_id)
+
+def _ed25519_approver_verifier(identity_assertion, identity_context, amount: float):
+    if isinstance(identity_assertion, str):
+        try:
+            assertion = json.loads(identity_assertion)
+        except Exception as e:
+            raise PermissionError("Identidad: assertion no es JSON valido") from e
+    elif isinstance(identity_assertion, dict):
+        assertion = dict(identity_assertion)
+    else:
+        raise PermissionError("Identidad: assertion debe ser dict o JSON string")
+    subject = assertion.get("subject")
+    permissions = assertion.get("permissions")
+    purpose = assertion.get("purpose")
+    cycle_id = assertion.get("cycle_id")
+    iat = assertion.get("iat")
+    exp = assertion.get("exp")
+    nonce = assertion.get("nonce")
+    signature_hex = assertion.get("signature")
+    if not isinstance(subject, str) or not subject.strip():
+        raise PermissionError("Identidad: falta subject")
+    if not isinstance(permissions, (list, tuple)):
+        raise PermissionError("Identidad: permissions debe ser lista")
+    # purpose: si viene, debe ser uno de los dos conocidos. Si no viene, no lo exigimos para no romper llamadores viejos.
+    if purpose is not None and purpose not in ("catedralx_economic_cycle_authorization", "catedralx_financial_order_authorization"):
+        raise PermissionError("Identidad: purpose incorrecto")
+    if not isinstance(nonce, str) or not nonce:
+        raise PermissionError("Identidad: falta nonce")
+    if not isinstance(signature_hex, str) or not signature_hex:
+        raise PermissionError("Identidad: falta signature")
+    # cycle_id: si el contexto tiene cycle_id, debe coincidir. Si no tiene, no lo exigimos (ordenes financieras no tienen cycle_id).
+    if isinstance(identity_context, dict) and identity_context.get("cycle_id"):
+        if cycle_id != identity_context["cycle_id"]:
+            raise PermissionError("Identidad: cycle_id no coincide con contexto")
+    now = int(time.time())
+    try:
+        iat_i, exp_i = int(iat), int(exp)
+    except Exception as e:
+        raise PermissionError("Identidad: iat/exp no son enteros") from e
+    if exp_i <= now:
+        raise PermissionError("Identidad: assertion caducada")
+    if iat_i > now + 60:
+        raise PermissionError("Identidad: iat en futuro")
+    if exp_i - iat_i > 300:
+        raise PermissionError("Identidad: ventana >300s no permitida")
+    # NO comprobar y registrar por separado: TOCTOU. Reclamo atomico abajo, despues de verificar firma.
+    # Si lo hicieramos aqui, un replay con firma invalida quemaria el nonce. Por eso el reclamo va despues de pub.verify.
+    try:
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+        pub = Ed25519PublicKey.from_public_bytes(_load_approver_public_key())
+        sig = bytes.fromhex(signature_hex)
+        pub.verify(sig, _canonical_json_ed25519(assertion))
+    except PermissionError:
+        raise
+    except Exception as e:
+        raise PermissionError("Identidad: firma Ed25519 invalida") from e
+    if not _reclamar_nonce_atomico(nonce, subject.strip(), str(cycle_id or "")):
+        raise PermissionError("Identidad: nonce reutilizado (replay)")
+    return {"verified": True, "subject": subject.strip(), "permissions": sorted(permissions)}
+
+APPROVER_IDENTITY_VERIFIER = _ed25519_approver_verifier
 _REQUIRED_APPROVAL_PERMISSION = "financial_order_approve"
 
 

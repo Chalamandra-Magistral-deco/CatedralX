@@ -222,8 +222,49 @@ def cargar_propuesta_autorizada(path: str | Path, cycle_id: str) -> dict[str, An
         _text(evaluation.get(field), field)
     for field in ("proposal", "expected_outcome", "verification_plan"):
         _text(proposal.get(field), field)
-    for field in ("approver", "rationale"):
-        _text(authorization.get(field), field)
+    claimed_approver = _text(authorization.get("approver"), "approver")
+    _text(authorization.get("rationale"), "rationale")
+    identity_assertion = authorization.get("identity_assertion")
+    if identity_assertion is None or identity_assertion == "" or identity_assertion == {}:
+        raise PermissionError("Despacho bloqueado: falta la aserción firmada de identidad del aprobador")
+
+    # Validate the trust boundary here, not in the dispatcher. The injected
+    # IdP verifier must validate the assertion signature and return a verified
+    # immutable subject plus the explicit cycle-authorization permission.
+    from AEX.DECISION import ordenes
+    verifier = ordenes.APPROVER_IDENTITY_VERIFIER
+    if not callable(verifier):
+        raise PermissionError("Despacho bloqueado: APPROVER_IDENTITY_VERIFIER no está configurado")
+    identity_context = {
+        "purpose": "catedralx_economic_cycle_authorization",
+        "cycle_id": identifier,
+        "proposal": dict(proposal),
+        "measurement": dict(measure),
+    }
+    try:
+        verified_identity = verifier(identity_assertion, identity_context, float(measure["value"]))
+    except Exception as exc:
+        raise PermissionError("Despacho bloqueado: firma o identidad del aprobador no verificable") from exc
+    if not isinstance(verified_identity, dict) or verified_identity.get("verified") is not True:
+        raise PermissionError("Despacho bloqueado: identidad del aprobador no verificada")
+    subject = verified_identity.get("subject")
+    permissions = verified_identity.get("permissions")
+    if not isinstance(subject, str) or not subject.strip():
+        raise PermissionError("Despacho bloqueado: falta subject inmutable del aprobador")
+    if subject.strip() != claimed_approver:
+        raise PermissionError("Despacho bloqueado: approver no coincide con el subject verificado")
+    required_permission = "economic_cycle_authorize"
+    if not isinstance(permissions, (list, tuple, set)) or required_permission not in permissions:
+        raise PermissionError("Despacho bloqueado: el aprobador carece de economic_cycle_authorize")
+    verified_authorization = {
+        key: value for key, value in authorization.items() if key != "identity_assertion"
+    }
+    verified_authorization.update({
+        "approver": subject.strip(),
+        "identity_verified": True,
+        "identity_permissions": sorted(permissions),
+        "identity_verification": "APPROVER_IDENTITY_VERIFIER",
+    })
 
     return {
         "origin": "CatedralX.FEX.GOVERNANCE.economic_cycle",
@@ -231,7 +272,7 @@ def cargar_propuesta_autorizada(path: str | Path, cycle_id: str) -> dict[str, An
         "measurement": dict(measure),
         "assessment": dict(evaluation),
         "proposal": dict(proposal),
-        "authorization": dict(authorization),
+        "authorization": verified_authorization,
         "execution_boundary": {
             "allowed": ["analysis", "research", "candidate_generation"],
             "prohibited": [
