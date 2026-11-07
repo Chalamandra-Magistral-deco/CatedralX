@@ -26,3 +26,7 @@ logs/
 .coverage
 03-OUTPUT/
 03-OUTPUT/
+
+# Auditoría: Ignorar artefactos de respaldo
+*.bak*
+*.pre-*
