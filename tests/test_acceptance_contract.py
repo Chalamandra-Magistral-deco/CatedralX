@@ -397,6 +397,33 @@ def test_acceptance_dynamic_constraint_breach_forces_hold_and_is_reported(monkey
     assert package["contexto"]["orders_created"] is False
 
 
+def test_acceptance_negative_dynamic_metrics_force_hold(monkeypatch, tmp_path):
+    constraints = {
+        "reinvestment_surplus": 1.0,
+        "entropy_rate": -1.0,
+        "entropy_time_scale": 1.0,
+        "loop_gain": -0.1,
+        "signal_count": 1,
+        "optimal_signal_count": 2,
+        "exposure": -1.0,
+        "max_exposure": 0.5,
+        "resilience": -1.0,
+        "minimum_resilience": 0.0,
+    }
+    state, package = _run_real_orchestrator_cycle(
+        monkeypatch, tmp_path, dynamic_constraints=constraints
+    )
+    report = package["contexto"]["dynamic_constraints"]
+    assert state.decision == "hold"
+    assert report["growth_allowed"] is False
+    assert "DATOS_INVALIDOS" in report["issues"]
+    assert {"entropy_rate", "loop_gain", "exposure", "resilience"}.issubset(
+        set(report["invalid_metrics"])
+    )
+    assert package["contexto"]["trading_enabled"] is False
+    assert package["contexto"]["orders_created"] is False
+
+
 def test_acceptance_unknown_dynamic_constraint_key_fails_closed(monkeypatch, tmp_path):
     state, package = _run_real_orchestrator_cycle(
         monkeypatch, tmp_path, dynamic_constraints={"unrecognized_metric": 1.0}

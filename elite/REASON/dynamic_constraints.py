@@ -59,6 +59,32 @@ def evaluate_dynamic_constraints(inputs: DynamicConstraintInputs) -> dict[str, A
         if value is not None and (type(value) is not int or value < 0) and name not in invalid:
             invalid.append(name)
 
+    # Domain validation: finite numbers are not automatically meaningful numbers.
+    # Ratios are bounded; magnitudes and time scales cannot be negative.
+    lower_bounds = {
+        "reinvestment_surplus": 0.0,
+        "entropy_rate": 0.0,
+        "entropy_time_scale": 0.0,
+        "loop_gain": 0.0,
+        "exposure": 0.0,
+        "max_exposure": 0.0,
+        "resilience": 0.0,
+        "minimum_resilience": 0.0,
+        "degradation_rate": 0.0,
+        "accumulated_noise": 0.0,
+    }
+    for name, minimum in lower_bounds.items():
+        value = values[name]
+        if value is not None and name not in invalid and float(value) < minimum:
+            invalid.append(name)
+    if values["entropy_time_scale"] is not None and values["entropy_time_scale"] == 0 and "entropy_time_scale" not in invalid:
+        invalid.append("entropy_time_scale")
+
+    for name in ("dominant_signal_weight", "minimum_confidence", "resilience", "minimum_resilience"):
+        value = values[name]
+        if value is not None and name not in invalid and float(value) > 1.0:
+            invalid.append(name)
+
     issues = []
     if invalid:
         issues.append("DATOS_INVALIDOS")

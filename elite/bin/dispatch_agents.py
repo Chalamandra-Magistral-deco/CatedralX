@@ -27,7 +27,7 @@ ELITE = Path(__file__).resolve().parents[1]
 if str(ELITE) not in sys.path:
     sys.path.insert(0, str(ELITE))
 
-from PERCEIVE.http_transport import open_no_redirect_request as urlopen
+from PERCEIVE.http_transport import open_no_redirect_request as urlopen  # noqa: E402
 
 
 def _b64url(data: bytes) -> str:
@@ -130,7 +130,7 @@ def _validate_api_url(api_url: str) -> str:
 ELITE_DIR = Path(__file__).resolve().parents[1]
 if str(ELITE_DIR) not in sys.path:
     sys.path.insert(0, str(ELITE_DIR))
-from FEX.GOVERNANCE.economic_cycle import cargar_propuesta_autorizada
+from FEX.GOVERNANCE.economic_cycle import cargar_propuesta_autorizada  # noqa: E402
 
 
 def load_authorized_proposal(ledger_path: Path, cycle_id: str) -> dict:
@@ -168,7 +168,7 @@ def dispatch_task(
     body = {
         "objective": objective.strip(),
         "payload": payload,
-        "permissions": {"allowed_tools": []},
+        "permissions": {"allowed_tools": [], "side_effects": "none"},
         "success_criteria": [
             "La ejecución termina y produce un candidato trazable; la aceptación independiente es obligatoria."
         ],

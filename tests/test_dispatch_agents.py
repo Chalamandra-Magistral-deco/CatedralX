@@ -61,6 +61,7 @@ def test_dispatch_task_posts_payload_with_scoped_short_lived_jwt(monkeypatch):
     assert captured["url"] == "http://127.0.0.1:8766/internal/v1/orchestration/runs"
     assert captured["body"]["payload"] == payload
     assert captured["body"]["objective"] == "financial_analysis"
+    assert captured["body"]["permissions"] == {"allowed_tools": [], "side_effects": "none"}
     assert captured["idempotency_key"] == "catedralx-cycle-test-1"
 
     token = captured["authorization"].removeprefix("Bearer ")

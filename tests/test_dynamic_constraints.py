@@ -77,6 +77,32 @@ def test_signal_counts_must_be_nonnegative_integers():
         assert field in result["invalid_metrics"], (field, value)
 
 
+def test_negative_or_out_of_domain_metrics_never_authorize_growth():
+    invalid_values = (
+        ("reinvestment_surplus", -0.01),
+        ("entropy_rate", -0.01),
+        ("entropy_time_scale", 0.0),
+        ("entropy_time_scale", -0.01),
+        ("loop_gain", -0.01),
+        ("exposure", -0.01),
+        ("max_exposure", -0.01),
+        ("resilience", -0.01),
+        ("resilience", 1.01),
+        ("minimum_resilience", -0.01),
+        ("minimum_resilience", 1.01),
+        ("dominant_signal_weight", 1.01),
+        ("minimum_confidence", 1.01),
+        ("degradation_rate", -0.01),
+        ("accumulated_noise", -0.01),
+    )
+    for field, value in invalid_values:
+        inputs = DynamicConstraintInputs(**{**_safe_inputs().__dict__, field: value})
+        result = evaluate_dynamic_constraints(inputs)
+        assert result["growth_allowed"] is False, (field, value)
+        assert "DATOS_INVALIDOS" in result["issues"], (field, value)
+        assert field in result["invalid_metrics"], (field, value)
+
+
 def test_missing_or_nonfinite_metrics_never_authorize_growth():
     missing = evaluate_dynamic_constraints(DynamicConstraintInputs())
     assert missing["growth_allowed"] is False
