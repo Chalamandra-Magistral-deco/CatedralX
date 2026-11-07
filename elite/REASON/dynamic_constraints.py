@@ -72,6 +72,8 @@ def evaluate_dynamic_constraints(inputs: DynamicConstraintInputs) -> dict[str, A
         "minimum_resilience": 0.0,
         "degradation_rate": 0.0,
         "accumulated_noise": 0.0,
+        "dominant_signal_weight": 0.0,
+        "minimum_confidence": 0.0,
     }
     for name, minimum in lower_bounds.items():
         value = values[name]

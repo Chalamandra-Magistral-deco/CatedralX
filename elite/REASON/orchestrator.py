@@ -96,12 +96,8 @@ class Orchestrator:
         inercia = float(perceive.get("inercia", 0.0))
         if not math.isfinite(gap) or not math.isfinite(inercia):
             raise ValueError("gap e inercia deben ser valores finitos.")
-        dynamic_constraints = datos_percibidos.get("DYNAMIC_CONSTRAINTS", {})
-        if not isinstance(dynamic_constraints, dict):
-            raise ValueError("DYNAMIC_CONSTRAINTS debe ser un objeto cuando se proporciona")
-        central_dimensions_bp = datos_percibidos.get("CENTRAL_DIMENSIONS_BP", {})
-        if not isinstance(central_dimensions_bp, dict):
-            raise ValueError("CENTRAL_DIMENSIONS_BP debe ser un objeto cuando se proporciona")
+        from PERCEIVE.percepcion import validar_campos_gobernanza
+        dynamic_constraints, central_dimensions_bp = validar_campos_gobernanza(datos_percibidos)
         return SensoryInput(
             precio_historico=precios,
             precio_actual=precio_actual,

@@ -13,10 +13,13 @@ def construir_sensory_input(payload: dict[str, Any], free_energy_prev: float = 0
     return SensoryInput(precio_historico=data["historial_precios"], precio_actual=data["precio"],
                         gap=data["gap"], inercia=data["inercia"], free_energy_prev=free_energy_prev)
 
-def from_snapshot(snapshot: dict[str, Any], free_energy_prev: float = 0.0) -> SensoryInput:
-    if not isinstance(snapshot, dict) or not isinstance(snapshot.get("PERCEIVE"), dict):
-        raise ValueError("snapshot must contain a PERCEIVE object")
+def validar_campos_gobernanza(snapshot: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Validate the optional governance fields carried at the top level of a snapshot.
 
+    Single source of truth (Pilar 1) for this contract: REASON.orchestrator imports and
+    calls this instead of re-implementing the same checks. Missing fields default to an
+    empty, uncalibrated object; present fields must be objects.
+    """
     dynamic_constraints = snapshot.get("DYNAMIC_CONSTRAINTS", {})
     if not isinstance(dynamic_constraints, dict):
         raise ValueError("DYNAMIC_CONSTRAINTS debe ser un objeto cuando se proporciona")
@@ -24,6 +27,14 @@ def from_snapshot(snapshot: dict[str, Any], free_energy_prev: float = 0.0) -> Se
     central_dimensions_bp = snapshot.get("CENTRAL_DIMENSIONS_BP", {})
     if not isinstance(central_dimensions_bp, dict):
         raise ValueError("CENTRAL_DIMENSIONS_BP debe ser un objeto cuando se proporciona")
+
+    return dynamic_constraints, central_dimensions_bp
+
+def from_snapshot(snapshot: dict[str, Any], free_energy_prev: float = 0.0) -> SensoryInput:
+    if not isinstance(snapshot, dict) or not isinstance(snapshot.get("PERCEIVE"), dict):
+        raise ValueError("snapshot must contain a PERCEIVE object")
+
+    dynamic_constraints, central_dimensions_bp = validar_campos_gobernanza(snapshot)
 
     sensory = construir_sensory_input(snapshot["PERCEIVE"], free_energy_prev)
     sensory.dynamic_constraints = dict(dynamic_constraints)
