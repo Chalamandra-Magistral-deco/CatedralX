@@ -63,29 +63,45 @@ def _nonce_usado_ed25519(nonce: str) -> bool:
     return False
 
 def _reclamar_nonce_atomico(nonce: str, subject: str, cycle_id: str) -> bool:
-    """Check + register nonce under ONE LOCK_EX. Devuelve False si ya existia (replay)."""
+    """Check + register nonce under ONE LOCK_EX. Devuelve False si ya existia (replay).
+    Fail-closed: linea malformada -> PermissionError, no se ignora. Archivo creado con 0600.
+    """
     p = _nonce_ledger_path_ed25519()
     p.parent.mkdir(parents=True, exist_ok=True)
-    # Abrir a+ para leer y escribir sin truncar, crear si no existe
-    with open(p, "a+", encoding="utf-8") as f:
-        fcntl.flock(f, fcntl.LOCK_EX)
-        try:
-            f.seek(0)
-            for line in f.read().splitlines():
-                if not line.strip():
-                    continue
+    # os.open con 0o600: si el archivo no existe, nace con 600. Si ya existe, no cambia permisos (ver abajo).
+    fd = os.open(p, os.O_RDWR | os.O_CREAT | os.O_APPEND, 0o600)
+    try:
+        with os.fdopen(fd, "a+", encoding="utf-8") as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            try:
+                # Endurecer permisos aunque el archivo ya existia con 660/664
                 try:
-                    if json.loads(line).get("nonce") == nonce:
-                        return False
+                    os.chmod(p, 0o600)
                 except Exception:
-                    continue
-            rec = {"nonce": nonce, "subject": subject, "cycle_id": cycle_id, "used_at": int(time.time())}
-            f.seek(0, 2)
-            f.write(json.dumps(rec, sort_keys=True) + "\n")
-            f.flush()
-            return True
-        finally:
-            fcntl.flock(f, fcntl.LOCK_UN)
+                    pass
+                f.seek(0)
+                for lineno, line in enumerate(f.read().splitlines(), 1):
+                    if not line.strip():
+                        continue
+                    try:
+                        rec = json.loads(line)
+                    except Exception as e:
+                        raise PermissionError(f"Identidad: ledger de nonces corrupto en linea {lineno}; autorizacion bloqueada") from e
+                    if not isinstance(rec, dict) or "nonce" not in rec:
+                        raise PermissionError(f"Identidad: ledger de nonces corrupto en linea {lineno}: registro sin nonce")
+                    if rec.get("nonce") == nonce:
+                        return False
+                rec = {"nonce": nonce, "subject": subject, "cycle_id": cycle_id, "used_at": int(time.time())}
+                f.seek(0, 2)
+                f.write(json.dumps(rec, sort_keys=True) + "\n")
+                f.flush()
+                return True
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
+    except PermissionError:
+        raise
+    except Exception as e:
+        raise PermissionError("Identidad: no se pudo reclamar nonce") from e
 
 def _registrar_nonce_ed25519(nonce: str, subject: str, cycle_id: str) -> None:
     # Legacy wrapper: delega a atomico, ignora replay (para compatibilidad con llamadores viejos)
