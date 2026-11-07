@@ -6,6 +6,7 @@ change model parameters, or claim causal impact from correlation alone.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import os
@@ -84,6 +85,74 @@ def _read(path: Path) -> list[dict[str, Any]]:
     return records
 
 
+def _cycle_evidence_digest(events: list[dict[str, Any]]) -> str:
+    """Digest the ordered pre-authorization evidence bundle for signer binding."""
+    canonical = json.dumps(
+        events, ensure_ascii=False, allow_nan=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _dispatch_ledger_path() -> Path:
+    return Path.home() / ".local" / "state" / "chalamandra" / "catedralx" / "dispatched_cycles.jsonl"
+
+def _ya_despachado(cycle_id: str) -> bool:
+    fp = _dispatch_ledger_path()
+    if not fp.exists():
+        return False
+    try:
+        import fcntl
+        with fp.open("r", encoding="utf-8") as f:
+            fcntl.flock(f, fcntl.LOCK_SH)
+            try:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    try:
+                        rec = json.loads(line)
+                    except Exception:
+                        continue
+                    if rec.get("cycle_id") == cycle_id and rec.get("dispatched") is True:
+                        return True
+                return False
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
+    except Exception:
+        return False
+
+def _marcar_despachado(cycle_id: str, subject: str) -> None:
+    import fcntl, os
+    fp = _dispatch_ledger_path()
+    fp.parent.mkdir(parents=True, exist_ok=True)
+    # flock + append atomico + fsync, archivo 0600
+    fd = os.open(str(fp), os.O_RDWR | os.O_CREAT | os.O_APPEND, 0o600)
+    try:
+        with os.fdopen(fd, "a+", encoding="utf-8") as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            try:
+                # re-checar bajo el mismo lock, sin pedir otro lock (evita deadlock)
+                f.seek(0)
+                for line in f:
+                    if not line.strip():
+                        continue
+                    try:
+                        rec0 = json.loads(line)
+                    except Exception:
+                        continue
+                    if rec0.get("cycle_id") == cycle_id and rec0.get("dispatched") is True:
+                        raise PermissionError(f"Despacho bloqueado: ciclo {cycle_id} ya despachado")
+                f.seek(0, 2)
+                rec = {"cycle_id": cycle_id, "dispatched": True, "subject": subject, "recorded_at_epoch": time.time()}
+                f.write(json.dumps(rec, ensure_ascii=False, sort_keys=True) + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
+    except PermissionError:
+        raise
+    except Exception as e:
+        raise PermissionError(f"Despacho bloqueado: no se pudo marcar despachado: {e}") from e
+
 def _append(path: Path, record: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as stream:
@@ -91,6 +160,15 @@ def _append(path: Path, record: dict[str, Any]) -> None:
             json.dumps(record, ensure_ascii=False, allow_nan=False, sort_keys=True)
             + "\n"
         )
+
+
+def _verify_cycle_identity(verifier, assertion, context, amount: float, *, consume_nonce: bool):
+    """Verify identity; the canonical Ed25519 verifier can recheck without replay-claiming."""
+    from AEX.DECISION import ordenes
+    if verifier is ordenes._ed25519_approver_verifier:
+        return verifier(assertion, context, amount, consume_nonce=consume_nonce)
+    # Explicitly injected IdP/test verifiers keep the documented three-argument contract.
+    return verifier(assertion, context, amount)
 
 
 def registrar_evento(
@@ -176,13 +254,13 @@ def registrar_evento(
                 raise PermissionError("authorize bloqueado: APPROVER_IDENTITY_VERIFIER no configurado")
             prop_rec = next((r for r in existing if r.get("event_type") == "propose"), None)
             prop_payload = prop_rec.get("payload") if isinstance(prop_rec, dict) and isinstance(prop_rec.get("payload"), dict) else {}
-            ctx = {"purpose": "catedralx_economic_cycle_authorization", "cycle_id": identifier, "proposal": dict(prop_payload), "measurement": dict(measure_payload)}
+            ctx = {"purpose": "catedralx_economic_cycle_authorization", "cycle_id": identifier, "cycle_digest": _cycle_evidence_digest(existing), "proposal": dict(prop_payload), "measurement": dict(measure_payload)}
             try:
                 _v = float(measure_payload.get("value", 0.0))
             except Exception:
                 _v = 0.0
             try:
-                verified = verifier(identity_assertion, ctx, _v)
+                verified = _verify_cycle_identity(verifier, identity_assertion, ctx, _v, consume_nonce=True)
             except Exception as exc:
                 raise PermissionError("authorize bloqueado: firma o identidad no verificable") from exc
             if not isinstance(verified, dict) or verified.get("verified") is not True:
@@ -274,14 +352,20 @@ def cargar_propuesta_autorizada(path: str | Path, cycle_id: str) -> dict[str, An
     verifier = ordenes.APPROVER_IDENTITY_VERIFIER
     if not callable(verifier):
         raise PermissionError("Despacho bloqueado: APPROVER_IDENTITY_VERIFIER no está configurado")
+    _auth_event = next((r for r in events if r.get("event_type") == "authorize"), None)
+    _verify_at = _auth_event.get("recorded_at_epoch") if isinstance(_auth_event, dict) else None
     identity_context = {
         "purpose": "catedralx_economic_cycle_authorization",
         "cycle_id": identifier,
+        "cycle_digest": _cycle_evidence_digest(events[:3]),
         "proposal": dict(proposal),
         "measurement": dict(measure),
+        "verify_at": _verify_at,
     }
     try:
-        verified_identity = verifier(identity_assertion, identity_context, float(measure["value"]))
+        verified_identity = _verify_cycle_identity(
+            verifier, identity_assertion, identity_context, float(measure["value"]), consume_nonce=False
+        )
     except Exception as exc:
         raise PermissionError("Despacho bloqueado: firma o identidad del aprobador no verificable") from exc
     if not isinstance(verified_identity, dict) or verified_identity.get("verified") is not True:
@@ -323,6 +407,15 @@ def cargar_propuesta_autorizada(path: str | Path, cycle_id: str) -> dict[str, An
     }
 
 
+def despachar_propuesta_autorizada(path: str | Path, cycle_id: str) -> dict[str, Any]:
+    """Valida con cargar_propuesta_autorizada y marca despacho unico. Solo aqui hay merma."""
+    prop = cargar_propuesta_autorizada(path, cycle_id)
+    subj = prop["authorization"].get("approver", "")
+    if _ya_despachado(cycle_id):
+        raise PermissionError(f"Despacho bloqueado: ciclo {cycle_id} ya despachado")
+    _marcar_despachado(cycle_id, subj)
+    return prop
+
 def resumir_ciclos(path: str | Path | None = None) -> dict[str, Any]:
     """Return a read-only summary of stages and governance controls."""
     target = Path(path).expanduser() if path else ledger_path()
@@ -336,15 +429,21 @@ def resumir_ciclos(path: str | Path | None = None) -> dict[str, Any]:
     summary = []
     for identifier, events in cycles.items():
         kinds = [event.get("event_type") for event in events]
-        # CX-02: leer flag guardado en escritura. No re-verificar aqui: quemaria nonce.
-        # Ciclos viejos sin identity_verified -> False (correcto, eran acceptance-test).
-        _auth_verified = any(
-            e.get("event_type") == "authorize"
-            and isinstance(e.get("payload"), dict)
-            and e["payload"].get("identity_verified") is True
-            and e["payload"].get("identity_assertion") not in (None, "", {})
-            for e in events
-        )
+        # CX-02b: no confia en flag mutable. Comprueba evidencia: authorize con
+        # identity_verified True + nonce reclamado en ledger de nonces para subject/cycle.
+        # Solo lectura, no re-verifica firma, no gasta nonce.
+        _auth_verified = False
+        _auth_rec = next((e for e in events if e.get("event_type") == "authorize"), None)
+        if _auth_rec is not None:
+            _pay = _auth_rec.get("payload") if isinstance(_auth_rec.get("payload"), dict) else {}
+            _ass = _pay.get("identity_assertion") if isinstance(_pay.get("identity_assertion"), dict) else {}
+            if _pay.get("identity_verified") is True and isinstance(_ass.get("nonce"), str) and isinstance(_ass.get("subject"), str):
+                try:
+                    from AEX.DECISION import ordenes as _ord
+                    if _ord._nonce_reclamado_ed25519(_ass["nonce"], _ass["subject"], identifier):
+                        _auth_verified = True
+                except Exception:
+                    _auth_verified = False
         summary.append(
             {
                 "cycle_id": identifier,
@@ -355,7 +454,7 @@ def resumir_ciclos(path: str | Path | None = None) -> dict[str, Any]:
                 # not perform or persist cryptographic identity verification.
                 "authorization_recorded": "authorize" in kinds,
                 "identity_verified": _auth_verified,
-                "identity_verification_status": "verified_at_write" if _auth_verified else "not_verified",
+                "identity_verification_status": "verified_at_write_nonce_claimed" if _auth_verified else "not_reverified_read_only",
                 "human_authorized": _auth_verified,
                 # Dispatch eligibility is established only by
                 # cargar_propuesta_autorizada(), never by this summary.
