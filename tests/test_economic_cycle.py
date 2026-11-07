@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from AEX.DECISION import ordenes
 from FEX.GOVERNANCE.economic_cycle import registrar_evento, resumir_ciclos
 
 
@@ -66,16 +67,35 @@ def test_cycle_requires_ordered_explicit_approval_and_stays_non_operational(tmp_
             path,
             cycle_id=cycle,
         )
-    registrar_evento(
-        "authorize",
-        {
-            "approved": True,
-            "approver": "comité",
-            "rationale": "Piloto acotado con revisión",
-        },
-        path,
-        cycle_id=cycle,
-    )
+    # CX-02: authorize sin identidad debe bloquear, no pasar como humano
+    with pytest.raises(PermissionError, match="falta asercion"):
+        registrar_evento(
+            "authorize",
+            {
+                "approved": True,
+                "approver": "comité",
+                "rationale": "Piloto acotado con revisión",
+            },
+            path,
+            cycle_id=cycle,
+        )
+    # CX-02: con identidad verificada (mock) si pasa
+    _orig = ordenes.APPROVER_IDENTITY_VERIFIER
+    ordenes.APPROVER_IDENTITY_VERIFIER = lambda assertion, ctx, val: {"verified": True, "subject": "comité", "permissions": ["economic_cycle_authorize"]}
+    try:
+        registrar_evento(
+            "authorize",
+            {
+                "approved": True,
+                "approver": "comité",
+                "rationale": "Piloto acotado con revisión",
+                "identity_assertion": {"subject": "comité", "signature": "mock"},
+            },
+            path,
+            cycle_id=cycle,
+        )
+    finally:
+        ordenes.APPROVER_IDENTITY_VERIFIER = _orig
     registrar_evento(
         "verify",
         {
@@ -100,7 +120,11 @@ def test_cycle_requires_ordered_explicit_approval_and_stays_non_operational(tmp_
     assert report["cycles_complete"] == 1
     assert report["automatic_reinvestment"] is False
     assert report["trading_enabled"] is False
+    assert report["cycles"][0]["authorization_recorded"] is True
+    assert report["cycles"][0]["identity_verified"] is True
+    assert report["cycles"][0]["identity_verification_status"] == "verified_at_write"
     assert report["cycles"][0]["human_authorized"] is True
+    assert report["cycles"][0]["dispatch_eligible"] is False
     assert all(
         json.loads(line)["controls"]["money_moved"] is False
         for line in path.read_text().splitlines()

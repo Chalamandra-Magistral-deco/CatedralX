@@ -159,6 +159,45 @@ def registrar_evento(
                 raise ValueError(
                     "authorize requiere approved=true; para rechazar, registra la decisión fuera de este ciclo aprobado."
                 )
+            # CX-02: no basta texto. Exige asercion firmada verificada en escritura.
+            identity_assertion = payload.get("identity_assertion")
+            if identity_assertion is None or identity_assertion == "" or identity_assertion == {}:
+                raise PermissionError("authorize bloqueado: falta asercion firmada de identidad del aprobador")
+            measure_rec = next((r for r in existing if r.get("event_type") == "measure"), None)
+            measure_payload = measure_rec.get("payload") if isinstance(measure_rec, dict) else {}
+            if not isinstance(measure_payload, dict):
+                raise PermissionError("authorize bloqueado: measure no encontrado")
+            try:
+                from AEX.DECISION import ordenes
+            except Exception as e:
+                raise PermissionError("authorize bloqueado: no se pudo cargar verificador") from e
+            verifier = ordenes.APPROVER_IDENTITY_VERIFIER
+            if not callable(verifier):
+                raise PermissionError("authorize bloqueado: APPROVER_IDENTITY_VERIFIER no configurado")
+            prop_rec = next((r for r in existing if r.get("event_type") == "propose"), None)
+            prop_payload = prop_rec.get("payload") if isinstance(prop_rec, dict) and isinstance(prop_rec.get("payload"), dict) else {}
+            ctx = {"purpose": "catedralx_economic_cycle_authorization", "cycle_id": identifier, "proposal": dict(prop_payload), "measurement": dict(measure_payload)}
+            try:
+                _v = float(measure_payload.get("value", 0.0))
+            except Exception:
+                _v = 0.0
+            try:
+                verified = verifier(identity_assertion, ctx, _v)
+            except Exception as exc:
+                raise PermissionError("authorize bloqueado: firma o identidad no verificable") from exc
+            if not isinstance(verified, dict) or verified.get("verified") is not True:
+                raise PermissionError("authorize bloqueado: identidad no verificada")
+            subj = verified.get("subject")
+            perms = verified.get("permissions")
+            if not isinstance(subj, str) or not subj.strip():
+                raise PermissionError("authorize bloqueado: falta subject")
+            if subj.strip() != _text(payload.get("approver"), "approver"):
+                raise PermissionError("authorize bloqueado: approver no coincide con subject verificado")
+            if not isinstance(perms, (list, tuple, set)) or "economic_cycle_authorize" not in perms:
+                raise PermissionError("authorize bloqueado: falta permiso economic_cycle_authorize")
+            payload = dict(payload)
+            payload["identity_verified"] = True
+            payload["identity_permissions"] = sorted(perms)
         elif kind == "verify":
             _text(payload.get("evidence"), "evidence")
             _text(payload.get("result"), "result")
@@ -297,13 +336,30 @@ def resumir_ciclos(path: str | Path | None = None) -> dict[str, Any]:
     summary = []
     for identifier, events in cycles.items():
         kinds = [event.get("event_type") for event in events]
+        # CX-02: leer flag guardado en escritura. No re-verificar aqui: quemaria nonce.
+        # Ciclos viejos sin identity_verified -> False (correcto, eran acceptance-test).
+        _auth_verified = any(
+            e.get("event_type") == "authorize"
+            and isinstance(e.get("payload"), dict)
+            and e["payload"].get("identity_verified") is True
+            and e["payload"].get("identity_assertion") not in (None, "", {})
+            for e in events
+        )
         summary.append(
             {
                 "cycle_id": identifier,
                 "stage": kinds[-1],
                 "events": kinds,
                 "complete": kinds[-1] == "feedback",
-                "human_authorized": "authorize" in kinds,
+                # A ledger event records a claim; this read-only summary does
+                # not perform or persist cryptographic identity verification.
+                "authorization_recorded": "authorize" in kinds,
+                "identity_verified": _auth_verified,
+                "identity_verification_status": "verified_at_write" if _auth_verified else "not_verified",
+                "human_authorized": _auth_verified,
+                # Dispatch eligibility is established only by
+                # cargar_propuesta_autorizada(), never by this summary.
+                "dispatch_eligible": False,
                 "money_moved": False,
                 "trading_enabled": False,
             }
