@@ -69,6 +69,7 @@ def _read(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
     records: list[dict[str, Any]] = []
+    expected_prev = "GENESIS"
     with path.open("r", encoding="utf-8") as stream:
         for line_no, line in enumerate(stream, 1):
             if not line.strip():
@@ -81,6 +82,17 @@ def _read(path: Path) -> list[dict[str, Any]]:
                 ) from exc
             if not isinstance(item, dict):
                 raise TypeError(f"Registro de impacto inválido en línea {line_no}.")
+            # CX-03: verificar hash chain si el registro trae hash
+            if isinstance(item.get("hash"), str):
+                if item.get("prev_hash") != expected_prev:
+                    raise PermissionError(f"Ledger corrupto en linea {line_no}: prev_hash no coincide, historia reescrita")
+                tmp = {k: v for k, v in item.items() if k != "hash"}
+                if _hash_record(tmp) != item["hash"]:
+                    raise PermissionError(f"Ledger corrupto en linea {line_no}: hash no coincide")
+                expected_prev = item["hash"]
+            else:
+                # legacy sin hash: el siguiente prev_hash debe ser hash de la linea cruda
+                expected_prev = hashlib.sha256(line.strip().encode()).hexdigest()
             records.append(item)
     return records
 
@@ -153,14 +165,46 @@ def _marcar_despachado(cycle_id: str, subject: str) -> None:
     except Exception as e:
         raise PermissionError(f"Despacho bloqueado: no se pudo marcar despachado: {e}") from e
 
-def _append(path: Path, record: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as stream:
-        stream.write(
-            json.dumps(record, ensure_ascii=False, allow_nan=False, sort_keys=True)
-            + "\n"
-        )
+def _hash_record(rec):
+    import hashlib as _h
+    c = json.dumps(rec, ensure_ascii=False, allow_nan=False, sort_keys=True, separators=(',', ':')).encode()
+    return _h.sha256(c).hexdigest()
 
+def _append(path: Path, record: dict[str, Any]) -> None:
+    import fcntl, os
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(str(path), os.O_RDWR | os.O_CREAT | os.O_APPEND, 0o600)
+    try:
+        with os.fdopen(fd, "a+", encoding="utf-8") as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            try:
+                f.seek(0)
+                last_hash = "GENESIS"
+                last_line = None
+                for line in f:
+                    if line.strip():
+                        last_line = line
+                if last_line:
+                    try:
+                        lr = json.loads(last_line)
+                        if isinstance(lr, dict) and isinstance(lr.get("hash"), str):
+                            last_hash = lr["hash"]
+                        else:
+                            last_hash = hashlib.sha256(last_line.strip().encode()).hexdigest()
+                    except Exception:
+                        last_hash = hashlib.sha256(last_line.strip().encode()).hexdigest()
+                rec = dict(record)
+                rec["prev_hash"] = last_hash
+                tmp = {k: v for k, v in rec.items() if k != "hash"}
+                rec["hash"] = _hash_record(tmp)
+                f.seek(0, 2)
+                f.write(json.dumps(rec, ensure_ascii=False, allow_nan=False, sort_keys=True) + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
+    except Exception:
+        raise
 
 def _verify_cycle_identity(verifier, assertion, context, amount: float, *, consume_nonce: bool):
     """Verify identity; the canonical Ed25519 verifier can recheck without replay-claiming."""

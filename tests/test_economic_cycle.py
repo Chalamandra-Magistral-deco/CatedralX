@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import json
 import subprocess
+import time
+import uuid
 from pathlib import Path
 
 import pytest
 from AEX.DECISION import ordenes
-from FEX.GOVERNANCE.economic_cycle import registrar_evento, resumir_ciclos
+from FEX.GOVERNANCE.economic_cycle import (
+    cargar_propuesta_autorizada, registrar_evento, resumir_ciclos,
+)
 
 
 def measure(path):
@@ -121,9 +125,9 @@ def test_cycle_requires_ordered_explicit_approval_and_stays_non_operational(tmp_
     assert report["automatic_reinvestment"] is False
     assert report["trading_enabled"] is False
     assert report["cycles"][0]["authorization_recorded"] is True
-    assert report["cycles"][0]["identity_verified"] is True
-    assert report["cycles"][0]["identity_verification_status"] == "verified_at_write"
-    assert report["cycles"][0]["human_authorized"] is True
+    assert report["cycles"][0]["identity_verified"] is False
+    assert report["cycles"][0]["identity_verification_status"] == "not_reverified_read_only"
+    assert report["cycles"][0]["human_authorized"] is False
     assert report["cycles"][0]["dispatch_eligible"] is False
     assert all(
         json.loads(line)["controls"]["money_moved"] is False
@@ -228,3 +232,100 @@ def test_catedral_cli_exposes_governed_impact_report(tmp_path):
     assert report["cycles_recorded"] == 0
     assert report["automatic_reinvestment"] is False
     assert report["trading_enabled"] is False
+
+
+def test_ed25519_authorization_claims_nonce_once_and_reverifies_on_load(monkeypatch, tmp_path):
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+    private_key = Ed25519PrivateKey.generate()
+    public_key = private_key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    monkeypatch.setenv("CHALAMANDRA_APPROVER_PUBLIC_KEY", public_key.hex())
+    monkeypatch.setenv("CATEDRALX_STATE_DIR", str(tmp_path / "state"))
+
+    path = tmp_path / "impact.jsonl"
+    cycle = measure(path)
+    registrar_evento(
+        "evaluate", {"assessment": "test", "evidence": "synthetic"},
+        path, cycle_id=cycle,
+    )
+    proposal_payload = {
+        "proposal": "review only",
+        "expected_outcome": "candidate",
+        "verification_plan": "compare next period",
+    }
+    registrar_evento("propose", proposal_payload, path, cycle_id=cycle)
+
+    from FEX.GOVERNANCE import economic_cycle
+    pre_authorization_events = [json.loads(line) for line in path.read_text().splitlines()]
+    assertion = {
+        "subject": "real-test-owner",
+        "permissions": ["economic_cycle_authorize"],
+        "purpose": "catedralx_economic_cycle_authorization",
+        "cycle_id": cycle,
+        "cycle_digest": economic_cycle._cycle_evidence_digest(pre_authorization_events),
+        "iat": int(time.time()),
+        "exp": int(time.time()) + 120,
+        "nonce": str(uuid.uuid4()),
+    }
+    assertion["signature"] = private_key.sign(
+        ordenes._canonical_json_ed25519(assertion)
+    ).hex()
+
+    registrar_evento(
+        "authorize",
+        {
+            "approved": True,
+            "approver": "real-test-owner",
+            "rationale": "Ed25519 integration test",
+            "identity_assertion": assertion,
+        },
+        path, cycle_id=cycle,
+    )
+
+    # Repeated read/dispatch validation must not consume the already-claimed nonce.
+    first = cargar_propuesta_autorizada(path, cycle)
+    second = cargar_propuesta_autorizada(path, cycle)
+    assert first["authorization"]["identity_verified"] is True
+    assert second["authorization"]["approver"] == "real-test-owner"
+
+    nonce_ledger = tmp_path / "state" / "approver_nonces.jsonl"
+    assert len(nonce_ledger.read_text().splitlines()) == 1
+
+    # CX-03: el ledger es inmutable con hash chain. Manipular el flag
+    # sin actualizar el hash debe bloquear, no ser tolerado. La firma
+    # ya no basta si la historia fue reescrita.
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    rows[-1]["payload"]["identity_verified"] = False
+    path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows))
+    import pytest as _pt
+    with _pt.raises(PermissionError, match="Ledger corrupto"):
+        cargar_propuesta_autorizada(path, cycle)
+
+    # A valid signature inserted without its original atomic nonce claim is not dispatchable.
+    nonce_contents = nonce_ledger.read_text()
+    nonce_ledger.write_text("")
+    # CX-03: el ledger sigue corrupto del paso anterior, asi que el bloqueo puede ser por hash o por nonce. Ambos son fail-closed valido.
+    with pytest.raises(PermissionError, match="Ledger corrupto|no verificable"):
+        cargar_propuesta_autorizada(path, cycle)
+    nonce_ledger.write_text(nonce_contents)
+
+    # Changing the pre-authorization evidence must invalidate the signed digest.
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    rows[2]["payload"]["proposal"] = "silently changed proposal"
+    path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows))
+    with pytest.raises(PermissionError, match="Ledger corrupto|no verificable"):
+        cargar_propuesta_autorizada(path, cycle)
+
+    # A mismatched purpose must fail even when the signature itself is valid.
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    rows[2]["payload"]["proposal"] = proposal_payload["proposal"]
+    tampered = dict(assertion)
+    tampered["purpose"] = "catedralx_financial_order_authorization"
+    tampered["signature"] = private_key.sign(
+        ordenes._canonical_json_ed25519(tampered)
+    ).hex()
+    rows[-1]["payload"]["identity_assertion"] = tampered
+    path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows))
+    with pytest.raises(PermissionError, match="Ledger corrupto|no verificable"):
+        cargar_propuesta_autorizada(path, cycle)
