@@ -215,7 +215,7 @@ class CathedralEvaluation:
                 "status": "ACCEPTED",
                 "score": int(score),
                 "reason": "CUMPLE_TODOS_LOS_CRITERIOS",
-                "next_action": "PUBLICAR_O_EJECUTAR",
+                "next_action": "SOLICITAR_ACEPTACION_INDEPENDIENTE",
                 "blocking_reasons": [],
                 "dimensions": dict(self.dimensions),
             })
