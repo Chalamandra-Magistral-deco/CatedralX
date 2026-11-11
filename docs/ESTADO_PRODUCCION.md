@@ -1,42 +1,49 @@
 # Estado de implementación — CatedralX
 
 **Actualizado:** 2026-11-11  
-**Fuente de verdad:** rama main de Chalamandra-Magistral-deco/CatedralX.  
-**Commit inspeccionado:** 2ec860337285b6054bbd0e2b44678c42a769f136.
+**Fuente de verdad:** rama `main` de Chalamandra-Magistral-deco/CatedralX.  
+**Commit inspeccionado:** `dd863ae9835fb1cdba2f454fb6479766a84ded41`.
 
 ## Estado vigente verificado
 
-- GitHub Actions del commit inspeccionado: unit-tests y Build and smoke-test the CLI image completados correctamente.
+- GitHub Actions del commit inspeccionado: workflow run [#121](https://github.com/Chalamandra-Magistral-deco/CatedralX/actions/runs/42992067112) completado correctamente.
 - Suite: **354 pruebas aprobadas**.
-- pip check: correcto.
-- compileall: correcto.
+- `pip check`: correcto.
+- `compileall`: correcto.
+- Configuración Compose: `docker compose config --quiet` correcta.
 - Imagen Docker: build y smoke test CLI correctos.
-- cryptography==50.0.2: declarada en requirements.txt y fijada en requirements.lock.
-- Árbol Git: 213 entradas, no truncado.
-- Ramas visibles al corte: main, chore/catedralx-repo-hygiene-20261111 y docs/catedralx-host-neutral-status-20261111. Las dos ramas de trabajo divergen de main; sus cambios visibles son de higiene de dependencias/CI y documentación. No se han eliminado.
+- Dependencias: `requirements.txt` conserva los rangos de runtime; `requirements.lock` fija el entorno de CI; `requirements-runtime.lock` fija el conjunto mínimo de runtime de la imagen, sin pytest.
+- Docker: instala exclusivamente el lockfile de runtime y falla cerrado si no está disponible; se retiró el fallback no reproducible y curl no utilizado.
+- Compose: representa una ejecución CLI puntual; no reinicia el proceso como daemon ni publica 5050, porque el endpoint loopback es una herramienta opcional separada.
+- CI: los eventos push se limitan a `main` y los PR a `main`, evitando duplicar el mismo pipeline por push a ramas de trabajo y apertura de PR.
+- Árbol Git: 216 entradas, no truncado en la última lectura.
+- Ramas visibles al corte: `main` y tres refs de trabajo cuyos PR (#11, #12 y #13) ya fueron fusionados. No se detectó trabajo pendiente en esos PR; las refs antiguas permanecen porque la conexión disponible no expone una operación de borrado de ramas.
+- `main` continúa sin protección confirmada. La API de ramas reporta `protected=false`.
 - VM anterior: fuera del plan operativo. No usarla como fuente de estado ni destino.
-- No hay evidencia de runtime nuevo ni integración end-to-end activa. CI verde acredita el commit y el artefacto construido, no despliegue, conexión con Agents ni operación real.
-- Seguridad: revisión estática parcial; consultar docs/SEGURIDAD_REPOSITORIO.md. No se certifica ausencia de secretos en el historial ni estado de Secret Scanning.
-- Documentación histórica: clasificada y preservada según docs/INDICE_DOCUMENTAL_Y_GOBIERNO.md.
+- No hay evidencia de runtime nuevo ni integración end-to-end activa. CI verde acredita el código y la imagen construida, no despliegue, conexión con Agents ni operación real.
+- Seguridad: revisión estática parcial; consultar `docs/SEGURIDAD_REPOSITORIO.md`. No se certifica ausencia de secretos en el historial ni estado de Secret Scanning.
+- Documentación histórica: clasificada y preservada según `docs/INDICE_DOCUMENTAL_Y_GOBIERNO.md`.
 
 ## Veredicto
 
-**Repositorio validado por CI; integración y operación end-to-end no verificadas; seguridad histórica pendiente de cierre.** No etiquetar CatedralX como producción operativa ni como libre de secretos con la evidencia disponible.
+**Código y artefacto CLI validados por CI; configuración Compose consistente; integración y operación end-to-end no verificadas; protección de rama y auditoría histórica de secretos pendientes.** No etiquetar CatedralX como producción operativa ni como libre de secretos con la evidencia disponible.
 
 ## Alcance y límites
 
-La revisión cubre el árbol GitHub de main, archivos versionados, workflows, dependencias y ejecución CI del commit identificado. No cubre runtime desplegado, procesos, servicios, DNS, red, endpoints activos, valores de variables de entorno, secretos de proveedores, alertas nativas de Secret Scanning ni análisis completo de todos los objetos y refs del historial.
+La revisión cubre el árbol GitHub de `main`, archivos versionados, workflows, dependencias y ejecución CI del commit identificado. No cubre runtime desplegado, procesos, servicios, DNS, red, endpoints activos, valores de variables de entorno, secretos de proveedores, alertas nativas de Secret Scanning ni análisis completo de todos los objetos y refs del historial.
 
 ## Documentos de referencia
 
-- Índice y conservación: docs/INDICE_DOCUMENTAL_Y_GOBIERNO.md.
-- Seguridad: docs/SEGURIDAD_REPOSITORIO.md.
-- Arquitectura: docs/ARQUITECTURA_OBJETIVO.md.
-- Contratos: docs/contracts/README.md.
+- Índice y conservación: `docs/INDICE_DOCUMENTAL_Y_GOBIERNO.md`.
+- Seguridad: `docs/SEGURIDAD_REPOSITORIO.md`.
+- Arquitectura: `docs/ARQUITECTURA_OBJETIVO.md`.
+- Contratos: `docs/contracts/README.md`.
 
 ---
 
 ## Registro histórico preservado — corte 2026-10-26
+
+El texto siguiente se conserva como registro de una auditoría anterior. Sus afirmaciones sobre VM, servicios, integración, dependencias, aceptación y pruebas no representan el estado vigente al 2026-11-11. Se mantiene para trazabilidad y no debe utilizarse como instrucción operativa actual.
 
 El texto siguiente se conserva como registro de una auditoría anterior. Sus afirmaciones sobre VM, servicios, integración, dependencias, aceptación y pruebas no representan el estado vigente al 2026-11-11. Se mantiene para trazabilidad y no debe utilizarse como instrucción operativa actual.
 
@@ -84,3 +91,4 @@ Un documento fechado 2026-10-25 afirmaba que API, worker, túnel Cloudflare y do
 6. Ejecutar suite completa, Ruff, mypy, build y pruebas de integración en el commit exacto.
 7. Inspeccionar la VM sin reiniciar ni desplegar: systemd, procesos, sockets, variables sin valores secretos, logs, red y recepción real de trabajos.
 8. Validar una sola vertical slice antes de habilitar distribución externa o el modo proactivo.
+
