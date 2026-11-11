@@ -71,4 +71,4 @@ Para consultar el agregado de solo lectura:
 
 La ruta por defecto es ~/.local/state/chalamandra/catedralx/user_feedback.jsonl. Se puede definir CATEDRALX_USER_FEEDBACK_PATH. No ingreses secretos ni datos personales en la corrección opcional. La integración del formulario/API externo debe implementarse y verificarse en el repositorio de Agents/producto.
 
-El documento docs/ARQUITECTURA_MECANICA_RETROALIMENTACION.md no está versionado en este repositorio al corte actual. Para la arquitectura y flujos vigentes consulta [arquitectura objetivo](docs/ARQUITECTURA_OBJETIVO.md), [flujos topológicos](docs/FLUJOS_TOPOLOGICOS_CANONICOS.md) e [índice documental](docs/INDICE_DOCUMENTAL_Y_GOBIERNO.md).
+Diseño mecánico, depuración y retroalimentación: [arquitectura mecánica](docs/ARQUITECTURA_MECANICA_RETROALIMENTACION.md). El estado vigente y la clasificación de evidencias están en el [índice documental](docs/INDICE_DOCUMENTAL_Y_GOBIERNO.md) y el [estado del repositorio](docs/ESTADO_PRODUCCION.md).
