@@ -88,7 +88,8 @@ jobs:
           base="https://github.com/gitleaks/gitleaks/releases/download/v${version}"
           curl --fail --silent --show-error --location "${base}/${archive}" --output "/tmp/${archive}"
           curl --fail --silent --show-error --location "${base}/gitleaks_${version}_checksums.txt" --output /tmp/gitleaks-checksums.txt
-          grep " ${archive}$" /tmp/gitleaks-checksums.txt | sha256sum --check --status
+          cd /tmp
+          grep " ${archive}$" gitleaks-checksums.txt | sha256sum --check --status
           tar -xzf "/tmp/${archive}" -C /tmp gitleaks
           /tmp/gitleaks version
 
