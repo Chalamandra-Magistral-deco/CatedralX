@@ -539,6 +539,9 @@ def think(
         # Missing governance is a block, not permission. The central rule consumes
         # the dynamic-governance report; it does not infer calibration from defaults.
         constraints = state.percepcion_espacial.get("dynamic_constraints", {})
+        dynamic_inputs = state.percepcion_espacial.get("dynamic_constraints_input", {})
+        if not isinstance(dynamic_inputs, dict):
+            dynamic_inputs = {}
         if not isinstance(constraints, dict) or constraints.get("growth_allowed") is not True:
             raw_reasons = constraints.get("issues", []) if isinstance(constraints, dict) else []
             blocking_reasons = [str(reason) for reason in raw_reasons if str(reason)]
@@ -551,7 +554,7 @@ def think(
             viability=central_dimensions.get("viability_bp"),
             human_value=central_dimensions.get("human_value_bp"),
             distribution=central_dimensions.get("distribution_bp"),
-            reinvestment=constraints.get("reinvestment_surplus"),
+            reinvestment=dynamic_inputs.get("reinvestment_surplus"),
             resilience=central_dimensions.get("resilience_bp"),
             evidence=central_dimensions.get("evidence_bp"),
         )
