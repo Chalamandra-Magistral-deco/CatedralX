@@ -226,7 +226,7 @@ components:
       properties:
         run_id: { type: string }
         task_id: { type: string }
-        status: { type: string, const: queued }
+        status: { type: string, enum: [queued, running, candidate, blocked, failed, accepted, rejected] }
         trace_id: { type: string, pattern: '^[0-9a-f]{32}      type: object
       additionalProperties: false
       required: [job_id, status, trace_id, accepted_at]
