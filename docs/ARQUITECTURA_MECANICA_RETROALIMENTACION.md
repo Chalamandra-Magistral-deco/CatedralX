@@ -1,8 +1,9 @@
 # Arquitectura mecánica, depuración y retroalimentación
 
-**Estado:** diseño documentado; feedback directo implementado en el checkout. Suite completa: 337 passed; lint dirigido de archivos centrales: limpio.  
-**Fecha:** 2026-10-28.  
-**Alcance:** repositorio CatedralX. La integración de formularios/API externos requiere una implementación separada en Agents/producto.
+**Estado:** diseño documentado; feedback directo implementado en el código versionado.  
+**Fecha del diseño:** 2026-10-28. **Reconciliación documental:** 2026-11-11.  
+**Alcance:** repositorio CatedralX. La integración de formularios/API externos requiere una implementación separada en Agents/producto.  
+**Vigencia de pruebas:** el conteo de 337 pruebas mencionado en registros de octubre es histórico. La CI de main validó 354 pruebas, pip check, compileall, Compose config, Docker build y CLI smoke test en el commit dd863ae9835fb1cdba2f454fb6479766a84ded41 (run #121).
 
 ## Resumen ejecutivo de intervención
 
@@ -30,8 +31,8 @@
 
 ### Inconsistencias verificadas
 
-1. docs/FLUJOS_SISTEMA.md mencionaba BIN/motor.py como wrapper. El punto de entrada versionado es BIN/catedral, que llama a REASON.razon; docs/legacy/motor.py es otro wrapper histórico.
-2. docs/FLUJOS_SISTEMA.md menciona elite/bin/inyector-vitral, pero ese archivo no se localizó en el árbol inspeccionado. No declararlo operativo sin una comprobación del entorno que lo contenga.
+1. **Hallazgo histórico corregido:** versiones anteriores de docs/FLUJOS_SISTEMA.md confundían BIN/motor.py con la entrada canónica. El punto de entrada versionado es BIN/catedral; docs/legacy/motor.py es un wrapper histórico.
+2. **Hallazgo histórico corregido:** elite/bin/inyector-vitral sí existe en el árbol actual. Es un endpoint HTTP opcional de solo lectura que enlaza a 127.0.0.1:5050 cuando se ejecuta explícitamente; no forma parte de la imagen CLI ni está acreditado como servicio desplegado. docs/FLUJOS_SISTEMA.md y docker-compose.yml ya reflejan esa separación.
 3. El ledger de FEX evalúa predicciones contra resultados de mercado. No captura la valoración humana de claridad, utilidad o corrección de una respuesta.
 4. El comentario de contracts/builder.py decía que los diagnósticos no podían sobrescribir un veto, pero una disonancia alta podía cambiar un estado bloqueado a REJECTED. Se corrigió para aplicar el downgrade diagnóstico únicamente cuando la regla central había producido ACCEPTED.
 5. El hotfix P0 ya exige puntajes BP enteros explícitos. Hasta que exista un productor verificado de central_dimensions_bp, la falta de dimensiones debe seguir bloqueando la aceptación.
