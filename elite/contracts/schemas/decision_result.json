@@ -93,14 +93,21 @@
     },
     "missing_inputs": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "blocking_reasons": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "evaluation_reason": {
-      "type": [ "string", "null" ]
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "evaluation_gate": {
       "type": "string",
@@ -120,5 +127,29 @@
         "null"
       ]
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ACCEPTED"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence": {
+            "minItems": 1
+          },
+          "provenance": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
 }
