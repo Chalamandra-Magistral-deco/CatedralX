@@ -53,7 +53,9 @@ El modo `--objective` no constituye autorización comercial ni sustituye los con
 
 El payload financiero debe contener al menos 30 precios positivos y finitos, `current_price`, `observed_at` ISO-8601 con zona horaria y `source`. Se rechazan timestamps inválidos, futuros o con antigüedad superior a 120 segundos. `source` es metadato declarado, no prueba criptográfica del origen del feed.
 
-## Validación automatizada
+## Validación automatizada — registro histórico del 2026-10-28
+
+Los conteos y resultados locales que aparecen en esta sección pertenecen al checkout y corte indicados; no describen la CI actual ni prueban una integración desplegada. Para la validación vigente del repositorio CatedralX consulta docs/ESTADO_PRODUCCION.md.
 
 Las pruebas de integración usan fixtures sintéticos y verifican API HTTP, autenticación, TaskBus, worker, invocación del motor canónico, trazabilidad, límites de ejecución y aceptación independiente.
 
@@ -68,7 +70,9 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=elite python3 -m pytest -q -p no:cacheprovi
 
 Última validación local: **Agents 180 passed; CatedralX 303 passed**. Ruff pasa en los archivos activos de integración; la ejecución sobre todo CatedralX detecta deuda de estilo histórica en `docs/legacy`, AEX y tests antiguos, no corregida masivamente para evitar una reescritura de archivos ajenos al cambio. Esto demuestra pruebas de software con datos sintéticos; no demuestra demanda, ingresos, validez predictiva ni autenticidad de datos externos.
 
-## Estado operativo y pendientes
+## Snapshot operativo histórico y pendientes — 2026-10-28
+
+**No ejecutar ni interpretar como estado actual.** Los siguientes datos describen un entorno anterior. La VM quedó fuera del plan operativo el 2026-11-11; no hay host sustituto confirmado. No iniciar, reiniciar ni desplegar servicios con estas instrucciones.
 
 - API productiva: contenedor `chalamandra-api`, puerto local `127.0.0.1:8766`; `/healthz` responde HTTP 200 con ejecución de modelos desactivada.
 - Worker persistente: `chalamandra-worker.service`; se reinició de forma controlada tras comprobar que no había tareas `queued` o `running`.
