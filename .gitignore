@@ -24,8 +24,6 @@ logs/
 # Test/output artifacts (never committed)
 03-OUTPUT/
 .coverage
-03-OUTPUT/
-03-OUTPUT/
 
 # Auditoría: Ignorar artefactos de respaldo
 *.bak*
