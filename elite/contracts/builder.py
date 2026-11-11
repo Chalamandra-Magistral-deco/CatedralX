@@ -6,6 +6,8 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from .actions import normalizar_senal
+
 _TRACE_ID_RE = re.compile(r"^[0-9a-f]{32}$")
 _EVALUATION_HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -102,14 +104,10 @@ def build_decision_result(
             status = "UNCERTAIN"
 
     raw_decision = getattr(state, "decision", "HOLD")
-    decision_aliases = {
-        "buy": "buy", "comprar": "buy", "entrar_largo": "buy",
-        "sell": "sell", "vender": "sell", "entrar_corto": "sell",
-        "hold": "hold", "esperar": "hold", "lateral": "hold",
-    }
-    if not isinstance(raw_decision, str) or raw_decision.strip().lower() not in decision_aliases:
-        raise ValueError("DecisionResult requiere una decisión canónica buy, sell o hold")
-    canonical_decision = decision_aliases[raw_decision.strip().lower()]
+    try:
+        canonical_decision = normalizar_senal(raw_decision)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("DecisionResult requiere una decisión canónica buy, sell o hold") from exc
 
     prov_records = _extract_provenance_records(cognitive.get("provenance", []))
 
