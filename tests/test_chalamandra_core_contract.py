@@ -78,7 +78,10 @@ def test_prediction_error_is_only_computed_from_observed_numeric_outcome():
 @pytest.mark.parametrize("overrides", [
     {"cycle_id": ""},
     {"observed_at": "not-a-date"},
+    {"observed_at": "2026-11-11T09:00:00"},
     {"source_status": "maybe"},
+    {"decision": "EXECUTE"},
+    {"decision": ""},
     {"mode": "MAGIC"},
     {"uncertainty": -0.1},
     {"uncertainty": float("nan")},
