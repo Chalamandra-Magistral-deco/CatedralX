@@ -1,4 +1,6 @@
 # Identidad Canónica — CatedralX
+
+> Registro histórico de identidad y alineación local del 2026-11-06. No usar los SHA, remotos locales ni estado de VM de este documento como estado actual. La fuente remota vigente es la rama main de este repositorio; consulta docs/ESTADO_PRODUCCION.md y docs/INDICE_DOCUMENTAL_Y_GOBIERNO.md.
 ## Registro: 2026-11-06
 
 ### Definición Oficial
