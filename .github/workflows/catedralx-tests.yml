@@ -30,6 +30,15 @@ jobs:
           python -m pip install -r requirements.lock
           python -m pip check
 
+      - name: Validate contract document syntax
+        run: |
+          ruby -e 'require "yaml"; ARGV.each { |file| YAML.parse_file(file) }' \
+            docs/contracts/request_flow.yaml \
+            docs/contracts/distribution_flow.yaml \
+            docs/contracts/orchestration_flow.yaml
+          python -m json.tool elite/contracts/schemas/chalamandra_contract.json >/dev/null
+          python -m json.tool elite/contracts/schemas/decision_result.json >/dev/null
+
       - name: Run all tests and record the actual count
         env:
           PYTHONPATH: ${{ github.workspace }}/elite
