@@ -1,9 +1,11 @@
 openapi: 3.1.0
 info:
   title: Chalamandra Distribution Flow API
-  version: 0.2.0
+  version: 0.2.1
   summary: Publicación controlada de resultados aceptados.
-  description: Contrato de distribución contrastado con el handler actual de Agents; solo se emite result.accepted automáticamente.
+  description: >-
+    Contrato alineado con los handlers de Agents. Solo se distribuyen resultados
+    con aceptación independiente y sincronización operativa confirmadas.
 servers:
   - url: /
 paths:
@@ -11,18 +13,21 @@ paths:
     post:
       operationId: createSubscription
       x-required-scope: subscriptions:write
-      security: [{ bearerAuth: [] }]
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/SubscriptionRequest' }
+            schema:
+              $ref: '#/components/schemas/SubscriptionRequest'
       responses:
         '201':
           description: Suscripción creada.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Subscription' }
+              schema:
+                $ref: '#/components/schemas/Subscription'
         '400': { $ref: '#/components/responses/Problem' }
         '401': { $ref: '#/components/responses/Problem' }
         '411': { $ref: '#/components/responses/Problem' }
@@ -31,7 +36,8 @@ paths:
     get:
       operationId: listSubscriptions
       x-required-scope: subscriptions:read
-      security: [{ bearerAuth: [] }]
+      security:
+        - bearerAuth: []
       responses:
         '200':
           description: Lista de suscripciones.
@@ -41,18 +47,23 @@ paths:
                 type: object
                 required: [items]
                 properties:
-                  items: { type: array, items: { $ref: '#/components/schemas/Subscription' } }
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Subscription'
         '401': { $ref: '#/components/responses/Problem' }
   /v1/subscriptions/{subscription_id}:
     delete:
       operationId: deleteSubscription
       x-required-scope: subscriptions:write
-      security: [{ bearerAuth: [] }]
+      security:
+        - bearerAuth: []
       parameters:
         - name: subscription_id
           in: path
           required: true
-          schema: { type: string }
+          schema:
+            type: string
       responses:
         '204': { description: Suscripción deshabilitada. }
         '401': { $ref: '#/components/responses/Problem' }
@@ -61,29 +72,36 @@ paths:
     post:
       operationId: publishAcceptedResult
       x-required-scope: results:publish
-      security: [{ serviceBearerAuth: [] }]
+      x-required-subject: catedralx-service
+      security:
+        - serviceBearerAuth: []
       parameters:
         - name: traceparent
           in: header
           required: false
-          description: W3C Trace Context; si se envía, su trace_id debe coincidir con la aceptación.
+          description: >-
+            W3C Trace Context. Si se envía y es válido, su trace_id debe coincidir
+            con la traza del resultado aceptado.
           schema:
             type: string
-            pattern: '^[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}
+            pattern: '^[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$'
+      requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/DistributionRequest' }
+            schema:
+              $ref: '#/components/schemas/DistributionRequest'
       responses:
         '202':
-          description: Distribución ejecutada o repetición idempotente de una distribución ya completada.
+          description: Evento de distribución despachado.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/DistributionAccepted' }
+              schema:
+                $ref: '#/components/schemas/DistributionAccepted'
         '400': { $ref: '#/components/responses/Problem' }
         '401': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
-        '409': { description: Resultado no aceptado, identidad conflictiva o entrega en progreso. }
+        '409': { description: Resultado no aceptado, identidad o traza conflictiva, o TaskBus sin reconciliar. }
         '411': { $ref: '#/components/responses/Problem' }
         '413': { $ref: '#/components/responses/Problem' }
         '415': { $ref: '#/components/responses/Problem' }
@@ -115,14 +133,18 @@ components:
           type: array
           minItems: 1
           uniqueItems: true
-          items: { type: string, enum: [result.accepted, result.blocked] }
+          items:
+            type: string
+            enum: [result.accepted, result.blocked]
     Subscription:
       type: object
       required: [subscription_id, endpoint_url, event_types, status, created_at]
       properties:
         subscription_id: { type: string }
         endpoint_url: { type: string, format: uri }
-        event_types: { type: array, items: { type: string } }
+        event_types:
+          type: array
+          items: { type: string }
         status: { type: string, enum: [enabled, disabled] }
         created_at: { type: string, format: date-time }
     DistributionRequest:
@@ -131,7 +153,11 @@ components:
       properties:
         candidate_id: { type: string, minLength: 1, maxLength: 256 }
         result_id: { type: string, minLength: 1, maxLength: 256 }
-        event_id: { type: string, minLength: 1, maxLength: 128, description: Optional; generated by the server when omitted. }
+        event_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Opcional; el servidor lo genera si se omite.
         event_type:
           type: string
           const: result.accepted
@@ -139,132 +165,32 @@ components:
         trace_id:
           type: string
           pattern: '^[0-9a-f]{32}$'
-          description: Optional; when supplied it must match the independently accepted result trace.
+          description: Opcional; si se envía debe coincidir con la traza de aceptación.
       anyOf:
         - required: [candidate_id]
         - required: [result_id]
-      description: At least candidate_id or result_id is required; if both are supplied they must identify the same candidate/result.
+      description: >-
+        Debe incluir candidate_id o result_id. Si incluye ambos, deben ser iguales.
     DistributionAccepted:
       type: object
+      additionalProperties: false
       required: [event_id, event_type, result_id, status, delivered_count, trace_id]
       properties:
         event_id: { type: string }
         event_type: { type: string, const: result.accepted }
         result_id: { type: string }
         status: { type: string, const: dispatched }
-        delivered_count: { type: integer, minimum: 0 }
+        delivered_count: { type: integer, minimum: 1 }
         trace_id: { type: string, pattern: '^[0-9a-f]{32}$' }
     WebhookEnvelope:
       type: object
       required: [event_id, event_type, occurred_at, result_id, trace_id]
-      properties:
-        event_id: { type: string }
-        event_type: { type: string, enum: [result.accepted] }
-        occurred_at: { type: string, format: date-time }
-        result_id: { type: string }
-        trace_id: { type: string }
-        result_url: { type: string, format: uri-reference }
-  responses:
-    Problem:
-      description: Error JSON; el handler actual responde application/json.
-
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/DistributionRequest' }
-      responses:
-        '202':
-          description: Distribución ejecutada o repetición idempotente de una distribución ya completada.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/DistributionAccepted' }
-        '400': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
-        '404': { $ref: '#/components/responses/Problem' }
-        '409': { description: Resultado no aceptado, identidad conflictiva o entrega en progreso. }
-        '411': { $ref: '#/components/responses/Problem' }
-        '413': { $ref: '#/components/responses/Problem' }
-        '415': { $ref: '#/components/responses/Problem' }
-        '500': { $ref: '#/components/responses/Problem' }
-        '502': { $ref: '#/components/responses/Problem' }
-        '503': { $ref: '#/components/responses/Problem' }
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-    serviceBearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: JWT de workload/service-to-service.
-  schemas:
-    SubscriptionRequest:
-      type: object
-      additionalProperties: false
-      required: [endpoint_url, event_types]
-      properties:
-        endpoint_url:
-          type: string
-          format: uri
-          pattern: '^https://'
-        event_types:
-          type: array
-          minItems: 1
-          uniqueItems: true
-          items: { type: string, enum: [result.accepted, result.blocked] }
-    Subscription:
-      type: object
-      required: [subscription_id, endpoint_url, event_types, status, created_at]
-      properties:
-        subscription_id: { type: string }
-        endpoint_url: { type: string, format: uri }
-        event_types: { type: array, items: { type: string } }
-        status: { type: string, enum: [enabled, disabled] }
-        created_at: { type: string, format: date-time }
-    DistributionRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        candidate_id: { type: string, minLength: 1, maxLength: 256 }
-        result_id: { type: string, minLength: 1, maxLength: 256 }
-        event_id: { type: string, minLength: 1, maxLength: 128, description: Optional; generated by the server when omitted. }
-        event_type:
-          type: string
-          const: result.accepted
-          default: result.accepted
-        trace_id:
-          type: string
-          pattern: '^[0-9a-f]{32}$'
-          description: Optional; when supplied it must match the independently accepted result trace.
-      anyOf:
-        - required: [candidate_id]
-        - required: [result_id]
-      description: At least candidate_id or result_id is required; if both are supplied they must identify the same candidate/result.
-    DistributionAccepted:
-      type: object
-      required: [event_id, event_type, candidate_id, result_id, status, delivered_count, trace_id]
       properties:
         event_id: { type: string }
         event_type: { type: string, const: result.accepted }
-        candidate_id: { type: string }
-        result_id: { type: string }
-        status: { type: string, enum: [dispatched, already_dispatched] }
-        delivered_count: { type: integer, minimum: 0 }
-        original_delivered_count: { type: integer, minimum: 0 }
-        idempotent_replay: { type: boolean }
-        trace_id: { type: string, pattern: '^[0-9a-f]{32}$' }
-    WebhookEnvelope:
-      type: object
-      required: [event_id, event_type, occurred_at, result_id, trace_id]
-      properties:
-        event_id: { type: string }
-        event_type: { type: string, enum: [result.accepted] }
         occurred_at: { type: string, format: date-time }
         result_id: { type: string }
-        trace_id: { type: string }
+        trace_id: { type: string, pattern: '^[0-9a-f]{32}$' }
         result_url: { type: string, format: uri-reference }
   responses:
     Problem:
