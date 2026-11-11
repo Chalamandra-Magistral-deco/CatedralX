@@ -1,8 +1,8 @@
 # Arquitectura objetivo — Chalamandra Magistral DecoX
 
 **Estado:** diseño objetivo con estado de implementación revisado en código  
-**Fecha de revisión de código:** 2026-10-28
-**Regla de evidencia:** código versionado no demuestra por sí solo que un servicio esté desplegado u operativo en la VM.
+**Fecha de diseño:** 2026-10-28; actualización del criterio operativo: 2026-11-11.
+**Regla de evidencia:** código versionado no demuestra por sí solo que un servicio esté desplegado u operativo. La VM anterior está fuera del plan operativo; no se asume un host sustituto.
 
 ## 1. Principio rector: La Catedral
 
@@ -22,8 +22,8 @@ Autentica, autoriza scopes, valida contratos y límites, controla idempotencia y
 ### Plano de evidencia y aceptación
 Registra entradas, versiones, procedencia, contraevidencia, pruebas, digests y decisiones de aceptación. La aceptación debe proceder de un verificador independiente en permisos y custodia de claves.
 
-### Sustrato de ejecución — VM y servicios
-Sostiene procesos, almacenamiento, conectividad, secretos y observabilidad. La VM no es una etapa lógica del análisis; su estado real exige inspección de procesos, systemd, variables, puertos, red y logs. Un archivo de servicio en Git no prueba que esté activo.
+### Sustrato de ejecución — plataforma y servicios
+Sostiene procesos, almacenamiento, conectividad, secretos y observabilidad. Es independiente del núcleo analítico y puede cambiar sin alterar los contratos lógicos. No hay plataforma de ejecución actual confirmada en este repositorio. Un Dockerfile, compose o archivo systemd versionado no prueba que esté desplegado o activo.
 
 ## 3. Tres planos independientes
 
@@ -108,3 +108,8 @@ Solo se habilita tras verificar autorización/scopes en todas las rutas, identid
 ## Inventario del ecosistema y conexiones
 
 La matriz de repositorios, vínculos evidenciados, limpiezas aplicadas y brechas de integración está en [`docs/INVENTARIO_ECOSISTEMA_Y_CONEXIONES.md`](docs/INVENTARIO_ECOSISTEMA_Y_CONEXIONES.md).
+
+
+## Nota de vigencia — 2026-11-11
+
+Este documento conserva el diseño objetivo fechado el 2026-10-28. Las menciones históricas a VM, systemd, túneles y runtime no describen un entorno actual. El estado verificable se mantiene en [ESTADO_PRODUCCION.md](ESTADO_PRODUCCION.md); la clasificación de snapshots está en [INDICE_DOCUMENTAL_Y_GOBIERNO.md](INDICE_DOCUMENTAL_Y_GOBIERNO.md).
