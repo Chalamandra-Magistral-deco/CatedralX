@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Chalamandra Distribution Flow API
-  version: 0.1.0
+  version: 0.2.0
   summary: Publicación controlada de resultados aceptados.
   description: Contrato de distribución contrastado con el handler actual de Agents; solo se emite result.accepted automáticamente.
 servers:
