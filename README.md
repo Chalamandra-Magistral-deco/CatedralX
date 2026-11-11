@@ -1,6 +1,6 @@
 # CatedralX — motor financiero de análisis
 
-> Navegación: [índice documental](docs/INDICE_DOCUMENTAL_Y_GOBIERNO.md) · [estado vigente](docs/ESTADO_PRODUCCION.md) · [revisión de seguridad](docs/SEGURIDAD_REPOSITORIO.md).
+> Navegación: [índice documental](docs/INDICE_DOCUMENTAL_Y_GOBIERNO.md) · [mapa estructural](MAPA_SAGRADO.json) · [estado vigente](docs/ESTADO_PRODUCCION.md) · [revisión de seguridad](docs/SEGURIDAD_REPOSITORIO.md).
 
 CatedralX es el motor financiero experimental del ecosistema Chalamandra Magistral. Esta versión ejecuta análisis determinista sobre precios observados y conserva los subsistemas de Hurst, geometría, energía libre y giro como diagnósticos complementarios. La etiqueta financiera final ya no depende de la decisión estocástica del subsistema antiguo.
 
