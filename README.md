@@ -30,7 +30,7 @@ python -m pip install -r requirements.lock
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=elite python -m pytest -q -p no:cacheprovider tests/test_financial_engine.py
 ```
 
-La CI instala `requirements.lock`, ejecuta la suite completa y construye/prueba la imagen CLI. `requirements.txt` declara dependencias de runtime; `requirements-test.txt` conserva el conjunto de especificaciones para desarrollo y pruebas.
+La CI instala `requirements.lock`, ejecuta la suite completa y construye/prueba la imagen CLI. `requirements.txt` declara rangos de runtime; `requirements-runtime.lock` fija el runtime mínimo de la imagen; `requirements.lock` fija el entorno completo de CI y pruebas.
 
 La suite cubre tendencias ascendentes y descendentes, mercado plano, bloqueo por expansión de volatilidad, entradas inválidas, reproducibilidad del ciclo público, persistencia fuera del código fuente y la prohibición de fabricar precios.
 
