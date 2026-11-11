@@ -2,12 +2,13 @@
 
 **Actualizado:** 2026-11-11  
 **Fuente de verdad:** rama `main` de Chalamandra-Magistral-deco/CatedralX.  
-**Commit inspeccionado:** `dd863ae9835fb1cdba2f454fb6479766a84ded41`.
+**Commit inspeccionado:** `dddf89b89fc452bbeee93d2a11c07824b844f2d7`.
 
 ## Estado vigente verificado
 
-- GitHub Actions del commit inspeccionado: workflow run [#121](https://github.com/Chalamandra-Magistral-deco/CatedralX/actions/runs/42992067112) completado correctamente.
+- GitHub Actions del commit inspeccionado: workflow run [#141](https://github.com/Chalamandra-Magistral-deco/CatedralX/actions/runs/42993684978) completado correctamente.
 - Suite: **354 pruebas aprobadas**.
+- Gitleaks 8.30.1: escaneo de 129 commits y refs alcanzables, sin hallazgos no exceptuados; dos falsos positivos históricos de fixtures sintéticos están exceptuados por huella exacta en `.gitleaksignore`.
 - `pip check`: correcto.
 - `compileall`: correcto.
 - Configuración Compose: `docker compose config --quiet` correcta.
@@ -16,7 +17,7 @@
 - Docker: instala exclusivamente el lockfile de runtime y falla cerrado si no está disponible; se retiró el fallback no reproducible y curl no utilizado.
 - Compose: representa una ejecución CLI puntual; no reinicia el proceso como daemon ni publica 5050, porque el endpoint loopback es una herramienta opcional separada.
 - CI: los eventos push se limitan a `main` y los PR a `main`, evitando duplicar el mismo pipeline por push a ramas de trabajo y apertura de PR.
-- Árbol Git: 215 entradas, no truncado en la última lectura.
+- Árbol Git: 216 entradas (184 archivos, 121 Python), no truncado.
 - Ramas visibles al corte: `main` y tres refs de trabajo cuyos PR (#11, #12 y #13) ya fueron fusionados. No se detectó trabajo pendiente en esos PR; las refs antiguas permanecen porque la conexión disponible no expone una operación de borrado de ramas.
 - `main` continúa sin protección confirmada. La API de ramas reporta `protected=false`.
 - VM anterior: fuera del plan operativo. No usarla como fuente de estado ni destino.
