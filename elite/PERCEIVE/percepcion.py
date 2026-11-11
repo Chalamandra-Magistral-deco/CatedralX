@@ -27,6 +27,16 @@ def validar_campos_gobernanza(snapshot: dict[str, Any]) -> tuple[dict[str, Any],
     central_dimensions_bp = snapshot.get("CENTRAL_DIMENSIONS_BP", {})
     if not isinstance(central_dimensions_bp, dict):
         raise ValueError("CENTRAL_DIMENSIONS_BP debe ser un objeto cuando se proporciona")
+    allowed_dimensions = {
+        "viability_bp", "human_value_bp", "distribution_bp",
+        "resilience_bp", "evidence_bp",
+    }
+    unknown_dimensions = sorted(set(central_dimensions_bp) - allowed_dimensions)
+    if unknown_dimensions:
+        raise ValueError(
+            "CENTRAL_DIMENSIONS_BP contiene claves no canónicas: "
+            + ", ".join(unknown_dimensions)
+        )
 
     return dynamic_constraints, central_dimensions_bp
 
