@@ -2,13 +2,13 @@
 
 **Actualizado:** 2026-11-11  
 **Fuente de verdad:** rama `main` de Chalamandra-Magistral-deco/CatedralX.  
-**Commit inspeccionado:** `dddf89b89fc452bbeee93d2a11c07824b844f2d7`.
+**Commit inspeccionado:** `3bc0e234d4b4c651b77a3c84a9b2ecbdb51b13d5`.
 
 ## Estado vigente verificado
 
-- GitHub Actions del commit inspeccionado: workflow run [#141](https://github.com/Chalamandra-Magistral-deco/CatedralX/actions/runs/42993684978) completado correctamente.
+- GitHub Actions del commit inspeccionado: workflow run [#145](https://github.com/Chalamandra-Magistral-deco/CatedralX/actions/runs/42993883913) completado correctamente.
 - Suite: **354 pruebas aprobadas**.
-- Gitleaks 8.30.1: escaneo de 129 commits y refs alcanzables, sin hallazgos no exceptuados; dos falsos positivos históricos de fixtures sintéticos están exceptuados por huella exacta en `.gitleaksignore`.
+- Gitleaks 8.30.1: escaneo de 133 commits y refs alcanzables, sin hallazgos no exceptuados; dos falsos positivos históricos de fixtures sintéticos están exceptuados por huella exacta en `.gitleaksignore`.
 - `pip check`: correcto.
 - `compileall`: correcto.
 - Configuración Compose: `docker compose config --quiet` correcta.
