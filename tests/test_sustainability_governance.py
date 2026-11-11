@@ -157,8 +157,8 @@ def test_fex_legacy_evidence_remains_verifiable_during_key_overlap(monkeypatch):
         verificar_integridad_evidencia,
     )
 
-    old_key = "synthetic-legacy-fex-key-material-32-bytes"
-    new_key = "synthetic-next-fex-key-material-32-bytes"
+    old_key = "x" * 32
+    new_key = "y" * 32
     monkeypatch.setenv(FEX_KEYRING_ENV, json.dumps({"legacy": old_key, "fex-v2": new_key}))
     monkeypatch.setenv(FEX_ACTIVE_KEY_ID_ENV, "fex-v2")
 
