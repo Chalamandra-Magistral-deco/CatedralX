@@ -12,11 +12,11 @@
 - `compileall`: correcto.
 - Configuración Compose: `docker compose config --quiet` correcta.
 - Imagen Docker: build y smoke test CLI correctos.
-- Dependencias: `requirements.txt` conserva los rangos de runtime; `requirements.lock` fija el entorno de CI; `requirements-runtime.lock` fija el conjunto mínimo de runtime de la imagen, sin pytest.
+- Dependencias: `requirements.txt` conserva los rangos de runtime; `requirements.lock` fija el entorno completo de CI/pruebas; `requirements-runtime.lock` fija el conjunto mínimo de runtime de la imagen, sin pytest. Se retiró `requirements-test.txt`, que no tenía consumidores internos y duplicaba la declaración flexible de runtime + pytest.
 - Docker: instala exclusivamente el lockfile de runtime y falla cerrado si no está disponible; se retiró el fallback no reproducible y curl no utilizado.
 - Compose: representa una ejecución CLI puntual; no reinicia el proceso como daemon ni publica 5050, porque el endpoint loopback es una herramienta opcional separada.
 - CI: los eventos push se limitan a `main` y los PR a `main`, evitando duplicar el mismo pipeline por push a ramas de trabajo y apertura de PR.
-- Árbol Git: 216 entradas, no truncado en la última lectura.
+- Árbol Git: 215 entradas, no truncado en la última lectura.
 - Ramas visibles al corte: `main` y tres refs de trabajo cuyos PR (#11, #12 y #13) ya fueron fusionados. No se detectó trabajo pendiente en esos PR; las refs antiguas permanecen porque la conexión disponible no expone una operación de borrado de ramas.
 - `main` continúa sin protección confirmada. La API de ramas reporta `protected=false`.
 - VM anterior: fuera del plan operativo. No usarla como fuente de estado ni destino.
