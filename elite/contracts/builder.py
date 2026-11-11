@@ -164,5 +164,8 @@ def build_decision_result(
         "analysis_only": True,
         "orders_created": False,
         "orders_executed": False,
-        "next_action": "None" if status == "ACCEPTED" else "Manual review required",
+        "next_action": (
+            "SOLICITAR_ACEPTACION_INDEPENDIENTE"
+            if status == "ACCEPTED" else "Manual review required"
+        ),
     }
