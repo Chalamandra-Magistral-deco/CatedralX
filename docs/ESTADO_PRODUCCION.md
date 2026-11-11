@@ -45,8 +45,6 @@ La revisión cubre el árbol GitHub de `main`, archivos versionados, workflows, 
 
 El texto siguiente se conserva como registro de una auditoría anterior. Sus afirmaciones sobre VM, servicios, integración, dependencias, aceptación y pruebas no representan el estado vigente al 2026-11-11. Se mantiene para trazabilidad y no debe utilizarse como instrucción operativa actual.
 
-El texto siguiente se conserva como registro de una auditoría anterior. Sus afirmaciones sobre VM, servicios, integración, dependencias, aceptación y pruebas no representan el estado vigente al 2026-11-11. Se mantiene para trazabilidad y no debe utilizarse como instrucción operativa actual.
-
 ## 1. Veredicto
 
 **No declarar el sistema integrado operativo de extremo a extremo todavía.** La regresión P0 de autorización fue corregida y fusionada en `aee4e114ecdc86d9ff8abade69e02799b500d90e`; pruebas, Ruff, mypy y smoke test de imagen pasaron. La aceptación Ed25519 no está conectada y el recorrido real en VM sigue sin verificarse.
