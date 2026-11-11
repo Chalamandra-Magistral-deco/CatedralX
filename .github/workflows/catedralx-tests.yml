@@ -22,11 +22,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: |
-            requirements.txt
-            requirements-test.txt
-            requirements.lock
-            requirements-runtime.lock
+          cache-dependency-path: requirements.lock
 
       - name: Install locked dependencies (fail closed)
         run: |
