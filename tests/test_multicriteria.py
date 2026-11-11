@@ -12,6 +12,7 @@ def test_accepted_when_all_high_and_hash_is_deterministic():
     assert first["status"] == "ACCEPTED", first
     assert first["score"] == 9000
     assert first["score"] >= 7000
+    assert first["next_action"] == "SOLICITAR_ACEPTACION_INDEPENDIENTE"
     assert first["evaluation_hash"] == second["evaluation_hash"]
     assert len(first["evaluation_hash"]) == 64
     assert first["dimensions"]["viability"] == 9000
