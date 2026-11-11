@@ -45,6 +45,16 @@ def _validate_decision_result(record: dict[str, Any]) -> None:
         raise ValueError("DecisionResult requiere evaluation_hash SHA-256 válido")
     if record.get("evaluation_gate") not in {"ACCEPTED", "REJECTED", "BLOCKED_EVIDENCE", "BLOCKED_REINVERSION", "BLOCKED_UNCERTAINTY", "BLOCKED_DEFICIT"}:
         raise ValueError("DecisionResult.evaluation_gate inválido")
+    if record["status"] == "ACCEPTED" and record["evaluation_gate"] != "ACCEPTED":
+        raise ValueError("DecisionResult ACCEPTED requiere evaluation_gate ACCEPTED")
+    if (
+        record["status"] == "BLOCKED_MISSING_INPUT"
+        and (
+            record["evaluation_gate"] != "BLOCKED_UNCERTAINTY"
+            or not record.get("missing_inputs")
+        )
+    ):
+        raise ValueError("BLOCKED_MISSING_INPUT requiere gate de incertidumbre e inputs faltantes")
     trace_id = record.get("trace_id")
     if not isinstance(trace_id, str) or not re.fullmatch(r"[0-9a-f]{32}", trace_id) or trace_id == "0" * 32:
         raise ValueError("DecisionResult.trace_id debe ser un W3C trace ID válido")
@@ -56,15 +66,25 @@ def _validate_decision_result(record: dict[str, Any]) -> None:
     if record["status"] == "ACCEPTED":
         if not record["evidence"] or not record["provenance"]:
             raise ValueError("DecisionResult ACCEPTED requiere evidencia y procedencia")
+        provenance_ids = record["provenance"]
+        if any(not isinstance(item, str) or not item.strip() for item in provenance_ids):
+            raise ValueError("DecisionResult ACCEPTED requiere IDs de procedencia válidos")
+        evidence_ids = []
         for item in record["evidence"]:
             if (
                 not isinstance(item, dict)
+                or not isinstance(item.get("evidence_id"), str)
+                or not item["evidence_id"].strip()
+                or item.get("kind") not in {"input", "observation", "calculation", "test", "external_source", "contradiction"}
                 or not isinstance(item.get("digest"), str)
                 or not re.fullmatch(r"[0-9a-f]{64}", item["digest"])
                 or not isinstance(item.get("source"), str)
                 or not item["source"].strip()
             ):
-                raise ValueError("DecisionResult ACCEPTED contiene evidencia sin fuente o digest SHA-256")
+                raise ValueError("DecisionResult ACCEPTED contiene evidencia incompleta o sin digest SHA-256")
+            evidence_ids.append(item["evidence_id"])
+        if len(evidence_ids) != len(set(evidence_ids)) or not set(evidence_ids).issubset(set(provenance_ids)):
+            raise ValueError("DecisionResult ACCEPTED requiere IDs de evidencia únicos y enlazados a procedencia")
 
 
 def append_result(record: dict[str, Any], path: str | Path | None = None) -> str:
