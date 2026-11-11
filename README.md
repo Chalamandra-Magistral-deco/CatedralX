@@ -1,5 +1,7 @@
 # CatedralX — motor financiero de análisis
 
+> Navegación: [índice documental](docs/INDICE_DOCUMENTAL_Y_GOBIERNO.md) · [estado vigente](docs/ESTADO_PRODUCCION.md) · [revisión de seguridad](docs/SEGURIDAD_REPOSITORIO.md).
+
 CatedralX es el motor financiero experimental del ecosistema Chalamandra Magistral. Esta versión ejecuta análisis determinista sobre precios observados y conserva los subsistemas de Hurst, geometría, energía libre y giro como diagnósticos complementarios. La etiqueta financiera final ya no depende de la decisión estocástica del subsistema antiguo.
 
 ## Alcance actual
@@ -69,4 +71,4 @@ Para consultar el agregado de solo lectura:
 
 La ruta por defecto es ~/.local/state/chalamandra/catedralx/user_feedback.jsonl. Se puede definir CATEDRALX_USER_FEEDBACK_PATH. No ingreses secretos ni datos personales en la corrección opcional. La integración del formulario/API externo debe implementarse y verificarse en el repositorio de Agents/producto.
 
-Diseño mecánico, flujos, pruebas y candidatos de limpieza pendientes de confirmación: docs/ARQUITECTURA_MECANICA_RETROALIMENTACION.md.
+El documento docs/ARQUITECTURA_MECANICA_RETROALIMENTACION.md no está versionado en este repositorio al corte actual. Para la arquitectura y flujos vigentes consulta [arquitectura objetivo](docs/ARQUITECTURA_OBJETIVO.md), [flujos topológicos](docs/FLUJOS_TOPOLOGICOS_CANONICOS.md) e [índice documental](docs/INDICE_DOCUMENTAL_Y_GOBIERNO.md).
