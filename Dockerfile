@@ -3,17 +3,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 \
     CATEDRALX_SNAPSHOT_PATH=/dev/shm/cathedral_snapshot.json \
     PATH="/app/BIN:${PATH}"
 WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && useradd --create-home --shell /bin/bash catedralx
-COPY requirements.txt* ./
-RUN if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; else pip install --no-cache-dir numpy pytest psutil; fi
+RUN useradd --create-home --shell /bin/bash catedralx
+COPY requirements-runtime.lock ./
+RUN python -m pip install --no-cache-dir --requirement requirements-runtime.lock \
+    && python -m pip check
 COPY elite/ ./elite/
 COPY BIN/ ./BIN/
-RUN chmod +x BIN/catedral && chown -R catedralx:catedralx /app
-# Pre-create state volume path as catedralx before dropping privileges
-RUN mkdir -p /home/catedralx/.local/state/chalamandra/catedralx \
-    && chown -R catedralx:catedralx /home/catedralx
+RUN chmod +x BIN/catedral \
+    && mkdir -p /home/catedralx/.local/state/chalamandra/catedralx \
+    && chown -R catedralx:catedralx /app /home/catedralx
 USER catedralx
-# CLI de ejecución puntual: status finaliza el proceso; no aplica HEALTHCHECK de servicio.
-CMD ["catedral","status"]
+# One-shot CLI: status exits; this image is not a long-running HTTP service.
+CMD ["catedral", "status"]

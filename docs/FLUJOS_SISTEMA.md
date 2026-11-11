@@ -1,49 +1,39 @@
-# FLUJOS_SISTEMA - CatedralX v1.0 canónico
+# FLUJOS_SISTEMA — CatedralX
 
-## ENTRY CANÓNICO
-BIN/catedral -> orquesta status/feed-once/motor/ciclo/impact-cycle/user-feedback/dispatch-agents/test
-docs/legacy/motor.py -> wrapper DEPRECATED histórico; no es BIN/motor.py
+## Entrada canónica
 
-## FUENTES DE ESTADO SEPARADAS - NO DUPLICADAS
-- RSX /dev/shm/cathedral_snapshot.json -> CATEDRALX_SNAPSHOT_PATH -> PERCEIVE.data_feeder.snapshot_path() CANONICO
-  59 velas Binance BTCUSDT 1m, price, observed_at, healthy max 120s
-- STATE ~/.local/state/chalamandra/catedralx/hormonas.json -> CATEDRALX_STATE_PATH -> REASON.state_paths.canonical_state_path() CANONICO
-  hormonas, cycle_id, market_phase, geometry_regime
+`BIN/catedral` orquesta los comandos `status`, `feed-once`, `motor`, `ciclo`, `impact-cycle`, `user-feedback`, `dispatch-agents` y `test`.
+`docs/legacy/motor.py` es un wrapper histórico/deprecado; no es la entrada canónica.
 
-## PERCEIVE
-data_feeder.snapshot_path() CANONICO RSX
-api_pulse.check_snapshot() healthy true/false
-stream_altar fetch Binance
+## Fuentes de estado separadas
 
-## REASON
-orchestrator.execute_cycle(sensory) -> CathedralState
-state_paths.canonical_state_path() STATE separado
-razon.main() -> path=snapshot_path() + from_snapshot + execute_cycle -> ANALYSIS_COMPLETE hold
+- **Snapshot RSX:** `CATEDRALX_SNAPSHOT_PATH`; por defecto `/dev/shm/cathedral_snapshot.json`, leído y escrito por `PERCEIVE.data_feeder`. Contiene observaciones recibidas; no debe rellenarse con datos sintéticos.
+- **Estado persistente:** `CATEDRALX_STATE_PATH`; por defecto `~/.local/state/chalamandra/catedralx/hormonas.json`, gestionado por `REASON.state_paths`.
+- **Feedback de usuario:** `CATEDRALX_USER_FEEDBACK_PATH`; por defecto `~/.local/state/chalamandra/catedralx/user_feedback.jsonl`.
+- **Resultados:** `CATEDRALX_RESULT_STORE_PATH`; por defecto `~/.local/state/chalamandra/catedralx/results.jsonl`.
 
-## NEXUS
-elite/bin/nexus.py status() ahora muestra rsx_path + state_path + feed.healthy + state_available
+Estas rutas cumplen funciones distintas; no son duplicados. Los datos persistentes deben permanecer fuera del checkout.
 
-## LOOPBACK
-inyector-vitral no localizado en el árbol de este checkout; endpoints/puerto 127.0.0.1:5050 quedan sin verificar aquí.
+## Flujo de razonamiento
 
-## SEGURIDAD
-trading_enabled false, orders_created false, orders_executed false en todos los paths
-AEX ejecutor preparar_intencion -> BLOCKED_REVIEW_ONLY
-DSX guards HMAC keyring versionado + PATH_PANIC ~/LAB/03-OUTPUT/.panic
-FEX prediction/outcome ledger ~/.local/state/chalamandra/catedralx/feedback.jsonl
-User feedback ledger ~/.local/state/chalamandra/catedralx/user_feedback.jsonl
+`PERCEIVE` valida y entrega observaciones.
+`REASON.orchestrator.execute_cycle` construye el ciclo cognitivo y sus diagnósticos.
+Los contratos de `elite/contracts` normalizan acciones y construyen/validan resultados trazables.
+Los gates de gobernanza y defensa pueden bloquear el flujo. Una etiqueta `buy`, `sell` o `hold` es análisis, no una orden.
 
-## MAPA_MAESTRO
-MAPA_MAESTRO_CANONICO.md 34K v0.8 = v0.7 (Vercel env + AI Studio) + v0.5 (Supabase contrast)
-docs/archive/ 6 versiones v0.2-v0.7 thrashing archivado
+## NEXUS y endpoint loopback
 
-## TESTS
-./BIN/catedral test -> 337 passed en la suite local del checkout (2026-10-28; sin despliegue).
-./BIN/catedral feed-once -> FEED_UPDATED 59 velas
-./BIN/catedral status -> healthy true/false + rsx_path + state_path
-./BIN/catedral motor -> ANALYSIS_COMPLETE hold
+`elite/bin/nexus.py status()` expone el estado resumido del motor.
+El endpoint opcional de solo lectura está implementado en `elite/bin/inyector-vitral`: sirve `/status` y `/health` en `127.0.0.1:5050` cuando se ejecuta explícitamente.
 
+**No forma parte del contenedor CLI predeterminado.** La imagen Docker ejecuta `catedral status` y termina; por ello el Compose de este repositorio no publica el puerto 5050 ni reinicia el contenedor como daemon. Para exponer un servicio se requiere un diseño separado de bind interno, mapeo loopback, ciclo de vida y pruebas; no se debe inferir que el endpoint está desplegado.
 
-## MECÁNICA Y FEEDBACK DE USUARIO
+## Límites de seguridad
 
-Ver [docs/ARQUITECTURA_MECANICA_RETROALIMENTACION.md](ARQUITECTURA_MECANICA_RETROALIMENTACION.md) para responsabilidades, candidatos de limpieza pendientes de confirmación y el ledger de feedback directo.
+- `trading_enabled=false`, `orders_created=false` y `orders_executed=false` son los límites de análisis documentados.
+- El despacho a Agents es explícito y requiere el ciclo autorizado o una invocación de análisis expresamente permitida.
+- Las pruebas sintéticas y CI no prueban conexión en runtime con Agents ni despliegue productivo.
+
+## Evidencia y vigencia
+
+Los snapshots operativos, conteos de pruebas y observaciones de mercado de octubre de 2026 son históricos; no describen un runtime actual. La evidencia vigente de pruebas y construcción está en [ESTADO_PRODUCCION.md](ESTADO_PRODUCCION.md). La VM anterior no forma parte del plan operativo.

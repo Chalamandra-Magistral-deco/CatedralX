@@ -2,7 +2,7 @@ name: CatedralX tests
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -26,6 +26,7 @@ jobs:
             requirements.txt
             requirements-test.txt
             requirements.lock
+            requirements-runtime.lock
 
       - name: Install locked dependencies (fail closed)
         run: |
@@ -62,6 +63,9 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
+
+      - name: Validate Compose configuration
+        run: docker compose config --quiet
 
       - name: Build canonical Docker image (fail closed)
         run: docker build --pull --file Dockerfile --tag catedralx:ci .
