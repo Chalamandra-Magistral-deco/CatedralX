@@ -15,8 +15,6 @@ Actualizado: 2026-11-11. Fuente de código: main.
 - docs/ESTADO_PRODUCCION.md: estado verificable de main y límites operativos.
 - docs/ARQUITECTURA_OBJETIVO.md: diseño lógico; no prueba de despliegue.
 - docs/FLUJOS_TOPOLOGICOS_CANONICOS.md: flujos reactivo, retorno y proactivo.
-- docs/ARQUITECTURA_MECANICA_RETROALIMENTACION.md: no existe en el árbol actual; la referencia antigua del README se corrigió.
-- docs/ARQUITECTURA_MECANICA_RETROALIMENTACION.md no debe darse por existente hasta que se publique una versión real.
 - docs/INTEGRACION_CATEDRALX_AGENTS.md: contrato previsto con Agents; requiere verificación cruzada.
 - docs/INVENTARIO_ECOSISTEMA_Y_CONEXIONES.md: snapshot del 2026-10-26, no inventario actual certificado.
 - docs/contracts/README.md y docs/contracts/*.yaml: especificaciones Request, Distribution y Orchestration.
@@ -25,11 +23,9 @@ Actualizado: 2026-11-11. Fuente de código: main.
 
 ## Otros documentos de soporte
 
-- docs/ARQUITECTURA_MECANICA_RETROALIMENTACION.md: no existe al corte actual; no es una dependencia ni un requisito de ejecución.
-- docs/ARQUITECTURA_OBJETIVO.md: diseño de referencia.
-- docs/ARQUITECTURA_MECANICA_RETROALIMENTACION.md no se incluye como fuente vigente hasta su creación y revisión.
 - docs/BLUEPRINT_COMPOSE.md y docs/BLUEPRINT_COMPOSE_FULL.yaml: propuestas/blueprints de infraestructura; no prueban despliegue y deben tratarse como diseño.
 - docs/CHALAMANDRA_CORE_MASTER_SPEC.md: especificación maestra.
+- docs/ARQUITECTURA_MECANICA_RETROALIMENTACION.md: referencia antigua del README; el archivo no existe en el árbol actual y no es requisito de ejecución.
 - docs/FLUJOS_SISTEMA.md: mapa de flujos.
 - docs/MCX_OPTIMIZE_MAP.md: mapa de optimización.
 - docs/AUDIT_LOG_PHASE_A.md: registro de auditoría.
@@ -50,7 +46,6 @@ Tratamiento: conservar como secuencia evolutiva y evidencia. No usar estados de 
 
 ### docs/audit/
 Se conservan informes de auditoría y evidencia:
-- AUDIT_LOG_PHASE_A.md
 - AUDITORIA_CONSOLIDACION_PERGAMINO.md
 - CATEDRAL_COGNITIVE_STATE_V4_2.md
 - CATEDRAL_RECONSTRUCCION.md
