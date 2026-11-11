@@ -133,6 +133,18 @@ def test_invalid_explicit_trace_is_rejected_not_replaced(bad_trace):
         )
 
 
+@pytest.mark.parametrize(
+    ("raw_decision", "expected"),
+    [("COMPRAR", "buy"), ("VENTA", "sell"), ("WAIT", "hold")],
+)
+def test_decision_builder_reuses_shared_signal_vocabulary(raw_decision, expected):
+    result = build_decision_result(
+        _make_state(decision=raw_decision),
+        _make_cognitive(),
+    )
+    assert result["decision"] == expected
+
+
 @pytest.mark.parametrize("bad_decision", ["EXECUTE", "", None])
 def test_invalid_decision_is_rejected(bad_decision):
     with pytest.raises(ValueError, match="decisión canónica"):
