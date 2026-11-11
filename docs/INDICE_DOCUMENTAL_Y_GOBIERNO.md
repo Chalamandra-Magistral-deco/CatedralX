@@ -13,6 +13,7 @@ Actualizado: 2026-11-11. Fuente de código: main.
 ## Documentos de referencia
 - README.md: entrada, alcance del motor, pruebas y límites.
 - docs/ESTADO_PRODUCCION.md: estado verificable de main y límites operativos.
+- MAPA_SAGRADO.json: mapa estructural reconciliado con el árbol actual; no prueba de despliegue.
 - docs/ARQUITECTURA_OBJETIVO.md: diseño lógico; no prueba de despliegue.
 - docs/ARQUITECTURA_MECANICA_RETROALIMENTACION.md: diagnóstico, criterios de conservación y diseño del feedback.
 - docs/FLUJOS_TOPOLOGICOS_CANONICOS.md: flujos reactivo, retorno y proactivo.
