@@ -530,13 +530,8 @@ def think(
     try:
         from REASON.multicriteria import CathedralEvaluation
 
-        # Scores from this motor are integer BP. Direction alone maps only viability;
-        # other dimensions must arrive explicitly in central_dimensions_bp.
-        viability_bp = (
-            10000 if state.decision == "buy"
-            else 0 if state.decision == "sell"
-            else 5000
-        )
+        # Every scored dimension must be supplied explicitly in integer basis points.
+        # A market direction is not a measurement of economic viability.
         central_dimensions = state.percepcion_espacial.get("central_dimensions_bp", {})
         if not isinstance(central_dimensions, dict):
             central_dimensions = {}
@@ -553,10 +548,10 @@ def think(
             blocking_reasons = []
 
         engine = CathedralEvaluation(
-            viability=viability_bp,
+            viability=central_dimensions.get("viability_bp"),
             human_value=central_dimensions.get("human_value_bp"),
             distribution=central_dimensions.get("distribution_bp"),
-            reinvestment=central_dimensions.get("reinvestment_surplus"),
+            reinvestment=constraints.get("reinvestment_surplus"),
             resilience=central_dimensions.get("resilience_bp"),
             evidence=central_dimensions.get("evidence_bp"),
         )
