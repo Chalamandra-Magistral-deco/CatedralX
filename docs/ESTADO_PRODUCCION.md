@@ -1,10 +1,44 @@
-# Estado de implementación — Chalamandra Magistral DecoX
+# Estado de implementación — CatedralX
 
-**Actualización de estado del repositorio — 2026-11-11.** La VM anterior queda fuera del plan operativo y no debe usarse como destino ni como fuente de verificación actual. Las menciones a VM, systemd, túneles, puertos y contenedores en este documento son registros históricos. No se ha confirmado un nuevo destino de ejecución. En GitHub, CatedralX quedó actualizado en `b13cd0da810a58d202e13b2a1af32e91b16bd454`; GitHub Actions validó **354 pruebas**, `compileall`, construcción Docker y smoke test CLI. Esto acredita el repositorio y el artefacto CI, no una integración desplegada ni un runtime activo.
+**Actualizado:** 2026-11-11  
+**Fuente de verdad:** rama main de Chalamandra-Magistral-deco/CatedralX.  
+**Commit inspeccionado:** 2ec860337285b6054bbd0e2b44678c42a769f136.
 
-**Corte de revisión estática:** 2026-10-26.  
-**Alcance:** archivos accesibles en GitHub, configuración versionada y código visible.  
-**Fuera de alcance verificado:** procesos, variables reales de entorno, systemd runtime, Cloudflare Tunnel, NSG/firewall, puertos, DNS, secretos desplegados, logs de VM y recorrido HTTP extremo a extremo.
+## Estado vigente verificado
+
+- GitHub Actions del commit inspeccionado: unit-tests y Build and smoke-test the CLI image completados correctamente.
+- Suite: **354 pruebas aprobadas**.
+- pip check: correcto.
+- compileall: correcto.
+- Imagen Docker: build y smoke test CLI correctos.
+- cryptography==50.0.2: declarada en requirements.txt y fijada en requirements.lock.
+- Árbol Git: 213 entradas, no truncado.
+- Ramas visibles al corte: main, chore/catedralx-repo-hygiene-20261111 y docs/catedralx-host-neutral-status-20261111. Las dos ramas de trabajo divergen de main; sus cambios visibles son de higiene de dependencias/CI y documentación. No se han eliminado.
+- VM anterior: fuera del plan operativo. No usarla como fuente de estado ni destino.
+- No hay evidencia de runtime nuevo ni integración end-to-end activa. CI verde acredita el commit y el artefacto construido, no despliegue, conexión con Agents ni operación real.
+- Seguridad: revisión estática parcial; consultar docs/SEGURIDAD_REPOSITORIO.md. No se certifica ausencia de secretos en el historial ni estado de Secret Scanning.
+- Documentación histórica: clasificada y preservada según docs/INDICE_DOCUMENTAL_Y_GOBIERNO.md.
+
+## Veredicto
+
+**Repositorio validado por CI; integración y operación end-to-end no verificadas; seguridad histórica pendiente de cierre.** No etiquetar CatedralX como producción operativa ni como libre de secretos con la evidencia disponible.
+
+## Alcance y límites
+
+La revisión cubre el árbol GitHub de main, archivos versionados, workflows, dependencias y ejecución CI del commit identificado. No cubre runtime desplegado, procesos, servicios, DNS, red, endpoints activos, valores de variables de entorno, secretos de proveedores, alertas nativas de Secret Scanning ni análisis completo de todos los objetos y refs del historial.
+
+## Documentos de referencia
+
+- Índice y conservación: docs/INDICE_DOCUMENTAL_Y_GOBIERNO.md.
+- Seguridad: docs/SEGURIDAD_REPOSITORIO.md.
+- Arquitectura: docs/ARQUITECTURA_OBJETIVO.md.
+- Contratos: docs/contracts/README.md.
+
+---
+
+## Registro histórico preservado — corte 2026-10-26
+
+El texto siguiente se conserva como registro de una auditoría anterior. Sus afirmaciones sobre VM, servicios, integración, dependencias, aceptación y pruebas no representan el estado vigente al 2026-11-11. Se mantiene para trazabilidad y no debe utilizarse como instrucción operativa actual.
 
 ## 1. Veredicto
 
