@@ -19,7 +19,16 @@ def _make_cognitive(disonancia=0.0, contraevidencia=0.0, prov_records=None, gate
     return {
         "coherencia": {"disonancia": disonancia},
         "contraevidencia": {"fuerza_contra": contraevidencia},
-        "provenance": prov_records or [],
+        "provenance": (
+            [{
+                "id": "SCX:fixture:1:aaaaaaaaaaaaaaaa",
+                "modulo": "tests.synthetic_fixture",
+                "input_hash": "a" * 64,
+                "timestamp": 1735689600,
+                "status": "synthetic_test_evidence",
+            }]
+            if prov_records is None else prov_records
+        ),
         "cathedral_verdict": {"status": gate_status, "evaluation_hash": "a" * 64},
     }
 
@@ -104,6 +113,35 @@ def test_build_decision_result_preserves_legacy_provenance_list():
     assert result["evidence"][0]["digest"] == "c" * 64
 
 
+def test_build_decision_result_downgrades_acceptance_without_provenance():
+    result = build_decision_result(
+        _make_state(),
+        _make_cognitive(prov_records=[]),
+    )
+    assert result["status"] == "UNCERTAIN"
+    assert result["evidence"] == []
+    assert result["provenance"] == []
+
+
+@pytest.mark.parametrize("bad_trace", ["not-a-trace", "0" * 32, "A" * 32])
+def test_invalid_explicit_trace_is_rejected_not_replaced(bad_trace):
+    with pytest.raises(ValueError, match="trace_id explícito inválido"):
+        build_decision_result(
+            _make_state(),
+            _make_cognitive(),
+            trace_id=bad_trace,
+        )
+
+
+@pytest.mark.parametrize("bad_decision", ["EXECUTE", "", None])
+def test_invalid_decision_is_rejected(bad_decision):
+    with pytest.raises(ValueError, match="decisión canónica"):
+        build_decision_result(
+            _make_state(decision=bad_decision),
+            _make_cognitive(),
+        )
+
+
 def test_build_decision_result_uncertain():
     state = _make_state(decision="hold")
     cognitive = _make_cognitive(disonancia=0.5, contraevidencia=0.1)
@@ -134,6 +172,20 @@ def test_result_store_append_and_get(tmp_path):
     assert retrieved is not None
     assert retrieved["result_id"] == result_id
     assert retrieved["status"] == result["status"]
+
+def test_result_store_rejects_accepted_result_without_evidence(tmp_path):
+    result = build_decision_result(
+        _make_state(),
+        _make_cognitive(prov_records=[]),
+    )
+    result.update({
+        "status": "ACCEPTED",
+        "evidence": [],
+        "provenance": [],
+    })
+    with pytest.raises(ValueError, match="requiere evidencia y procedencia"):
+        append_result(result, path=tmp_path / "results.jsonl")
+
 
 def test_result_store_not_found(tmp_path):
     path = tmp_path / "empty.jsonl"
