@@ -2,6 +2,8 @@
 
 import math
 
+import pytest
+
 from REASON.dynamic_constraints import (
     DynamicConstraintInputs,
     evaluate_dynamic_constraints,
