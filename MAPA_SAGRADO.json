@@ -1,21 +1,175 @@
 {
-  "sagrada_version": "4.2",
-  "inventario_real": 174,
+  "sagrada_version": "4.3",
+  "estado": "Inventario estructural reconciliado con el árbol GitHub de main; no equivale a despliegue operativo.",
+  "fuente_de_verdad": {
+    "repositorio": "Chalamandra-Magistral-deco/CatedralX",
+    "rama": "main",
+    "commit": "c59e1538beffbf6d3ef1ad2fbddd4ea3d2038f1a",
+    "tree_sha": "c59e1538beffbf6d3ef1ad2fbddd4ea3d2038f1a",
+    "tree_entries": 216,
+    "tracked_files": 184,
+    "python_files": 121,
+    "conteo_scope": "Entradas y archivos versionados del árbol Git; no conteo de módulos funcionales ni procesos."
+  },
   "bin_canonico": "BIN/catedral",
   "vectores": {
-    "RSX": {"rol": "Pulmones", "ruta_real": "elite/PERCEIVE/", "archivos": ["bunker.py", "data_feeder.py", "stream_altar.py", "http_transport.py", "radar_watcher.py"], "pilar": 2},
-    "SCX": {"rol": "Cerebro", "ruta_real": "elite/REASON/", "archivos": ["orchestrator.py:540 gate growth_allowed", "cognitive_state.py", "multicriteria.py"], "pilar": 1},
-    "MCX": {"rol": "Corazón", "ruta_real": "elite/MCX/OPTIMIZE/", "archivos": ["kelly_vince.py", "ganancias.py", "poder_real.py", "affective.py", "hormonas.json"], "pilar": 5},
-    "MSX": {"rol": "Brazos", "ruta_real": "elite/bin/", "archivos": ["nexus.py", "dispatch_agents.py", "dispatch_authorized_cycles.py", "feed_once.py", "impact_cycle.py"], "nota": "MSX/ solo tiene provenance.py - bin/ ES MSX real", "pilar": 7},
-    "AEX": {"rol": "Motor", "ruta_real": "elite/AEX/", "archivos": ["DECISION/", "ejecutor.py"], "pilar": 5},
-    "DSX": {"rol": "Escudo", "ruta_real": "elite/DSX/DEFENSE/", "archivos": ["guardian.py", "guardian_ram.py"], "pilar": 3},
-    "FEX": {"rol": "ADN", "ruta_real": "elite/FEX/FEEDBACK/", "archivos": ["feedback_loop.py", "user_feedback.py"], "fuera_repo": "~/.local/state/chalamandra/catedralx/approvals/", "pilar": 6},
-    "SFX": {"rol": "Esqueleto", "ruta_real": "03-OUTPUT/ + config/ + /dev/shm/", "archivos": ["cathedral_snapshot.json dual fcntl", "elite.env"], "nota": "No existe carpeta SFX, su función es 03-OUTPUT", "pilar": 2}
+    "RSX": {
+      "rol": "Percepción e ingesta de observaciones",
+      "ruta_real": "elite/PERCEIVE/",
+      "archivos": [
+        "api_pulse.py",
+        "bunker.py",
+        "data_feeder.py",
+        "http_transport.py",
+        "percepcion.py",
+        "radar_watcher.py",
+        "sensors.py",
+        "stream_altar.py"
+      ]
+    },
+    "SCX": {
+      "rol": "Razonamiento y ciclo cognitivo",
+      "ruta_real": "elite/REASON/",
+      "archivos": [
+        "orchestrator.py",
+        "razon.py",
+        "dynamic_constraints.py",
+        "financial_engine.py",
+        "cognitive_state.py",
+        "schemas.py",
+        "state_paths.py"
+      ]
+    },
+    "MCX": {
+      "rol": "Optimización y diagnósticos complementarios",
+      "ruta_real": "elite/MCX/OPTIMIZE/",
+      "archivos": [
+        "affective.py",
+        "entropia.py",
+        "ganancias.py",
+        "homeostasis.py",
+        "kelly_vince.py",
+        "mental.py",
+        "poder_real.py",
+        "resico.py",
+        "sentiment_engine.py"
+      ],
+      "nota": "hormonas.json no pertenece a este directorio; el estado persistente se guarda fuera del checkout."
+    },
+    "MSX": {
+      "rol": "Procedencia",
+      "ruta_real": "elite/MSX/",
+      "archivos": [
+        "provenance.py"
+      ],
+      "nota": "La CLI está en BIN/catedral y elite/bin/; no debe clasificarse como implementación de MSX."
+    },
+    "AEX": {
+      "rol": "Intención y límites de decisión",
+      "ruta_real": "elite/AEX/",
+      "archivos": [
+        "ejecutor.py",
+        "DECISION/black_scholes.py",
+        "DECISION/delta_neutral.py",
+        "DECISION/limites.py",
+        "DECISION/operador.py",
+        "DECISION/ordenes.py",
+        "DECISION/posicion.py",
+        "DECISION/riesgo.py"
+      ]
+    },
+    "DSX": {
+      "rol": "Defensa y guardas",
+      "ruta_real": "elite/DSX/DEFENSE/",
+      "archivos": [
+        "defense.py",
+        "f_codec.py",
+        "fragmenter.py",
+        "guardian_ram.py",
+        "guards.py",
+        "lateral_core.py",
+        "sandbox_deceptor.py"
+      ],
+      "nota": "No existe guardian.py en el árbol actual; el archivo versionado es guardian_ram.py."
+    },
+    "FEX": {
+      "rol": "Gobernanza, feedback y aprendizaje supervisado/offline",
+      "ruta_real": "elite/FEX/",
+      "subdirectorios": {
+        "GOVERNANCE": [
+          "economic_cycle.py",
+          "sustainability.py"
+        ],
+        "FEEDBACK": [
+          "feedback_loop.py",
+          "trainer.py",
+          "user_feedback.py"
+        ]
+      },
+      "nota": "elite/FEX/trainer.py es una fachada de compatibilidad delegada al trainer canónico de FEEDBACK; se conserva porque existe un test para ambos caminos."
+    },
+    "CONTRACTS": {
+      "rol": "Normalización de acciones, construcción y persistencia de DecisionResult",
+      "ruta_real": "elite/contracts/",
+      "archivos": [
+        "actions.py",
+        "builder.py",
+        "result_store.py",
+        "schemas/chalamandra_contract.json",
+        "schemas/decision_result.json"
+      ]
+    },
+    "CLI": {
+      "rol": "Interfaz de comandos y adaptadores one-shot",
+      "ruta_real": "BIN/ y elite/bin/",
+      "archivos": [
+        "BIN/catedral",
+        "elite/bin/nexus.py",
+        "elite/bin/feed_once.py",
+        "elite/bin/impact_cycle.py",
+        "elite/bin/dispatch_agents.py",
+        "elite/bin/dispatch_authorized_cycles.py",
+        "elite/bin/user_feedback.py",
+        "elite/bin/inyector-vitral"
+      ]
+    }
   },
-  "pilares_8": ["1 Abstracción Total self.modulos", "2 Flujo Neguentrópico TARGETS->WORKSPACE->OUTPUT", "3 Defensa Lateral guardian_ram", "4 Conciencia Fractal Hurst", "5 Corazón Biomimético VRFB", "6 Sagrario Modelos trainer.py", "7 Invocación Sagrada BIN/catedral", "8 Axioma Final propósito"],
-  "flujos_3_con_VM": {
-    "Normal": "Usuario(fuera) -> API(dentro VM) -> Agente(dentro VM) -> CatedralX(dentro VM)",
-    "Inverso": "CatedralX(dentro VM) -> Agente(dentro VM) -> API(dentro VM) -> Usuario(fuera)",
-    "Invertido": "CatedralX(dentro VM) origina -> Agentes(dentro VM) -> API(dentro VM) -> Productos(fuera)"
+  "persistencia": {
+    "snapshot_RSX": {
+      "variable": "CATEDRALX_SNAPSHOT_PATH",
+      "default": "/dev/shm/cathedral_snapshot.json",
+      "fuera_repo": true
+    },
+    "state": {
+      "variable": "CATEDRALX_STATE_PATH",
+      "default": "~/.local/state/chalamandra/catedralx/hormonas.json",
+      "fuera_repo": true
+    },
+    "feedback_usuario": {
+      "variable": "CATEDRALX_USER_FEEDBACK_PATH",
+      "default": "~/.local/state/chalamandra/catedralx/user_feedback.jsonl",
+      "fuera_repo": true
+    },
+    "resultados": {
+      "variable": "CATEDRALX_RESULT_STORE_PATH",
+      "default": "~/.local/state/chalamandra/catedralx/results.jsonl",
+      "fuera_repo": true
+    }
+  },
+  "flujos_3": {
+    "Normal": "Usuario/producto -> API/Agents -> CatedralX -> resultado candidato y evidencia",
+    "Inverso": "Resultado candidato -> verificador independiente -> aceptación -> distribución autorizada",
+    "Invertido": "Evento/condición autorizada -> orquestación -> Agents/CatedralX -> evidencia y verificación",
+    "nota": "Topología objetivo y responsabilidades; no implica que los tres flujos estén desplegados o conectados en runtime."
+  },
+  "ejecucion": {
+    "vm": "Fuera del plan operativo actual.",
+    "docker": "Imagen CLI puntual; ejecuta catedral status y termina.",
+    "compose": "Ejecución puntual; no publica puerto 5050 ni levanta API/Agents/worker.",
+    "endpoint_loopback": "elite/bin/inyector-vitral existe como herramienta opcional en 127.0.0.1:5050; no forma parte del contenedor CLI.",
+    "ci": "354 pruebas, pip check, compileall, validación Compose, Docker build y CLI smoke test aprobados en el commit funcional dd863ae9835fb1cdba2f454fb6479766a84ded41.",
+    "trading_enabled": false,
+    "orders_created": false,
+    "orders_executed": false
   }
 }
