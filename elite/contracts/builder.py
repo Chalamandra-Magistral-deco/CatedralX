@@ -51,9 +51,20 @@ def build_decision_result(
     trace_id: str | None = None,
 ) -> dict[str, Any]:
     perception = getattr(state, "percepcion_espacial", {}) or {}
-    trace_candidate = trace_id or cognitive.get("trace_id") or perception.get("trace_id")
-    if not isinstance(trace_candidate, str) or not _TRACE_ID_RE.fullmatch(trace_candidate) or trace_candidate == "0" * 32:
+    if trace_id is not None:
+        trace_candidate = trace_id
+    elif "trace_id" in cognitive:
+        trace_candidate = cognitive.get("trace_id")
+    else:
+        trace_candidate = perception.get("trace_id")
+    if trace_candidate is None:
         trace_candidate = uuid.uuid4().hex
+    elif (
+        not isinstance(trace_candidate, str)
+        or not _TRACE_ID_RE.fullmatch(trace_candidate)
+        or trace_candidate == "0" * 32
+    ):
+        raise ValueError("trace_id explícito inválido; se rechaza para no romper la correlación")
 
     verdict = cognitive.get("cathedral_verdict", {})
     if not isinstance(verdict, dict):
@@ -90,6 +101,16 @@ def build_decision_result(
         elif disonancia > 0.4 or contraevidencia > 0.35:
             status = "UNCERTAIN"
 
+    raw_decision = getattr(state, "decision", "HOLD")
+    decision_aliases = {
+        "buy": "buy", "comprar": "buy", "entrar_largo": "buy",
+        "sell": "sell", "vender": "sell", "entrar_corto": "sell",
+        "hold": "hold", "esperar": "hold", "lateral": "hold",
+    }
+    if not isinstance(raw_decision, str) or raw_decision.strip().lower() not in decision_aliases:
+        raise ValueError("DecisionResult requiere una decisión canónica buy, sell o hold")
+    canonical_decision = decision_aliases[raw_decision.strip().lower()]
+
     prov_records = _extract_provenance_records(cognitive.get("provenance", []))
 
     evidence = []
@@ -111,13 +132,25 @@ def build_decision_result(
             "notes": item.get("status", ""),
         })
 
+    if status == "ACCEPTED" and (
+        not evidence
+        or any(
+            not isinstance(item.get("digest"), str)
+            or not re.fullmatch(r"[0-9a-f]{64}", item["digest"])
+            or not isinstance(item.get("source"), str)
+            or not item["source"].strip()
+            for item in evidence
+        )
+    ):
+        status = "UNCERTAIN"
+
     risks = perception.get("analisis_financiero", {}).get("risk_flags", [])
     resolved_cycle_id = cycle_id if cycle_id is not None else perception.get("cycle_id")
     return {
         "result_id": str(uuid.uuid4()),
         "status": status,
         "engine": "CatedralX",
-        "decision": getattr(state, "decision", "HOLD"),
+        "decision": canonical_decision,
         "evaluation_hash": evaluation_hash,
         "evaluation_gate": gate_status,
         "missing_inputs": missing_inputs,
