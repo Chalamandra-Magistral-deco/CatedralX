@@ -2,15 +2,16 @@
 
 **Actualizado:** 2026-11-11  
 **Fuente de verdad:** rama `main` de Chalamandra-Magistral-deco/CatedralX.  
-**Commit inspeccionado:** `3bc0e234d4b4c651b77a3c84a9b2ecbdb51b13d5`.
+**Commit inspeccionado:** `93a10ffc1766f8e7d4e216b9cb3a3a8447748b65`.
 
 ## Estado vigente verificado
 
-- GitHub Actions del commit inspeccionado: workflow run [#145](https://github.com/Chalamandra-Magistral-deco/CatedralX/actions/runs/42993883913) completado correctamente.
-- Suite: **354 pruebas aprobadas**.
-- Gitleaks 8.30.1: escaneo de 133 commits y refs alcanzables, sin hallazgos no exceptuados; dos falsos positivos históricos de fixtures sintéticos están exceptuados por huella exacta en `.gitleaksignore`.
+- GitHub Actions del commit inspeccionado: workflow run [#165](https://github.com/Chalamandra-Magistral-deco/CatedralX/actions/runs/42995683177) completado correctamente.
+- Suite: **365 pruebas aprobadas**.
+- Gitleaks 8.30.1: escaneo de 153 commits y refs alcanzables, sin hallazgos no exceptuados; dos falsos positivos históricos de fixtures sintéticos están exceptuados por huella exacta en `.gitleaksignore`.
 - `pip check`: correcto.
 - `compileall`: correcto.
+- Contratos: los tres YAML OpenAPI pasan análisis sintáctico YAML en CI; ambos JSON Schema pasan análisis sintáctico JSON. Esto no sustituye validación semántica OpenAPI ni conformidad con el runtime de Agents.
 - Configuración Compose: `docker compose config --quiet` correcta.
 - Imagen Docker: build y smoke test CLI correctos.
 - Dependencias: `requirements.txt` conserva los rangos de runtime; `requirements.lock` fija el entorno completo de CI/pruebas; `requirements-runtime.lock` fija el conjunto mínimo de runtime de la imagen, sin pytest. Se retiró `requirements-test.txt`, que no tenía consumidores internos y duplicaba la declaración flexible de runtime + pytest.
@@ -21,6 +22,8 @@
 - Ramas visibles al corte: `main` y tres refs de trabajo cuyos PR (#11, #12 y #13) ya fueron fusionados. No se detectó trabajo pendiente en esos PR; las refs antiguas permanecen porque la conexión disponible no expone una operación de borrado de ramas.
 - `main` continúa sin protección confirmada. La API de ramas reporta `protected=false`.
 - VM anterior: fuera del plan operativo. No usarla como fuente de estado ni destino.
+- Contratos reconciliados: Request exige precio actual, timestamp con zona horaria y fuente; Distribution solo admite `result.accepted`; Orchestration exige digest y firma Ed25519 en la decisión de aceptación. La forma de firma aún requiere canonicalización acordada y prueba en Agents.
+- El constructor central rechaza timestamps sin zona horaria y decisiones fuera de `BUY/SELL/HOLD`; DecisionResult rechaza trazas explícitas inválidas y degrada una aceptación sin evidencia/procedencia verificable.
 - No hay evidencia de runtime nuevo ni integración end-to-end activa. CI verde acredita el código y la imagen construida, no despliegue, conexión con Agents ni operación real.
 - Seguridad: revisión estática parcial; consultar `docs/SEGURIDAD_REPOSITORIO.md`. No se certifica ausencia de secretos en el historial ni estado de Secret Scanning.
 - Documentación histórica: clasificada y preservada según `docs/INDICE_DOCUMENTAL_Y_GOBIERNO.md`.

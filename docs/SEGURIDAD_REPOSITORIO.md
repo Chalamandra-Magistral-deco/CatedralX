@@ -3,7 +3,7 @@
 Fecha de revisión: 2026-11-11  
 Repositorio: Chalamandra-Magistral-deco/CatedralX  
 Rama: main  
-Commit inspeccionado: 3bc0e234d4b4c651b77a3c84a9b2ecbdb51b13d5
+Commit inspeccionado: 93a10ffc1766f8e7d4e216b9cb3a3a8447748b65
 
 ## Resultado ejecutivo
 
@@ -14,8 +14,8 @@ El árbol de main contiene 216 entradas. `.gitignore` excluye `.env`, `.env.*` (
 ## Escaneo de historial
 
 - Herramienta: Gitleaks **8.30.1**, versión fijada y checksum SHA-256 verificado en CI.
-- Ejecución: [workflow #145](https://github.com/Chalamandra-Magistral-deco/CatedralX/actions/runs/42993883913), job "Scan all Git history with Gitleaks".
-- Alcance: checkout con `fetch-depth: 0`, refs y tags alcanzables; **133 commits escaneados**, aproximadamente 1.82 MB.
+- Ejecución: [workflow #165](https://github.com/Chalamandra-Magistral-deco/CatedralX/actions/runs/42995683177), job "Scan all Git history with Gitleaks".
+- Alcance: checkout con `fetch-depth: 0`, refs y tags alcanzables; **153 commits escaneados**, aproximadamente 1.84 MB.
 - Resultado final: **no leaks found**.
 - Revisión de falsos positivos: dos alertas históricas de regla `generic-api-key` correspondían a valores sintéticos de prueba en `tests/test_sustainability_governance.py`, línea 159, commits `a83d8e127b2ea51ba1e27b790e5347c7989c346a` y `91c219a2c7682c4ea791be094a8dc03726f46231`. Se comprobó que eran material ficticio para probar solapamiento de claves HMAC; el test actual usa bytes repetidos de baja entropía. `.gitleaksignore` excluye únicamente esas dos huellas históricas exactas.
 - El escaneo cubre los commits alcanzables desde refs disponibles en el momento de la ejecución; no cubre objetos inalcanzables, refs borradas, copias externas ni secretos de proveedores.
@@ -26,7 +26,7 @@ El árbol de main contiene 216 entradas. `.gitignore` excluye `.env`, `.env.*` (
 |---|---|---|
 | Exclusión local | `.gitignore` | Presente para `.env`, `.env.*`, `*.pem`, `*.key`, logs y artefactos. |
 | Contexto Docker | `.dockerignore` | Excluye secretos, certificados, claves, DB, cachés, tests y `docs/archive/`. |
-| Gitleaks histórico | CI #141, 129 commits | Aprobado; sin hallazgos no exceptuados. |
+| Gitleaks histórico | CI #165, 153 commits | Aprobado; sin hallazgos no exceptuados. |
 | Falsos positivos históricos | `.gitleaksignore` | Dos huellas exactas revisadas; no hay exclusiones amplias por archivo o regla. |
 | Secret Scanning / Push Protection nativo | API de alertas no accesible por la conexión | No verificado. |
 | Variables de despliegue | Valores no inspeccionados | No verificado. |
