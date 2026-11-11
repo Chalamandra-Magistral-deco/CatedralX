@@ -4,12 +4,12 @@
   "fuente_de_verdad": {
     "repositorio": "Chalamandra-Magistral-deco/CatedralX",
     "rama": "main",
-    "commit": "c59e1538beffbf6d3ef1ad2fbddd4ea3d2038f1a",
-    "tree_sha": "c59e1538beffbf6d3ef1ad2fbddd4ea3d2038f1a",
-    "tree_entries": 216,
-    "tracked_files": 184,
+    "commit": "cd089591f4461e658f51b6fc1aa266c7f2bc1b98",
+    "tree_sha": "cd089591f4461e658f51b6fc1aa266c7f2bc1b98",
+    "tree_entries": 215,
+    "tracked_files": 183,
     "python_files": 121,
-    "conteo_scope": "Entradas y archivos versionados del árbol Git; no conteo de módulos funcionales ni procesos."
+    "conteo_scope": "Snapshot del árbol Git en el commit indicado; incluye archivos y directorios versionados, no módulos funcionales ni procesos."
   },
   "bin_canonico": "BIN/catedral",
   "vectores": {
