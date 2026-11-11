@@ -7,8 +7,8 @@ Los contratos describen el comportamiento deseado; tener rutas con nombres simil
 
 | Contrato | Función objetivo | Estado observado |
 |---|---|---|
-| `request_flow.yaml` | Crear trabajos, consultar estado y recuperar resultados aceptados. | Implementación en `api/server.py` + `api/task_bus.py` + `api/candidate_store.py`; el recorrido end-to-end debe validarse contra el commit y la imagen que se liberen. |
-| `distribution_flow.yaml` | Suscripciones y distribución de resultados aceptados. | Rutas GET/POST/DELETE /v1/subscriptions y POST /internal/v1/distributions presentes. El handler actual solo distribuye result.accepted; respuestas: 202 dispatched/already_dispatched, 409 en conflicto/en progreso y 502/503 ante entrega no satisfactoria o indisponibilidad. Este contrato se reconcilió parcialmente el 2026-10-28. |
+| `request_flow.yaml` | Crear trabajos, consultar estado y recuperar resultados aceptados. | Implementación en Agents; el payload exige `current_price`, `observed_at` con zona horaria y `source`; si `data_source=provided`, también exige al menos 30 `historical_prices`. El recorrido end-to-end debe validarse contra el commit y la imagen que se liberen. |
+| `distribution_flow.yaml` | Suscripciones y distribución de resultados aceptados. | Rutas GET/POST/DELETE /v1/subscriptions y POST /internal/v1/distributions presentes según el corte histórico. Solo se admite `result.accepted`; no se ofrecen suscripciones a `result.blocked` porque no existe entrega automática garantizada para ese evento. Respuestas documentadas: 202 dispatched/already_dispatched, 409 en conflicto/en progreso y 502/503 ante entrega no satisfactoria o indisponibilidad. |
 | `orchestration_flow.yaml` | Disparar runs, consultar estado y recibir resultados del worker con token de servicio. | Rutas presentes en `api/server.py`; el token de servicio de CatedralX exige scope y subject. La existencia de la ruta no demuestra que el scheduler esté desplegado ni habilitado. |
 
 ## Componentes relacionados
@@ -28,3 +28,10 @@ Un flujo solo pasa a “validado” cuando el endpoint comprueba el scope correc
 ## Vigencia y límites — 2026-11-11
 
 Las menciones a VM, procesos systemd y estado activo de 2026-10-28 son evidencia histórica y no describen un runtime vigente. La VM anterior está fuera del plan operativo. La integración con Agents debe verificarse desde ambos repositorios y en un entorno actual antes de marcar Request, Distribution u Orchestration como end-to-end. Consulta [estado vigente](../ESTADO_PRODUCCION.md) y [índice documental](../INDICE_DOCUMENTAL_Y_GOBIERNO.md).
+
+## Reglas normativas de los contratos — 2026-11-11
+
+- **Request payload:** `current_price`, `observed_at` (ISO-8601 con zona horaria) y `source` son obligatorios. `historical_prices` es obligatorio cuando `data_source=provided` y contiene al menos 30 observaciones positivas. `source` es metadato declarado, no prueba criptográfica de procedencia.
+- **Distribution:** solo `result.accepted` es un evento distribuible. Un resultado candidato, bloqueado, incierto o rechazado no se publica como aceptado ni genera webhook de aceptación.
+- **DecisionResult:** el esquema interno de `elite/contracts/schemas/decision_result.json` representa estados internos (`ACCEPTED`, `UNCERTAIN`, `REJECTED`, `BLOCKED_MISSING_INPUT`). El endpoint de lectura pública definido en Request devuelve únicamente resultados con `status=accepted` y límites `analysis_only=true`, `orders_created=false`, `orders_executed=false`. No intercambiar ni equiparar ambos esquemas.
+- **Orchestration acceptance:** `AcceptanceDecision` es una solicitud de decisión, no una prueba criptográfica por sí sola. La implementación debe verificar identidad del verificador, firma Ed25519 y digest del candidato antes de registrar aceptación. Este YAML no acredita que esa verificación esté desplegada.
