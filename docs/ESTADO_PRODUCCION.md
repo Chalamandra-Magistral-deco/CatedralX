@@ -2,13 +2,13 @@
 
 **Actualizado:** 2026-11-11  
 **Fuente de verdad:** rama `main` de Chalamandra-Magistral-deco/CatedralX.  
-**Commit inspeccionado:** `93a10ffc1766f8e7d4e216b9cb3a3a8447748b65`.
+**Commit inspeccionado:** `f757a7cfa4e622a4bd6fc242d00408e1751c7e33`.
 
 ## Estado vigente verificado
 
-- GitHub Actions del commit inspeccionado: workflow run [#165](https://github.com/Chalamandra-Magistral-deco/CatedralX/actions/runs/42995683177) completado correctamente.
-- Suite: **365 pruebas aprobadas**.
-- Gitleaks 8.30.1: escaneo de 153 commits y refs alcanzables, sin hallazgos no exceptuados; dos falsos positivos históricos de fixtures sintéticos están exceptuados por huella exacta en `.gitleaksignore`.
+- GitHub Actions del commit inspeccionado: workflow run [#182](https://github.com/Chalamandra-Magistral-deco/CatedralX/actions/runs/42997292139) completado correctamente.
+- Suite: **372 pruebas aprobadas**.
+- Gitleaks 8.30.1: escaneo de 170 commits y refs alcanzables, sin hallazgos no exceptuados; dos falsos positivos históricos de fixtures sintéticos están exceptuados por huella exacta en `.gitleaksignore`.
 - `pip check`: correcto.
 - `compileall`: correcto.
 - Contratos: los tres YAML OpenAPI pasan análisis sintáctico YAML en CI; ambos JSON Schema pasan análisis sintáctico JSON. Esto no sustituye validación semántica OpenAPI ni conformidad con el runtime de Agents.
@@ -23,7 +23,9 @@
 - `main` continúa sin protección confirmada. La API de ramas reporta `protected=false`.
 - VM anterior: fuera del plan operativo. No usarla como fuente de estado ni destino.
 - Contratos reconciliados: Request exige precio actual, timestamp con zona horaria y fuente; Distribution solo admite `result.accepted`; Orchestration exige digest y firma Ed25519 en la decisión de aceptación. La forma de firma aún requiere canonicalización acordada y prueba en Agents.
-- El constructor central rechaza timestamps sin zona horaria y decisiones fuera de `BUY/SELL/HOLD`; DecisionResult rechaza trazas explícitas inválidas y degrada una aceptación sin evidencia/procedencia verificable.
+- El constructor central rechaza timestamps sin zona horaria y decisiones fuera de `BUY/SELL/HOLD`; DecisionResult conserva trazas válidas, rechaza trazas explícitas inválidas y degrada una aceptación sin evidencia/procedencia verificable. El store exige coherencia entre `status=ACCEPTED` y `evaluation_gate=ACCEPTED`, evidencia con digest y enlace a IDs de procedencia.
+- Viabilidad (`viability_bp`) ya no se infiere de BUY/SELL/HOLD; debe llegar explícitamente en `CENTRAL_DIMENSIONS_BP`. `reinvestment_surplus` tiene una única fuente (`DYNAMIC_CONSTRAINTS`) y no se duplica en las dimensiones BP.
+- Un gate central `ACCEPTED` no equivale a aceptación independiente ni a permiso de publicación; la siguiente acción es solicitar aceptación independiente Ed25519. El flujo público solo podrá exponer `accepted` tras verificar esa firma y el digest.
 - No hay evidencia de runtime nuevo ni integración end-to-end activa. CI verde acredita el código y la imagen construida, no despliegue, conexión con Agents ni operación real.
 - Seguridad: revisión estática parcial; consultar `docs/SEGURIDAD_REPOSITORIO.md`. No se certifica ausencia de secretos en el historial ni estado de Secret Scanning.
 - Documentación histórica: clasificada y preservada según `docs/INDICE_DOCUMENTAL_Y_GOBIERNO.md`.
