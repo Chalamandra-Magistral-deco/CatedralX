@@ -38,6 +38,7 @@ def test_build_decision_result_accepted():
     result = build_decision_result(state, cognitive, trace_id="1234567890abcdef1234567890abcdef")
 
     assert result["status"] == "ACCEPTED"
+    assert result["next_action"] == "SOLICITAR_ACEPTACION_INDEPENDIENTE"
     assert result["decision"] == "buy"
     assert result["engine"] == "CatedralX"
     assert result["evaluation_hash"] == "a" * 64
