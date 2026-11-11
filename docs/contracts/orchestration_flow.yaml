@@ -187,7 +187,7 @@ components:
     AcceptanceDecision:
       type: object
       additionalProperties: false
-      required: [decision_id, candidate_id, outcome, criteria_checked, reasons, verifier_id, evidence_digest, signature_algorithm, signature, decided_at, trace_id]
+      required: [decision_id, candidate_id, outcome, criteria_checked, reasons, missing_evidence, verifier_id, evidence_digest, signature_algorithm, signature, decided_at, trace_id]
       properties:
         decision_id: { type: string }
         candidate_id: { type: string }
