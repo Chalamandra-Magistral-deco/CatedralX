@@ -37,3 +37,11 @@ Las menciones a VM, procesos systemd y estado activo de 2026-10-28 son evidencia
 - **Orchestration acceptance:** `AcceptanceDecision` requiere identidad del verificador, digest SHA-256, algoritmo Ed25519, firma Base64 y fecha de decisión. La implementación debe verificar identidad, firma y digest antes de registrar aceptación. El esquema exige evidencia de firma, pero este YAML no acredita que la verificación esté desplegada.
 - **Orchestration run state:** `RunStatus` admite `queued`, el mismo estado que devuelve `RunAccepted`, además de estados terminales y de bloqueo.
 - **Gate del ciclo sintético:** `risk_gate.independent=true` en `elite/REASON/core_contract.py` es una afirmación recibida por el constructor, no una verificación criptográfica. La aceptación independiente debe comprobarse en una frontera separada; el constructor no puede certificarla por sí mismo.
+
+
+## Dimensiones centrales y unidades
+
+- `CENTRAL_DIMENSIONS_BP` contiene únicamente `viability_bp`, `human_value_bp`, `distribution_bp`, `resilience_bp` y `evidence_bp`. Cada valor debe ser un entero entre 0 y 10000.
+- `viability_bp` no se deriva de BUY/SELL/HOLD. La dirección del mercado no es una medición de viabilidad económica.
+- `reinvestment_surplus` es una cantidad monetaria decimal, no basis points; su única fuente de entrada es `DYNAMIC_CONSTRAINTS.reinvestment_surplus`. La regla central y la restricción dinámica consumen ese mismo campo para evitar dos valores discrepantes.
+- La fórmula dinámica `surplus >= entropy_time_scale * entropy_rate` requiere definición de unidades, periodo, moneda y método de calibración antes de interpretarse como umbral económico validado. La CI verifica implementación y fail-closed, no validez dimensional ni predictiva.
