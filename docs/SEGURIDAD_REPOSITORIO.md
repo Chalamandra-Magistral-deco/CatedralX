@@ -9,7 +9,7 @@ Commit inspeccionado: dd863ae9835fb1cdba2f454fb6479766a84ded41
 
 **Estado: revisión parcial; no equivale a certificación de ausencia de secretos.**
 
-El árbol de main contiene 216 entradas. `.gitignore` excluye `.env`, `.env.*` (salvo `.env.example`), `*.pem` y `*.key`. `.dockerignore` excluye entornos, directorios secrets/, certificados, claves, bases SQLite/DB, cachés, tests y documentación archivada del contexto Docker.
+El árbol de main contiene 215 entradas. `.gitignore` excluye `.env`, `.env.*` (salvo `.env.example`), `*.pem` y `*.key`. `.dockerignore` excluye entornos, directorios secrets/, certificados, claves, bases SQLite/DB, cachés, tests y documentación archivada del contexto Docker.
 
 Se buscaron en el índice de código estos patrones: `BEGIN PRIVATE KEY`, `BEGIN RSA PRIVATE KEY`, `ghp_`, `github_pat_`, `AKIA`, `sk-proj-`, `xoxb-`, `password =`, `api_key =` y `secret_key =`. No hubo coincidencias directas para los patrones específicos de claves/tokens. El índice de búsqueda puede estar desfasado respecto de HEAD; los resultados negativos no prueban el árbol actual ni el historial.
 
