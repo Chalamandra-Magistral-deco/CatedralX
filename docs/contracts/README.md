@@ -1,6 +1,6 @@
 # Contratos OpenAPI — Chalamandra Magistral DecoX
 
-**Revisión de código:** 2026-10-28 (checkout de trabajo).
+**Revisión histórica:** 2026-10-28 (checkout de trabajo). **Actualización de vigencia:** 2026-11-11. Este README y sus YAML son contratos/especificaciones; no demuestran que Agents esté desplegado o conectado.
 
 El código versionado y el estado de contenedores se documentan por separado; los contratos se contrastan con agents/`api/server.py`, no se asume conformidad por similitud de nombres.
 Los contratos describen el comportamiento deseado; tener rutas con nombres similares no prueba conformidad ni despliegue.
@@ -23,3 +23,8 @@ Los contratos describen el comportamiento deseado; tener rutas con nombres simil
 ## Criterio de finalización
 
 Un flujo solo pasa a “validado” cuando el endpoint comprueba el scope correcto, el payload satisface el schema, el recorrido se ejecuta de extremo a extremo, IDs/evidencia/digest/aceptación son coherentes, el CI está verde en el commit exacto y el despliegue real se inspecciona. No declarar los tres contratos implementados solo porque existan rutas o módulos.
+
+
+## Vigencia y límites — 2026-11-11
+
+Las menciones a VM, procesos systemd y estado activo de 2026-10-28 son evidencia histórica y no describen un runtime vigente. La VM anterior está fuera del plan operativo. La integración con Agents debe verificarse desde ambos repositorios y en un entorno actual antes de marcar Request, Distribution u Orchestration como end-to-end. Consulta [estado vigente](../ESTADO_PRODUCCION.md) y [índice documental](../INDICE_DOCUMENTAL_Y_GOBIERNO.md).
