@@ -199,6 +199,20 @@ def test_result_store_rejects_accepted_result_without_evidence(tmp_path):
         append_result(result, path=tmp_path / "results.jsonl")
 
 
+def test_result_store_rejects_accepted_status_with_blocked_central_gate(tmp_path):
+    result = build_decision_result(_make_state(), _make_cognitive())
+    result["evaluation_gate"] = "REJECTED"
+    with pytest.raises(ValueError, match="requiere evaluation_gate ACCEPTED"):
+        append_result(result, path=tmp_path / "results.jsonl")
+
+
+def test_result_store_rejects_accepted_evidence_without_digest(tmp_path):
+    result = build_decision_result(_make_state(), _make_cognitive())
+    result["evidence"][0]["digest"] = None
+    with pytest.raises(ValueError, match="evidencia incompleta"):
+        append_result(result, path=tmp_path / "results.jsonl")
+
+
 def test_result_store_not_found(tmp_path):
     path = tmp_path / "empty.jsonl"
     assert get_result("non-existent", path=path) is None
