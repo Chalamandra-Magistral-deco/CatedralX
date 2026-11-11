@@ -39,6 +39,8 @@ def _validate_decision_result(record: dict[str, Any]) -> None:
         raise ValueError("DecisionResult.status inválido")
     if record.get("engine") != "CatedralX":
         raise ValueError("DecisionResult.engine debe ser CatedralX")
+    if record.get("decision") not in {"buy", "sell", "hold"}:
+        raise ValueError("DecisionResult.decision debe ser buy, sell o hold")
     if not isinstance(record.get("evaluation_hash"), str) or not re.fullmatch(r"[0-9a-f]{64}", record["evaluation_hash"]):
         raise ValueError("DecisionResult requiere evaluation_hash SHA-256 válido")
     if record.get("evaluation_gate") not in {"ACCEPTED", "REJECTED", "BLOCKED_EVIDENCE", "BLOCKED_REINVERSION", "BLOCKED_UNCERTAINTY", "BLOCKED_DEFICIT"}:
@@ -51,6 +53,18 @@ def _validate_decision_result(record: dict[str, Any]) -> None:
     for key in ("evidence", "assumptions", "risks", "provenance"):
         if not isinstance(record.get(key), list):
             raise TypeError(f"DecisionResult.{key} debe ser una lista")
+    if record["status"] == "ACCEPTED":
+        if not record["evidence"] or not record["provenance"]:
+            raise ValueError("DecisionResult ACCEPTED requiere evidencia y procedencia")
+        for item in record["evidence"]:
+            if (
+                not isinstance(item, dict)
+                or not isinstance(item.get("digest"), str)
+                or not re.fullmatch(r"[0-9a-f]{64}", item["digest"])
+                or not isinstance(item.get("source"), str)
+                or not item["source"].strip()
+            ):
+                raise ValueError("DecisionResult ACCEPTED contiene evidencia sin fuente o digest SHA-256")
 
 
 def append_result(record: dict[str, Any], path: str | Path | None = None) -> str:
