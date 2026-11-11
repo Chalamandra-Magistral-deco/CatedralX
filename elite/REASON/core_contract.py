@@ -77,6 +77,9 @@ def build_cycle(
     if outcome is not None and not isinstance(outcome, Mapping):
         raise ValueError("outcome debe ser un objeto o None")
 
+    # "independent" is an upstream assertion, not cryptographic verification.
+    # This pure builder trusts the supplied gate object; a separate acceptance
+    # boundary must verify verifier identity, signature and evidence digest.
     gate = dict(risk_gate or {})
     gate_approved = gate.get("status") == "approved" and gate.get("independent") is True
     data_usable = source_status == "valid"
