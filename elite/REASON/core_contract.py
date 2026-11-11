@@ -55,13 +55,17 @@ def build_cycle(
     if not isinstance(observed_at, str) or not observed_at.strip():
         raise ValueError("observed_at requerido")
     try:
-        datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
+        parsed_observed_at = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
     except ValueError as exc:
         raise ValueError("observed_at debe ser ISO-8601") from exc
+    if parsed_observed_at.tzinfo is None or parsed_observed_at.utcoffset() is None:
+        raise ValueError("observed_at debe incluir zona horaria")
     if source_status not in {"valid", "degraded", "invalid", "unknown"}:
         raise ValueError("source_status inválido")
     if mode not in MODES:
         raise ValueError("mode inválido")
+    if not isinstance(decision, str) or decision.strip().upper() not in {"BUY", "SELL", "HOLD"}:
+        raise ValueError("decision debe ser BUY, SELL o HOLD")
     if not isinstance(signals, list) or any(not isinstance(x, dict) for x in signals):
         raise ValueError("signals debe ser una lista de objetos")
     if uncertainty is not None and (
@@ -83,7 +87,7 @@ def build_cycle(
                   "invalid_data" if not data_usable else
                   "live_disabled" if mode == "LIVE" else "risk_gate_not_approved"}
     else:
-        final_decision = str(decision).upper()
+        final_decision = decision.strip().upper()
         action = {"status": "intent_only", "executable": False,
                   "reason": "synthetic_cycle_no_execution"}
 
@@ -108,7 +112,7 @@ def build_cycle(
         "prediction": dict(prediction),
         "prediction_error": prediction_error,
         "regulation": dict(regulation or {}),
-        "decision": {"requested": str(decision).upper(), "final": final_decision},
+        "decision": {"requested": decision.strip().upper(), "final": final_decision},
         "risk_gate": gate,
         "action": action,
         "outcome": dict(outcome) if outcome is not None else None,
