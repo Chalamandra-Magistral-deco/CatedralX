@@ -4,12 +4,11 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: chalamandra-catedralx-v1
-    restart: unless-stopped
+    # The image runs "catedral status" and exits; do not restart it as a daemon.
+    restart: "no"
     shm_size: '256m'
     volumes:
       - catedralx-state:/home/catedralx/.local/state/chalamandra/catedralx
-    ports:
-      - "127.0.0.1:5050:5050"
     environment:
       - PYTHONUNBUFFERED=1
       - CATEDRALX_SNAPSHOT_PATH=/dev/shm/cathedral_snapshot.json
