@@ -1,0 +1,4 @@
+# Reviewed Gitleaks false positives from historical synthetic HMAC test fixtures.
+# The values were test-only placeholders, not credentials; current tests use repeated-byte keys.
+a83d8e127b2ea51ba1e27b790e5347c7989c346a:tests/test_sustainability_governance.py:generic-api-key:159
+91c219a2c7682c4ea791be094a8dc03726f46231:tests/test_sustainability_governance.py:generic-api-key:159
