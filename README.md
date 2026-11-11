@@ -21,11 +21,14 @@ El puente se registra en `agents` como `catedralx_reasoning`. Configuración rel
 
 ## Pruebas
 
-Desde el directorio raíz de este repositorio, con `pytest` y `numpy` disponibles:
+Desde el directorio raíz, instala el conjunto bloqueado de dependencias y ejecuta la prueba dirigida:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=elite pytest -q -p no:cacheprovider tests/test_financial_engine.py
+python -m pip install -r requirements.lock
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=elite python -m pytest -q -p no:cacheprovider tests/test_financial_engine.py
 ```
+
+La CI instala `requirements.lock`, ejecuta la suite completa y construye/prueba la imagen CLI. `requirements.txt` declara dependencias de runtime; `requirements-test.txt` conserva el conjunto de especificaciones para desarrollo y pruebas.
 
 La suite cubre tendencias ascendentes y descendentes, mercado plano, bloqueo por expansión de volatilidad, entradas inválidas, reproducibilidad del ciclo público, persistencia fuera del código fuente y la prohibición de fabricar precios.
 

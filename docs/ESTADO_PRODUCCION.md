@@ -1,5 +1,7 @@
 # Estado de implementación — Chalamandra Magistral DecoX
 
+**Actualización de estado del repositorio — 2026-11-11.** La VM anterior queda fuera del plan operativo y no debe usarse como destino ni como fuente de verificación actual. Las menciones a VM, systemd, túneles, puertos y contenedores en este documento son registros históricos. No se ha confirmado un nuevo destino de ejecución. En GitHub, CatedralX quedó actualizado en `b13cd0da810a58d202e13b2a1af32e91b16bd454`; GitHub Actions validó **354 pruebas**, `compileall`, construcción Docker y smoke test CLI. Esto acredita el repositorio y el artefacto CI, no una integración desplegada ni un runtime activo.
+
 **Corte de revisión estática:** 2026-10-26.  
 **Alcance:** archivos accesibles en GitHub, configuración versionada y código visible.  
 **Fuera de alcance verificado:** procesos, variables reales de entorno, systemd runtime, Cloudflare Tunnel, NSG/firewall, puertos, DNS, secretos desplegados, logs de VM y recorrido HTTP extremo a extremo.

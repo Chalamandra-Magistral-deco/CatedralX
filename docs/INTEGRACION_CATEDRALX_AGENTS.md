@@ -1,7 +1,11 @@
 # Integración CatedralX ↔ Agents
 
-**Actualizado:** 28 de octubre de 2026
+**Última actualización histórica:** 28 de octubre de 2026  
+**Corte documental:** 11 de noviembre de 2026
 **Objetivo:** CatedralX conserva la lógica canónica de decisión. Agents/API son interfaces de recepción, ejecución controlada, trazabilidad y entrega; no sustituyen ni duplican el motor central.
+
+
+> **Estado vigente (11-11-2026):** la VM anterior ya no forma parte del plan operativo. Las secciones de estado de contenedores, servicios, puertos, volúmenes y pruebas locales fechadas en octubre se conservan como evidencia histórica; no describen un entorno activo ni instrucciones para reactivarlo. No hay un nuevo destino de ejecución confirmado. La CI actual de CatedralX en GitHub pasó **354 pruebas**, `compileall`, Docker build y CLI smoke test. Eso no demuestra que Agents esté conectado en runtime ni que exista una integración desplegada.
 
 ## Flujo y límites
 
@@ -57,8 +61,9 @@ Las pruebas de integración usan fixtures sintéticos y verifican API HTTP, aute
 # En agents/
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. venv/bin/python -m pytest -q -p no:cacheprovider
 
-# En CatedralX/
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. python3 -m pytest -q -p no:cacheprovider
+# En CatedralX/ (instalar primero el lockfile de este repositorio)
+python3 -m pip install -r requirements.lock
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=elite python3 -m pytest -q -p no:cacheprovider
 ```
 
 Última validación local: **Agents 180 passed; CatedralX 303 passed**. Ruff pasa en los archivos activos de integración; la ejecución sobre todo CatedralX detecta deuda de estilo histórica en `docs/legacy`, AEX y tests antiguos, no corregida masivamente para evitar una reescritura de archivos ajenos al cambio. Esto demuestra pruebas de software con datos sintéticos; no demuestra demanda, ingresos, validez predictiva ni autenticidad de datos externos.
@@ -77,7 +82,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. python3 -m pytest -q -p no:cacheprovider
 
 ## Política de cambio
 
-No ejecutar `reset`, `pull`, `merge`, borrado masivo, publicación ni operaciones comerciales sin comparar primero el estado local y remoto y validar los efectos. Mantener los cambios locales hasta revisión y aprobación explícita de la publicación.
+Los cambios al repositorio deben realizarse en ramas, con evidencia de CI y revisión de diferencias antes de integrar. No usar la VM histórica como entorno de despliegue. Mantener separados el código, los datos persistentes y los secretos; no publicar ni activar operaciones comerciales como efecto de una prueba.
 
 ## Addendum de verificación — 2026-10-28
 
