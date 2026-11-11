@@ -187,7 +187,7 @@ components:
     AcceptanceDecision:
       type: object
       additionalProperties: false
-      required: [decision_id, candidate_id, outcome, criteria_checked, reasons, verifier_id, trace_id]
+      required: [decision_id, candidate_id, outcome, criteria_checked, reasons, verifier_id, evidence_digest, signature_algorithm, signature, decided_at, trace_id]
       properties:
         decision_id: { type: string }
         candidate_id: { type: string }
@@ -196,9 +196,73 @@ components:
         reasons: { type: array, minItems: 1, items: { type: string } }
         missing_evidence: { type: array, items: { type: string } }
         verifier_id: { type: string }
-        evidence_digest: { type: [string, 'null'] }
-        decided_at: { type: string, format: date-time }
+        evidence_digest: { type: string, pattern: '^[0-9a-f]{64}
+    AcceptanceRecorded:
+      type: object
+      required: [decision_id, outcome, recorded_at, trace_id]
+      properties:
+        decision_id: { type: string }
+        outcome: { type: string, enum: [accepted, rejected, needs_more_evidence, blocked] }
+        recorded_at: { type: string, format: date-time }
         trace_id: { type: string }
+    RunAccepted:
+      type: object
+      required: [run_id, status, trace_id]
+      properties:
+        run_id: { type: string }
+        status: { type: string, const: queued }
+        trace_id: { type: string }
+    RunStatus:
+      type: object
+      required: [run_id, status, trace_id, updated_at, task_ids, task_statuses]
+      properties:
+        run_id: { type: string }
+        status: { type: string, enum: [queued, executing, awaiting_acceptance, accepted, completed, completed_with_errors, blocked, failed] }
+        task_ids: { type: array, items: { type: string } }
+        task_statuses:
+          type: array
+          items: { type: string, enum: [queued, running, candidate, blocked, failed, accepted] }
+        updated_at: { type: string, format: date-time }
+        trace_id: { type: string }
+  responses:
+    Problem:
+      description: Error en formato problem+json.
+, description: "SHA-256 del candidato y su paquete de evidencia aceptado." }
+        signature_algorithm: { type: string, const: Ed25519 }
+        signature: { type: string, format: byte, description: "Firma Ed25519 codificada en Base64 sobre la decisión y el evidence_digest." }
+        decided_at: { type: string, format: date-time }
+        trace_id: { type: string, pattern: '^[0-9a-f]{32}
+    AcceptanceRecorded:
+      type: object
+      required: [decision_id, outcome, recorded_at, trace_id]
+      properties:
+        decision_id: { type: string }
+        outcome: { type: string, enum: [accepted, rejected, needs_more_evidence, blocked] }
+        recorded_at: { type: string, format: date-time }
+        trace_id: { type: string }
+    RunAccepted:
+      type: object
+      required: [run_id, status, trace_id]
+      properties:
+        run_id: { type: string }
+        status: { type: string, const: queued }
+        trace_id: { type: string }
+    RunStatus:
+      type: object
+      required: [run_id, status, trace_id, updated_at, task_ids, task_statuses]
+      properties:
+        run_id: { type: string }
+        status: { type: string, enum: [executing, completed_with_errors, awaiting_acceptance, accepted, completed] }
+        task_ids: { type: array, items: { type: string } }
+        task_statuses:
+          type: array
+          items: { type: string, enum: [queued, running, candidate, blocked, failed, accepted] }
+        updated_at: { type: string, format: date-time }
+        trace_id: { type: string }
+  responses:
+    Problem:
+      description: Error en formato problem+json.
+ }
     AcceptanceRecorded:
       type: object
       required: [decision_id, outcome, recorded_at, trace_id]
