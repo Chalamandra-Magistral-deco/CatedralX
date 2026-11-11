@@ -7,11 +7,9 @@
 
 ## Resumen ejecutivo de intervención
 
-🧠 Este sistema presenta un nivel de complejidad **[X]** con un riesgo de degradación de **[X]%**.
+### Medición y límites
 
-🚀 Podemos intervenir directamente para optimizarlo, endurecer su seguridad y prepararlo para escalar.
-
-> **Nota de medición:** los campos `[X]` quedan pendientes de cuantificación. El conteo de módulos, pruebas e incidencias de lint sirve como evidencia de complejidad y deuda técnica, pero no permite derivar por sí solo un porcentaje estadístico de degradación.
+La complejidad se describe mediante sus módulos, contratos, dependencias y rutas de datos. **No existe una medición estadística reproducible del porcentaje de degradación**, por lo que no se asigna un porcentaje ni una puntuación sintética. Para cuantificarlo se necesitarían una línea base, métricas de defectos/regresiones, tiempos de ejecución y observabilidad comparables.
 
 ## 1. Diagnóstico Forense
 
