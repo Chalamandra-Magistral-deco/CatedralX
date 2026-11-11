@@ -72,16 +72,11 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { description: Tarea ya completada o clave conflictiva. }
         '422': { $ref: '#/components/responses/Problem' }
-  /internal/v1/orchestration/runs/{run_id}/acceptance:
+  /v1/acceptance:
     post:
       operationId: recordAcceptanceDecision
       x-required-scope: acceptance:write
       security: [{ serviceBearerAuth: [] }]
-      parameters:
-        - name: run_id
-          in: path
-          required: true
-          schema: { type: string }
       requestBody:
         required: true
         content:
@@ -108,26 +103,29 @@ components:
     OrchestrationTrigger:
       type: object
       additionalProperties: false
-      required: [trigger_id, source, objective, success_criteria, permissions, trace_id]
+      required: [objective, permissions]
+      description: >-
+        Esquema de entrada del handler actual. La traza se obtiene de traceparent;
+        no se acepta trace_id en el cuerpo como fuente de autoridad.
+        trigger_id, source, deadline_seconds y max_tasks aún no son consumidos por el handler.
       properties:
-        trigger_id: { type: string, minLength: 8, maxLength: 128 }
-        source: { type: string, enum: [scheduler, verified_condition, authorized_manual] }
-        objective: { type: string, minLength: 1, maxLength: 4000 }
-        context_ref: { type: [string, 'null'] }
+        objective: { type: string, minLength: 1, maxLength: 8000 }
+        payload:
+          type: object
+          additionalProperties: true
         success_criteria:
           type: array
           minItems: 1
+          maxItems: 20
           items: { type: string, minLength: 1, maxLength: 1000 }
-        deadline_seconds: { type: integer, minimum: 1, maximum: 3600 }
-        max_tasks: { type: integer, minimum: 1, maximum: 50 }
         permissions:
           type: object
           additionalProperties: false
           required: [allowed_tools, side_effects]
           properties:
             allowed_tools: { type: array, uniqueItems: true, maxItems: 32, items: { type: string, minLength: 1, maxLength: 128 } }
-            side_effects: { type: string, enum: [none, read_only, approved_scoped], description: "approved_scoped permanece bloqueado hasta que exista evidencia de aprobación verificable; herramientas sin clasificación de efectos no se ejecutan" }
-        trace_id: { type: string }
+            side_effects: { type: string, enum: [none, read_only, approved_scoped] }
+      
     TaskContract:
       type: object
       additionalProperties: false
@@ -211,19 +209,36 @@ components:
           pattern: "^[0-9a-f]{32}$"
     AcceptanceRecorded:
       type: object
-      required: [decision_id, outcome, recorded_at, trace_id]
+      required: [decision_id, outcome]
       properties:
         decision_id: { type: string }
         outcome: { type: string, enum: [accepted, rejected, needs_more_evidence, blocked] }
-        recorded_at: { type: string, format: date-time }
-        trace_id: { type: string }
+        idempotent_replay: { type: boolean }
     RunAccepted:
       type: object
-      required: [run_id, status, trace_id]
+      required: [run_id, task_id, status, trace_id, idempotent_replay]
       properties:
         run_id: { type: string }
+        task_id: { type: string }
         status: { type: string, const: queued }
+        trace_id: { type: string, pattern: '^[0-9a-f]{32}
+    RunStatus:
+      type: object
+      required: [run_id, status, trace_id, updated_at, task_ids, task_statuses]
+      properties:
+        run_id: { type: string }
+        status: { type: string, enum: [queued, executing, awaiting_acceptance, accepted, completed, completed_with_errors, blocked, failed] }
+        task_ids: { type: array, items: { type: string } }
+        task_statuses:
+          type: array
+          items: { type: string, enum: [queued, running, candidate, blocked, failed, accepted] }
+        updated_at: { type: string, format: date-time }
         trace_id: { type: string }
+  responses:
+    Problem:
+      description: Error en formato problem+json.
+ }
+        idempotent_replay: { type: boolean }
     RunStatus:
       type: object
       required: [run_id, status, trace_id, updated_at, task_ids, task_statuses]
