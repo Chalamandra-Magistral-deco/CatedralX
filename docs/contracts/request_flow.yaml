@@ -116,6 +116,7 @@ components:
     FinancialAnalysisPayload:
       type: object
       additionalProperties: false
+      required: [current_price, observed_at, source]
       properties:
         asset: { type: string, minLength: 1, maxLength: 64, default: unspecified }
         data_source:
@@ -128,6 +129,8 @@ components:
           maxItems: 5000
           items: { type: number, exclusiveMinimum: 0 }
         current_price: { type: number, exclusiveMinimum: 0 }
+        observed_at: { type: string, format: date-time, description: "Timestamp ISO-8601 con zona horaria." }
+        source: { type: string, minLength: 1, maxLength: 256, description: "Metadato declarado; no demuestra autenticidad criptográfica del feed." }
         base_currency: { type: string, pattern: '^[A-Z]{3}$', default: EUR }
         quote_currency: { type: string, pattern: '^[A-Z]{3}$', default: USD }
         observations: { type: integer, minimum: 30, maximum: 500, default: 60 }
