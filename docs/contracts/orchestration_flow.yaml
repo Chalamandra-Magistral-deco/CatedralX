@@ -187,7 +187,7 @@ components:
     AcceptanceDecision:
       type: object
       additionalProperties: false
-      required: [decision_id, candidate_id, outcome, criteria_checked, reasons, missing_evidence, verifier_id, evidence_digest, signature_algorithm, signature, decided_at, trace_id]
+      required: [decision_id, candidate_id, outcome, criteria_checked, reasons, missing_evidence, verifier_id, evidence_digest, signature, decided_at, trace_id]
       properties:
         decision_id: { type: string }
         candidate_id: { type: string }
@@ -200,7 +200,6 @@ components:
           type: string
           pattern: '^[0-9a-f]{64}$'
           description: SHA-256 del candidato y su paquete de evidencia.
-        signature_algorithm: { type: string, const: Ed25519 }
         signature:
           type: string
           pattern: '^[0-9a-fA-F]{128}$'
