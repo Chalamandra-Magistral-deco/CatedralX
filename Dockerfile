@@ -5,6 +5,7 @@ LABEL com.chalamandra.catedralx.revision=$CATEDRALX_REVISION
 LABEL com.chalamandra.catedralx.code.dirty=$CATEDRALX_CODE_DIRTY
 LABEL org.opencontainers.image.revision=$CATEDRALX_REVISION
 LABEL org.opencontainers.image.title=Chalamandra-CatedralX
+WORKDIR /app
 RUN useradd --create-home --shell /bin/bash catedralx
 COPY requirements-runtime.lock ./
 RUN python -m pip install --no-cache-dir --requirement requirements-runtime.lock \
