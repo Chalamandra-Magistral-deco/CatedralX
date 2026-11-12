@@ -135,7 +135,7 @@ components:
           uniqueItems: true
           items:
             type: string
-            enum: [result.accepted, result.blocked]
+            enum: [result.accepted]
     Subscription:
       type: object
       required: [subscription_id, endpoint_url, event_types, status, created_at]
