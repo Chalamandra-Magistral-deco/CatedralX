@@ -1,4 +1,7 @@
-FROM python:3.12-slim
+# Imagen base pinneada por digest (python:3.12-slim, 2026-11-14).
+# Para subirla: consultar el digest en
+# https://hub.docker.com/v2/repositories/library/python/tags/3.12-slim
+FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
 ARG CATEDRALX_REVISION=unknown
 ARG CATEDRALX_CODE_DIRTY=unknown
 LABEL com.chalamandra.catedralx.revision=$CATEDRALX_REVISION
