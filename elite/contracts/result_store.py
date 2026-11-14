@@ -1,4 +1,5 @@
 """Append-only ResultStore for CatedralX (Fase 0)."""
+import fcntl
 import json
 import os
 import re
@@ -88,19 +89,45 @@ def _validate_decision_result(record: dict[str, Any]) -> None:
 
 
 def append_result(record: dict[str, Any], path: str | Path | None = None) -> str:
-    """Validate and append a DecisionResult. Invalid or untraceable decisions fail closed."""
+    """Validate and append a DecisionResult. Invalid or untraceable decisions fail closed.
+
+    H-04 (partial): the append is serialized with flock, fsynced and stored
+    0600, so concurrent writers cannot interleave lines and a crash cannot
+    lose a buffered write. The stored record format is unchanged on
+    purpose: a hash chain would change what ``get_result`` returns and
+    what ``verify_isolated_safety.sh`` compares byte-for-byte, so it stays
+    [PENDIENTE] as a contract decision (see the liberación report). The
+    canonical audit evidence remains the economic ledger, which already
+    has a hash chain.
+    """
     if not isinstance(record, dict):
         raise TypeError("DecisionResult debe ser un objeto")
     _validate_decision_result(record)
     target = Path(path) if path else default_result_store_path()
-    target.parent.mkdir(parents=True, exist_ok=True)
+    target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
 
     result_id = record.get("result_id")
     if not isinstance(result_id, str) or not result_id.strip():
         raise ValueError("El record debe tener un 'result_id' válido")
 
-    with target.open("a", encoding="utf-8") as stream:
-        stream.write(json.dumps(record, ensure_ascii=False, allow_nan=False, sort_keys=True) + "\n")
+    line = json.dumps(record, ensure_ascii=False, allow_nan=False, sort_keys=True) + "\n"
+    fd = os.open(str(target), os.O_CREAT | os.O_APPEND | os.O_WRONLY, 0o600)
+    try:
+        with os.fdopen(fd, "a", encoding="utf-8") as stream:
+            fcntl.flock(stream, fcntl.LOCK_EX)
+            try:
+                stream.write(line)
+                stream.flush()
+                os.fsync(stream.fileno())
+                os.chmod(target, 0o600)
+            finally:
+                fcntl.flock(stream, fcntl.LOCK_UN)
+    except BaseException:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        raise
     return result_id
 
 def get_result(result_id: str, path: str | Path | None = None) -> dict[str, Any] | None:

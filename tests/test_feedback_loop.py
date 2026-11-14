@@ -174,18 +174,23 @@ def test_reason_output_includes_prediction_id_and_observed_reference(
     from datetime import datetime
 
     from REASON import razon
+    from PERCEIVE.snapshot_signing import sign_snapshot_payload
 
     observed_at = datetime.now(UTC).isoformat()
     snapshot_path = tmp_path / "snapshot.json"
+    monkeypatch.setenv(
+        "CATEDRALX_SNAPSHOT_SIGNING_SECRET",
+        "test-only-snapshot-signing-secret-32-bytes",
+    )
     snapshot_path.write_text(
-        json.dumps({
+        json.dumps(sign_snapshot_payload({
             "PERCEIVE": {
                 "historial_precios": [100.0 + i * 0.01 for i in range(30)],
                 "precio": 100.29,
                 "observed_at": observed_at,
-                "source": "test:BTCUSDT:1m",
+                "source": "binance_spot_public:BTCUSDT:1m",
             }
-        }),
+        })),
         encoding="utf-8",
     )
     feedback_path = tmp_path / "history.jsonl"
@@ -213,7 +218,7 @@ def test_reason_output_includes_prediction_id_and_observed_reference(
     assert output["prediction_id"] == stored["prediction_id"]
     assert output["reference_price"] == pytest.approx(100.29)
     assert output["observed_at"] == observed_at
-    assert stored["prediction"]["market_source"] == "test:BTCUSDT:1m"
+    assert stored["prediction"]["market_source"] == "binance_spot_public:BTCUSDT:1m"
 def test_evaluator_reports_legacy_predictions_without_ids(tmp_path):
     path = tmp_path / "legacy.jsonl"
     path.write_text(

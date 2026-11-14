@@ -47,6 +47,10 @@ env \
     -u CATEDRALX_APPROVAL_DIR \
     -u CATEDRALX_STATE_PATH \
     -u CATEDRALX_SNAPSHOT_PATH \
+    -u CATEDRALX_SNAPSHOT_ALLOW_UNSIGNED \
+    -u CATEDRALX_SNAPSHOT_SIGNING_SECRET \
+    -u CATEDRALX_SNAPSHOT_KEYRING \
+    -u CATEDRALX_SNAPSHOT_ACTIVE_KEY_ID \
     -u CATEDRALX_FEEDBACK_PATH \
     -u CATEDRALX_RESULT_STORE_PATH \
     CATEDRALX_RESULT_STORE_PATH="$TMP_ROOT/test-suite-results.jsonl" \
@@ -86,6 +90,9 @@ payload = {
 Path(sys.argv[1]).write_text(json.dumps(payload), encoding="utf-8")
 PY
 
+# H-02: the synthetic snapshot below is unsigned by design, so this isolated
+# run explicitly opts into unsigned mode. Production must never set this flag.
+CATEDRALX_SNAPSHOT_ALLOW_UNSIGNED=true \
 CATEDRALX_SNAPSHOT_PATH="$NORMAL/snapshot.json" \
 CATEDRALX_STATE_PATH="$NORMAL/state/hormonas.json" \
 CATEDRALX_FEEDBACK_PATH="$NORMAL/feedback.jsonl" \

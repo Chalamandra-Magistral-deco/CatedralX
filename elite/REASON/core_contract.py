@@ -7,6 +7,7 @@ explicit independent gate result; a missing/invalid gate fails closed.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import math
 import re
@@ -33,6 +34,48 @@ def _digest(value: Any) -> str:
         separators=(",", ":"), allow_nan=False, default=str,
     ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def compute_opportunity_evaluation_hash(result: dict[str, Any]) -> str:
+    """Recompute an opportunity ``evaluation_hash`` (C-2).
+
+    The opportunity hash is ``_digest`` of the whole result object WITHOUT
+    its own ``evaluation_hash`` field. It binds every scenario, financial
+    and evidence field of the evaluation, not just its format.
+    """
+    return _digest({key: value for key, value in result.items() if key != "evaluation_hash"})
+
+
+def verify_opportunity_evaluation_hash(
+    result: dict[str, Any], *, expected: str | None = None
+) -> dict[str, Any]:
+    """Recompute and compare an opportunity ``evaluation_hash`` (C-2).
+
+    Same report shape as ``REASON.multicriteria.verify_evaluation_hash``;
+    never raises for a bad input.
+    """
+    if not isinstance(result, dict):
+        return {"valid": False, "kind": "opportunity", "expected": expected,
+                "computed": None, "reason": "result_not_an_object"}
+    embedded = result.get("evaluation_hash")
+    wanted = expected if expected is not None else embedded
+    if not isinstance(wanted, str) or not wanted:
+        return {"valid": False, "kind": "opportunity", "expected": wanted,
+                "computed": None, "reason": "missing_expected_hash"}
+    try:
+        computed = compute_opportunity_evaluation_hash(result)
+    except (TypeError, ValueError):
+        return {"valid": False, "kind": "opportunity", "expected": wanted,
+                "computed": None, "reason": "unserializable_result"}
+    try:
+        match = hmac.compare_digest(wanted, computed)
+    except (TypeError, ValueError):
+        match = False
+    if not match:
+        return {"valid": False, "kind": "opportunity", "expected": wanted,
+                "computed": computed, "reason": "hash_mismatch"}
+    return {"valid": True, "kind": "opportunity", "expected": wanted,
+            "computed": computed, "reason": "ok"}
 
 
 def build_cycle(

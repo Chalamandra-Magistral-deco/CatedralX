@@ -8,6 +8,12 @@ from datetime import datetime
 from pathlib import Path
 
 from .data_feeder import snapshot_path
+from .snapshot_signing import (
+    gap_inertia_in_range,
+    is_allowed_source,
+    snapshots_require_signature,
+    verify_snapshot_signature,
+)
 
 DEFAULT_MAX_AGE_SECONDS = 120.0
 FUTURE_CLOCK_TOLERANCE_SECONDS = 5.0
@@ -17,9 +23,21 @@ def validate_snapshot_payload(
     payload: object,
     max_age_seconds: float = DEFAULT_MAX_AGE_SECONDS,
     now: float | None = None,
+    *,
+    require_signature: bool | None = None,
 ) -> dict:
-    """Validate observed price history and its source timestamp, not file mtime."""
+    """Validate observed price history and its source timestamp, not file mtime.
+
+    When ``require_signature`` is None it defaults to the environment: signed
+    snapshots are required unless ``CATEDRALX_SNAPSHOT_ALLOW_UNSIGNED=true``
+    (isolated tests only). With signature required, the ``source`` must be on
+    the provenance allowlist and the HMAC signature over ``PERCEIVE`` must
+    verify; otherwise the snapshot is rejected fail-closed.
+    """
     current = time.time() if now is None else float(now)
+    signature_required = (
+        snapshots_require_signature() if require_signature is None else bool(require_signature)
+    )
 
     def rejected(reason: str, *, age=None, observed_at=None, has_prices=False) -> dict:
         return {
@@ -102,6 +120,57 @@ def validate_snapshot_payload(
             has_prices=True,
         )
 
+    # H-02: gap/inercia are 1-minute return features by definition; arbitrary
+    # floats here feed the hamiltonian, free energy and gates unchecked.
+    for field in ("gap", "inercia"):
+        if field in perceive and not gap_inertia_in_range(perceive[field]):
+            return rejected(
+                "gap_or_inertia_out_of_range",
+                age=age,
+                observed_at=observed_at,
+                has_prices=True,
+            )
+
+    source = perceive.get("source", "unspecified")
+    if not signature_required:
+        return {
+            "healthy": True,
+            "reason": "ok",
+            "age_seconds": age,
+            "observed_at": observed_at,
+            "has_prices": True,
+            "max_age_seconds": max_age_seconds,
+            "source": source,
+            "signature": "not_required",
+        }
+
+    # H-02: provenance fail-closed. Source allowlist first (cheap, precise
+    # reason), then the HMAC signature over the whole PERCEIVE section.
+    if not is_allowed_source(source):
+        return rejected(
+            "snapshot_source_not_allowed",
+            age=age,
+            observed_at=observed_at,
+            has_prices=True,
+        )
+    if not isinstance(payload, dict):
+        return rejected(
+            "snapshot_signature_invalid",
+            age=age,
+            observed_at=observed_at,
+            has_prices=True,
+        )
+    signature_ok, signature_status = verify_snapshot_signature(payload)
+    if not signature_ok:
+        return rejected(
+            "snapshot_signature_missing"
+            if signature_status == "missing"
+            else "snapshot_signature_invalid",
+            age=age,
+            observed_at=observed_at,
+            has_prices=True,
+        )
+
     return {
         "healthy": True,
         "reason": "ok",
@@ -109,6 +178,8 @@ def validate_snapshot_payload(
         "observed_at": observed_at,
         "has_prices": True,
         "max_age_seconds": max_age_seconds,
+        "source": source,
+        "signature": "verified",
     }
 
 
@@ -116,6 +187,8 @@ def check_snapshot(
     path: str | Path | None = None,
     max_age_seconds: float = DEFAULT_MAX_AGE_SECONDS,
     now: float | None = None,
+    *,
+    require_signature: bool | None = None,
 ) -> dict:
     """Read and validate the snapshot using market time, not file modification time."""
     target = Path(path) if path else snapshot_path()
@@ -134,7 +207,7 @@ def check_snapshot(
             "has_prices": False, "path": str(target),
         }
 
-    result = validate_snapshot_payload(payload, max_age_seconds, now)
+    result = validate_snapshot_payload(payload, max_age_seconds, now, require_signature=require_signature)
     result["exists"] = True
     result["path"] = str(target)
     return result

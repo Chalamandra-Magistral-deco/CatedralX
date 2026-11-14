@@ -154,6 +154,12 @@ def build_decision_result(
         "missing_inputs": missing_inputs,
         "blocking_reasons": blocking_reasons,
         "evaluation_reason": verdict.get("reason"),
+        # C-2 (liberación): exponer el veredicto multicriterio crudo para que
+        # un verificador independiente pueda recomputar `evaluation_hash`
+        # sin duplicar la lógica de CatedralX (Agents lo consume vía el CLI
+        # `verify-evaluation-hash`). Copia superficial: el hash se calculó
+        # sobre este objeto y no debe mutarse después.
+        "evaluation": dict(verdict),
         "evidence": evidence,
         "assumptions": [],
         "risks": risks,
