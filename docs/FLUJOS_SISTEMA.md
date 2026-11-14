@@ -5,6 +5,21 @@
 `BIN/catedral` orquesta los comandos `status`, `feed-once`, `motor`, `ciclo`, `impact-cycle`, `user-feedback`, `dispatch-agents` y `test`.
 `docs/legacy/motor.py` es un wrapper histórico/deprecado; no es la entrada canónica.
 
+## Jerarquía y coordinación
+
+**Agents es el coordinador central.** Recibe objetivos, descompone tareas, asigna agentes y herramientas autorizadas, administra dependencias, supervisa la ejecución y consolida resultados.
+
+- **CatedralX** es invocado por Agents cuando se necesita percepción, razonamiento, evaluación financiera o estratégica y generación de decisiones candidatas. Puede emitir propuestas de trabajo, pero no coordina el ecosistema.
+- **Membrana** representa responsabilidades distribuidas de contratos, identidad, permisos, integridad, trazabilidad, autorización, aceptación y distribución. No es necesariamente un servicio único.
+- **Operador autorizado** conserva el mandato y las autorizaciones críticas.
+- **Verificador independiente** valida evidencia y aceptación; el worker productor no se autoacepta.
+
+## Flujos del sistema
+
+1. **Reactivo:** solicitud → Agents API → TaskBus/worker → coordinación Agents → CatedralX y herramientas especializadas → candidato/evidencia → verificación independiente → control de Membrana → entrega autorizada.
+2. **Retorno:** resultado aceptado → distribución idempotente → producto/usuario → feedback trazable.
+3. **Proactivo:** evento o ciclo autorizado → Agents → tareas especializadas → CatedralX cuando corresponda → verificación → entrega controlada. No inferir scheduler periódico por la existencia de scripts o endpoints.
+
 ## Fuentes de estado separadas
 
 - **Snapshot RSX:** `CATEDRALX_SNAPSHOT_PATH`; por defecto `/dev/shm/cathedral_snapshot.json`, leído y escrito por `PERCEIVE.data_feeder`. Contiene observaciones recibidas; no debe rellenarse con datos sintéticos.
