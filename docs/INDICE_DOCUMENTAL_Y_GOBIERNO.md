@@ -6,7 +6,7 @@ Actualizado: 2026-11-11. Fuente de código: main.
 - Este índice y docs/ESTADO_PRODUCCION.md son las entradas de navegación y estado vigente.
 - Los documentos fechados describen solo el corte indicado.
 - No reescribir evidencia histórica para hacerla coincidir con el presente.
-- No eliminar documentos por antigüedad, tamaño o duplicación aparente.
+- No eliminar documentos por antigüedad o duplicación aparente sin consolidar primero su contenido y comprobar referencias. Las duplicaciones confirmadas pueden eliminarse después de actualizar el índice y preservar la información necesaria.
 - Separar diseño previsto, código presente, CI probado, integración probada y runtime verificado.
 - No publicar secretos, tokens, claves privadas, credenciales ni datos personales.
 
@@ -16,7 +16,6 @@ Actualizado: 2026-11-11. Fuente de código: main.
 - MAPA_SAGRADO.json: mapa estructural reconciliado con el árbol actual; no prueba de despliegue.
 - docs/ARQUITECTURA_OBJETIVO.md: diseño lógico; no prueba de despliegue.
 - docs/ARQUITECTURA_MECANICA_RETROALIMENTACION.md: diagnóstico, criterios de conservación y diseño del feedback.
-- docs/FLUJOS_TOPOLOGICOS_CANONICOS.md: flujos reactivo, retorno y proactivo.
 - docs/INTEGRACION_CATEDRALX_AGENTS.md: contrato previsto con Agents; requiere verificación cruzada.
 - docs/INVENTARIO_ECOSISTEMA_Y_CONEXIONES.md: snapshot del 2026-10-26, no inventario actual certificado.
 - docs/contracts/README.md y docs/contracts/*.yaml: especificaciones Request, Distribution y Orchestration.
@@ -27,7 +26,7 @@ Actualizado: 2026-11-11. Fuente de código: main.
 
 - docs/BLUEPRINT_COMPOSE.md y docs/BLUEPRINT_COMPOSE_FULL.yaml: propuestas/blueprints de infraestructura; no prueban despliegue y deben tratarse como diseño.
 - docs/CHALAMANDRA_CORE_MASTER_SPEC.md: especificación maestra.
-- docs/FLUJOS_SISTEMA.md: mapa de flujos.
+- docs/FLUJOS_SISTEMA.md: jerarquía de componentes y flujos reactivo, retorno y proactivo (referencia única de flujos).
 - docs/MCX_OPTIMIZE_MAP.md: mapa de optimización.
 - docs/AUDIT_LOG_PHASE_A.md: registro de auditoría.
 - docs/runbooks/loopback-status.md: runbook de observación histórica; no ejecutar contra un host actual sin adaptación y autorización.
@@ -89,7 +88,7 @@ Tratamiento: referencia histórica, no módulos de ejecución canónicos. No imp
 1. README.md
 2. docs/ESTADO_PRODUCCION.md
 3. docs/ARQUITECTURA_OBJETIVO.md
-4. docs/FLUJOS_TOPOLOGICOS_CANONICOS.md
+4. docs/FLUJOS_SISTEMA.md
 5. docs/INTEGRACION_CATEDRALX_AGENTS.md
 6. docs/contracts/README.md
 7. docs/SEGURIDAD_REPOSITORIO.md
