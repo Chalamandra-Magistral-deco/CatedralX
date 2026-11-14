@@ -192,7 +192,7 @@ def evaluate_economic_opportunity(payload: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError("income_model debe ser active, passive, hybrid, investment o asset.")
     currency = payload.get("currency")
     if not isinstance(currency, str) or not re.fullmatch(r"[A-Z]{3}", currency):
-        raise ValueError("currency debe ser un código ISO 4217 de tres letras en mayúsculas.")
+        raise ValueError("currency debe ser un código de moneda de tres letras en mayúsculas.")
     horizon = payload.get("horizon_months")
     if type(horizon) is not int or not 1 <= horizon <= 120:
         raise ValueError("horizon_months debe ser entero entre 1 y 120.")

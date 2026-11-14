@@ -18,6 +18,10 @@ case "${1:-status}" in
     "$PYTHON" "$ROOT/elite/bin/feed_once.py"
     exec "$ROOT/BIN/catedral" motor
     ;;
+  economic-opportunity)
+    shift
+    exec "$PYTHON" -m REASON.core_contract "$@"
+    ;;
   impact-cycle)
     exec "$PYTHON" "$ROOT/elite/bin/impact_cycle.py" "${@:2}"
     ;;
