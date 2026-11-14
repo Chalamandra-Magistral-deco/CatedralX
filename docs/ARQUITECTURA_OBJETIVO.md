@@ -4,26 +4,29 @@
 **Fecha de diseño:** 2026-10-28; actualización del criterio operativo: 2026-11-11.
 **Regla de evidencia:** código versionado no demuestra por sí solo que un servicio esté desplegado u operativo. La VM anterior está fuera del plan operativo; no se asume un host sustituto.
 
-## 1. Principio rector: La Catedral
+## 1. Principio rector
 
-La Catedral coordina el ciclo de creación de valor: diagnosticar necesidades reales, crear y validar soluciones, capturar valor de forma sostenible, reinvertir en capacidades colectivas, medir y aprender, e institucionalizar lo que funcione. La rentabilidad es una dimensión, no el único objetivo; valor humano, distribución, resiliencia y calidad de evidencia también requieren indicadores explícitos.
+El sistema convierte problemas, información y oportunidades en evaluaciones, escenarios comparables y propuestas respaldadas por evidencia. Su ciclo de creación de valor se coordina desde **Agents**; CatedralX aporta el razonamiento estratégico y predictivo; Membrana protege los límites de interacción, seguridad y autoridad.
 
 ## 2. Componentes canónicos y límites de autoridad
 
-### CatedralX — núcleo analítico
-Aplica reglas explícitas, cálculos reproducibles y criterios versionados; declara incertidumbre y límites. Los modelos no pueden sobrescribir sus reglas. Las etiquetas financieras `buy`, `sell` y `hold` son salidas analíticas, no órdenes.
+### Agents — coordinador central
+Recibe objetivos y mandatos autorizados; descompone el trabajo, planifica dependencias, asigna agentes y herramientas por capacidad demostrada, coordina investigación y producción, supervisa tareas, consolida resultados y comunica bloqueos. Puede iniciar ciclos de trabajo dentro de sus permisos. No sustituye el razonamiento de CatedralX, no concede por sí mismo autorizaciones humanas ni acepta sus propios resultados de alto impacto.
 
-### Malla de agentes — capacidades especializadas
-Investiga, ejecuta herramientas permitidas, critica y busca contraevidencia. Un agente produce un candidato con evidencia; no puede convertir una afirmación propia en hecho validado ni autoaceptarla.
+### CatedralX — motor predictivo estratégico
+Recibe información y oportunidades a través de interfaces declaradas; percibe y valida observaciones, razona, evalúa alternativas, construye escenarios, identifica incertidumbre y produce decisiones candidatas trazables. El alcance financiero de precios y señales ya existente se conserva. La evaluación general de oportunidades empresariales debe ampliarse sin duplicar el motor ni confundir heurísticas con probabilidades calibradas. No coordina el sistema ni autoriza ejecución.
 
-### Membrana API — frontera de acceso y entrega
-Autentica, autoriza scopes, valida contratos y límites, controla idempotencia y entrega estado/resultados. HTTP 200/202 no equivale a aceptación epistemológica.
+### Membrana — responsabilidades distribuidas de control y protección
+Protege los límites de cada componente y las interacciones entre ellos: contratos, identidad, permisos, integridad, trazabilidad, efectos secundarios, autorización, aceptación y distribución. No se presume que sea un único servicio externo; sus responsabilidades pueden estar implementadas en API, contratos, workers, stores y verificadores. No concede la autorización humana que verifica.
 
-### Plano de evidencia y aceptación
-Registra entradas, versiones, procedencia, contraevidencia, pruebas, digests y decisiones de aceptación. La aceptación debe proceder de un verificador independiente en permisos y custodia de claves.
+### Operador autorizado — autoridad del mandato
+Define objetivos, prioridades, restricciones, permisos y autorizaciones críticas. Conserva la soberanía sobre cambios de mandato y operaciones externas de alto impacto.
+
+### Verificador independiente — aceptación
+Comprueba evidencia, digest, identidad y criterios de aceptación desde una frontera independiente. La aceptación no se delega al componente que produjo el candidato.
 
 ### Sustrato de ejecución — plataforma y servicios
-Sostiene procesos, almacenamiento, conectividad, secretos y observabilidad. Es independiente del núcleo analítico y puede cambiar sin alterar los contratos lógicos. No hay plataforma de ejecución actual confirmada en este repositorio. Un Dockerfile, compose o archivo systemd versionado no prueba que esté desplegado o activo.
+Sostiene procesos, almacenamiento, conectividad, secretos y observabilidad. Es independiente de los contratos lógicos. Un Dockerfile, Compose o archivo systemd versionado no prueba que esté desplegado o activo.
 
 ## 3. Tres planos independientes
 
