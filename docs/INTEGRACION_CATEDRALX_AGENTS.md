@@ -2,7 +2,7 @@
 
 **Última actualización histórica:** 28 de octubre de 2026  
 **Corte documental:** 11 de noviembre de 2026
-**Objetivo:** CatedralX conserva la lógica canónica de decisión. Agents/API son interfaces de recepción, ejecución controlada, trazabilidad y entrega; no sustituyen ni duplican el motor central.
+**Objetivo:** Agents es el coordinador central y conserva la planificación, descomposición, asignación y supervisión de tareas. CatedralX conserva el razonamiento y la evaluación canónica. Membrana agrupa responsabilidades distribuidas de seguridad, contratos, permisos, trazabilidad, autorización, aceptación y distribución; no se presume un servicio único.
 
 
 > **Estado vigente (11-11-2026):** la VM anterior ya no forma parte del plan operativo. Las secciones de estado de contenedores, servicios, puertos, volúmenes y pruebas locales fechadas en octubre se conservan como evidencia histórica; no describen un entorno activo ni instrucciones para reactivarlo. No hay un nuevo destino de ejecución confirmado. La CI actual de CatedralX en GitHub pasó **354 pruebas**, `compileall`, Docker build y CLI smoke test. Eso no demuestra que Agents esté conectado en runtime ni que exista una integración desplegada.
