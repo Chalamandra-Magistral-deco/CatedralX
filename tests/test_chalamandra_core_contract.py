@@ -131,6 +131,7 @@ def _opportunity_payload():
         "opportunity_id": "opp-001",
         "name": "Servicio digital piloto",
         "category": "digital_service",
+        "income_model": "hybrid",
         "currency": "MXN",
         "horizon_months": 12,
         "capital_required": 5000,

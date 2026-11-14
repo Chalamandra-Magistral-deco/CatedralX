@@ -177,7 +177,7 @@ def evaluate_economic_opportunity(payload: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(payload, Mapping):
         raise ValueError("payload debe ser un objeto.")
     required = {
-        "opportunity_id", "name", "category", "currency", "horizon_months",
+        "opportunity_id", "name", "category", "income_model", "currency", "horizon_months",
         "capital_required", "available_capital", "revenue", "costs",
         "evidence", "assumptions", "scenarios", "trace_id",
     }
@@ -187,6 +187,9 @@ def evaluate_economic_opportunity(payload: Mapping[str, Any]) -> dict[str, Any]:
     for field in ("opportunity_id", "name", "category"):
         if not isinstance(payload.get(field), str) or not payload[field].strip():
             raise ValueError(f"{field} debe ser texto no vacío.")
+    income_model = payload.get("income_model")
+    if income_model not in {"active", "passive", "hybrid", "investment", "asset"}:
+        raise ValueError("income_model debe ser active, passive, hybrid, investment o asset.")
     currency = payload.get("currency")
     if not isinstance(currency, str) or not re.fullmatch(r"[A-Z]{3}", currency):
         raise ValueError("currency debe ser un código ISO 4217 de tres letras en mayúsculas.")
@@ -288,6 +291,7 @@ def evaluate_economic_opportunity(payload: Mapping[str, Any]) -> dict[str, Any]:
         "opportunity_id": payload["opportunity_id"],
         "name": payload["name"],
         "category": payload["category"],
+        "income_model": income_model,
         "currency": currency,
         "horizon_months": horizon,
         "financials": {
@@ -296,6 +300,9 @@ def evaluate_economic_opportunity(payload: Mapping[str, Any]) -> dict[str, Any]:
             "funding_gap": round(funding_gap, 2),
             "revenue_total_base_input": round(revenue_total, 2),
             "cost_total_base_input": round(cost_total, 2),
+            "initial_capital_status": "funded" if funding_gap == 0 else "funding_gap",
+            "working_capital_assessment": "not_assessed_without_periodic_cashflow",
+            "tax_assessment": "not_included_unless_declared_as_cost_line",
         },
         "scenarios": results,
         "decision_candidate": base["decision_candidate"],

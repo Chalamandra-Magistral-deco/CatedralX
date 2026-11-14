@@ -4,7 +4,7 @@
   "type": "object",
   "required": [
     "schema_version", "result_id", "engine", "evaluation_domain", "status",
-    "opportunity_id", "currency", "horizon_months", "financials", "scenarios",
+    "opportunity_id", "income_model", "currency", "horizon_months", "financials", "scenarios",
     "decision_candidate", "risk_flags", "assumptions", "evidence",
     "evidence_status", "uncertainty", "provenance", "trace_id",
     "evaluation_hash", "analysis_only", "orders_created", "orders_executed",
@@ -17,17 +17,21 @@
     "evaluation_domain": { "const": "business_opportunity" },
     "status": { "const": "ANALYSIS_COMPLETE" },
     "opportunity_id": { "type": "string", "minLength": 1 },
+    "income_model": { "enum": ["active", "passive", "hybrid", "investment", "asset"] },
     "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
     "horizon_months": { "type": "integer", "minimum": 1, "maximum": 120 },
     "financials": {
       "type": "object",
-      "required": ["capital_required", "available_capital", "funding_gap", "revenue_total_base_input", "cost_total_base_input"],
+      "required": ["capital_required", "available_capital", "funding_gap", "revenue_total_base_input", "cost_total_base_input", "initial_capital_status", "working_capital_assessment", "tax_assessment"],
       "properties": {
         "capital_required": { "type": "number", "minimum": 0 },
         "available_capital": { "type": "number", "minimum": 0 },
         "funding_gap": { "type": "number", "minimum": 0 },
         "revenue_total_base_input": { "type": "number", "minimum": 0 },
-        "cost_total_base_input": { "type": "number", "minimum": 0 }
+        "cost_total_base_input": { "type": "number", "minimum": 0 },
+        "initial_capital_status": { "enum": ["funded", "funding_gap"] },
+        "working_capital_assessment": { "const": "not_assessed_without_periodic_cashflow" },
+        "tax_assessment": { "const": "not_included_unless_declared_as_cost_line" }
       },
       "additionalProperties": false
     },
