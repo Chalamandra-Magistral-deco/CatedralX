@@ -38,9 +38,9 @@ La autoridad de control, la producción de evidencia y la aceptación final no d
 
 ## 4. Tres modos de causalidad sobre el mismo núcleo
 
-1. **Reactivo:** Usuario/producto → API → TaskBus → worker → CatedralX y herramientas de agentes → candidato/evidencia → verificador → API → consumidor.
-2. **Retorno:** candidato/resultado → verificador independiente → evento autorizado → webhook/distribuidor → producto/usuario.
-3. **Proactivo:** evento o condición → API interna autorizada → TaskBus → worker → evidencia/verificación → alerta/entrega.
+1. **Entrada reactiva:** Usuario/producto → Agents API → TaskBus → worker/coordinación Agents → CatedralX y capacidades especializadas → candidato/evidencia → verificador independiente → Membrana/API → consumidor.
+2. **Retorno y distribución:** resultado candidato → verificación independiente → control de autorización y aceptación en la Membrana → distribuidor → producto/usuario → feedback trazable a Agents/CatedralX.
+3. **Iniciativa proactiva:** evento, condición o ciclo autorizado → Agents (coordinador) → TaskBus → agentes/capacidades → CatedralX cuando se requiera razonamiento → verificación → entrega controlada. La existencia de endpoints o scripts no demuestra scheduler activo.
 
 La existencia de un endpoint que acepta disparadores no prueba que exista un scheduler desplegado. Los tres modos deben compartir IDs consistentes, trazabilidad, permisos, deduplicación, límites y condiciones de parada.
 
@@ -66,7 +66,7 @@ La decisión debe referenciar el candidato y el digest exacto, criterios evaluad
 | Repositorio | Rol objetivo | Límite |
 |---|---|---|
 | `Chalamandra-Magistral-deco/CatedralX` | Núcleo analítico determinista y contratos. | No permitir que un LLM sustituya reglas ni ejecutar órdenes financieras. |
-| `Chalamandra-Magistral-deco/chalamandra-agent-engine` | Agentes, API local, TaskBus, worker, stores y distribución. | Consume CatedralX; no debe concederse autoridad de aceptación al worker. |
+| `Chalamandra-Magistral-deco/chalamandra-agent-engine` | **Coordinador central Agents**: API, planificación, perfiles, agentes, TaskBus, workers, stores y distribución. | Coordina y consume CatedralX; no sustituye su razonamiento ni puede autoaceptar candidatos. |
 | `Chalamandra-Magistral-deco/CHALAMANDRA-MAGISTRAL` | Portal institucional y captación. | El formulario/Worker externo no se considera conectado hasta probar entrega y recibo. |
 | `Tricentric-Integration`, `SYSTEM_DECODE_MAGIS-v12.0-FLUX`, `INTERACTIVE-DECOX` | Productos web independientes. | Integrar como clientes solo cuando haya un caso de uso y contrato concreto. |
 | `OMNI-CHALAMANDRA-decox`, `Chalamandra-Triada`, `CHMADEX-DIAL`, `Insightify-Chalamandra`, `Challamandra-Analisis-cognitivo`, `chalamandra-6-sombreros` | Productos/capacidades cognitivas especializadas. | El posible solapamiento funcional no justifica eliminar ni fusionar sin evaluar código, uso, despliegue, clientes y dependencias. |
