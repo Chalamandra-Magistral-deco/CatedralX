@@ -122,3 +122,71 @@ def test_non_boolean_or_unapproved_gate_fails_closed():
         result = _cycle(risk_gate=gate)
         assert result["decision"]["final"] == "HOLD"
         assert result["action"]["executable"] is False
+
+
+def _opportunity_payload():
+    import hashlib
+    digest = hashlib.sha256(b"fixture-evidence").hexdigest()
+    return {
+        "opportunity_id": "opp-001",
+        "name": "Servicio digital piloto",
+        "category": "digital_service",
+        "currency": "MXN",
+        "horizon_months": 12,
+        "capital_required": 5000,
+        "available_capital": 3000,
+        "revenue": [{"amount": 2000, "frequency": "monthly", "evidence_id": "ev-1"}],
+        "costs": [{"amount": 500, "frequency": "monthly", "evidence_id": "ev-1"}],
+        "evidence": [{
+            "evidence_id": "ev-1", "source": "user_supplied_estimate",
+            "observed_at": datetime.now(UTC).isoformat(), "digest": digest,
+        }],
+        "assumptions": ["La facturación mensual estimada se mantiene durante el horizonte."],
+        "scenarios": [
+            {"name": "conservative", "revenue_multiplier": 0.7, "cost_multiplier": 1.2},
+            {"name": "base", "revenue_multiplier": 1.0, "cost_multiplier": 1.0},
+            {"name": "optimistic", "revenue_multiplier": 1.2, "cost_multiplier": 0.9},
+        ],
+        "trace_id": "1234567890abcdef1234567890abcdef",
+    }
+
+
+def test_economic_opportunity_contract_calculates_financial_scenarios_without_authorizing():
+    from REASON.core_contract import evaluate_economic_opportunity
+    result = evaluate_economic_opportunity(_opportunity_payload())
+    assert result["evaluation_domain"] == "business_opportunity"
+    assert result["status"] == "ANALYSIS_COMPLETE"
+    assert result["scenarios"]["base"]["revenue_total"] == 24000.0
+    assert result["scenarios"]["base"]["cost_total"] == 6000.0
+    assert result["financials"]["funding_gap"] == 2000.0
+    assert result["decision_candidate"] == "DEFER"
+    assert result["authorization"] == "NOT_GRANTED"
+    assert result["independent_acceptance_required"] is True
+    assert result["analysis_only"] is True
+    assert result["orders_created"] is False
+    assert result["orders_executed"] is False
+    assert len(result["evaluation_hash"]) == 64
+
+
+def test_economic_opportunity_rejects_missing_scenarios_and_unlinked_evidence():
+    from REASON.core_contract import evaluate_economic_opportunity
+    payload = _opportunity_payload()
+    payload["scenarios"] = payload["scenarios"][:2]
+    with pytest.raises(ValueError, match="exactamente"):
+        evaluate_economic_opportunity(payload)
+    payload = _opportunity_payload()
+    payload["revenue"][0]["evidence_id"] = "unknown"
+    with pytest.raises(ValueError, match="evidence_id"):
+        evaluate_economic_opportunity(payload)
+
+
+def test_economic_opportunity_rejects_boolean_amount_and_noncanonical_trace():
+    from REASON.core_contract import evaluate_economic_opportunity
+    payload = _opportunity_payload()
+    payload["capital_required"] = True
+    with pytest.raises(ValueError, match="capital_required"):
+        evaluate_economic_opportunity(payload)
+    payload = _opportunity_payload()
+    payload["trace_id"] = "0" * 32
+    with pytest.raises(ValueError, match="trace_id"):
+        evaluate_economic_opportunity(payload)
