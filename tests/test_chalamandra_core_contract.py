@@ -191,3 +191,26 @@ def test_economic_opportunity_rejects_boolean_amount_and_noncanonical_trace():
     payload["trace_id"] = "0" * 32
     with pytest.raises(ValueError, match="trace_id"):
         evaluate_economic_opportunity(payload)
+
+
+def test_economic_opportunity_cli_dispatches_to_canonical_contract(tmp_path):
+    import json
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    payload_path = tmp_path / "opportunity.json"
+    payload_path.write_text(json.dumps(_opportunity_payload()), encoding="utf-8")
+    root = Path(__file__).resolve().parents[1]
+    env = dict(os.environ)
+    env["CATEDRALX_PYTHON"] = sys.executable
+    completed = subprocess.run(
+        ["bash", str(root / "BIN/catedral"), "economic-opportunity", "--input-file", str(payload_path)],
+        cwd=root, env=env, capture_output=True, text=True, timeout=15, check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    result = json.loads(completed.stdout)
+    assert result["engine"] == "CatedralX"
+    assert result["evaluation_domain"] == "business_opportunity"
+    assert result["trace_id"] == _opportunity_payload()["trace_id"]
