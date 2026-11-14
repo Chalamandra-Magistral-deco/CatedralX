@@ -48,7 +48,12 @@ def synthetic_prediction():
 
 
 def test_acceptance_valid_synthetic_observation_is_accepted():
-    result = validate_snapshot_payload(observation(), max_age_seconds=120)
+    # Isolates the shape/freshness contract; this synthetic source is not on
+    # the H-02 provenance allowlist, so signature verification is explicitly
+    # disabled here. Signature behavior is covered by test_snapshot_signature.
+    result = validate_snapshot_payload(
+        observation(), max_age_seconds=120, require_signature=False
+    )
     assert result["healthy"] is True
     assert result["reason"] == "ok"
     assert result["has_prices"] is True

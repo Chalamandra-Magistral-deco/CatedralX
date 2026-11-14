@@ -7,6 +7,22 @@ from datetime import UTC, datetime
 
 import pytest
 from PERCEIVE.api_pulse import check_snapshot, validate_snapshot_payload
+from PERCEIVE.snapshot_signing import sign_snapshot_payload
+
+_TEST_SNAPSHOT_SECRET = "test-only-snapshot-signing-secret-32-bytes"
+
+
+@pytest.fixture(autouse=True)
+def _snapshot_signing_key(monkeypatch):
+    # H-02: freshness tests exercise the real path (signed snapshot, allowed
+    # isolated-test source) so a signature failure never masks the property
+    # under test.
+    monkeypatch.setenv("CATEDRALX_SNAPSHOT_SIGNING_SECRET", _TEST_SNAPSHOT_SECRET)
+    monkeypatch.delenv("CATEDRALX_SNAPSHOT_ALLOW_UNSIGNED", raising=False)
+
+
+def signed(payload):
+    return sign_snapshot_payload(payload)
 
 
 def make_snapshot(observed_at, count=30):
@@ -15,7 +31,7 @@ def make_snapshot(observed_at, count=30):
         "PERCEIVE": {
             "historial_precios": prices,
             "precio": prices[-1],
-            "source": "test",
+            "source": "synthetic-smoke-test",
             "observed_at": observed_at,
         }
     }
@@ -29,7 +45,7 @@ def test_rejects_old_observations_even_when_file_is_recent(tmp_path):
     now = 2_000_000_000.0
     path = tmp_path / "snapshot.json"
     path.write_text(
-        json.dumps(make_snapshot(iso_time(now - 300))),
+        json.dumps(signed(make_snapshot(iso_time(now - 300)))),
         encoding="utf-8",
     )
     os.utime(path, (now, now))
@@ -44,7 +60,7 @@ def test_uses_market_timestamp_even_when_file_mtime_is_old(tmp_path):
     now = 2_000_000_000.0
     path = tmp_path / "snapshot.json"
     path.write_text(
-        json.dumps(make_snapshot(iso_time(now - 30))),
+        json.dumps(signed(make_snapshot(iso_time(now - 30)))),
         encoding="utf-8",
     )
     os.utime(path, (now - 600, now - 600))
@@ -57,7 +73,7 @@ def test_uses_market_timestamp_even_when_file_mtime_is_old(tmp_path):
 
 def test_rejects_missing_observation_timestamp():
     result = validate_snapshot_payload(
-        make_snapshot(None),
+        signed(make_snapshot(None)),
         max_age_seconds=120,
         now=2_000_000_000,
     )
@@ -68,7 +84,7 @@ def test_rejects_missing_observation_timestamp():
 
 def test_rejects_history_with_fewer_than_30_prices():
     result = validate_snapshot_payload(
-        make_snapshot(iso_time(2_000_000_000 - 10), count=29),
+        signed(make_snapshot(iso_time(2_000_000_000 - 10), count=29)),
         max_age_seconds=120,
         now=2_000_000_000,
     )
@@ -79,7 +95,7 @@ def test_rejects_history_with_fewer_than_30_prices():
 
 def test_rejects_timezone_free_observation_timestamp():
     result = validate_snapshot_payload(
-        make_snapshot("2033-05-18T03:33:10"),
+        signed(make_snapshot("2033-05-18T03:33:10")),
         max_age_seconds=120,
         now=2_000_000_000,
     )
@@ -91,7 +107,7 @@ def test_rejects_timezone_free_observation_timestamp():
 def test_rejects_observation_timestamp_too_far_in_future():
     now = 2_000_000_000.0
     result = validate_snapshot_payload(
-        make_snapshot(iso_time(now + 60)),
+        signed(make_snapshot(iso_time(now + 60))),
         max_age_seconds=120,
         now=now,
     )
@@ -105,7 +121,7 @@ def test_reason_entry_point_refuses_stale_snapshot(tmp_path, monkeypatch, capsys
 
     snapshot_path = tmp_path / "stale_reason.json"
     snapshot_path.write_text(
-        json.dumps(make_snapshot(iso_time(time.time() - 300))),
+        json.dumps(signed(make_snapshot(iso_time(time.time() - 300)))),
         encoding="utf-8",
     )
     monkeypatch.setenv("CATEDRALX_SNAPSHOT_PATH", str(snapshot_path))
@@ -130,7 +146,7 @@ def test_bunker_cycle_refuses_stale_snapshot(tmp_path, monkeypatch):
 
     snapshot_path = tmp_path / "stale_bunker.json"
     snapshot_path.write_text(
-        json.dumps(make_snapshot(iso_time(time.time() - 300))),
+        json.dumps(signed(make_snapshot(iso_time(time.time() - 300)))),
         encoding="utf-8",
     )
     monkeypatch.setattr(bunker, "SNAPSHOT_PATH", snapshot_path)
@@ -157,7 +173,7 @@ def test_bunker_uses_shared_cycle_without_overwriting_snapshot(
 
     snapshot_path = tmp_path / "fresh_bunker.json"
     snapshot_path.write_text(
-        json.dumps(make_snapshot(iso_time(time.time()))),
+        json.dumps(signed(make_snapshot(iso_time(time.time())))),
         encoding="utf-8",
     )
     original_bytes = snapshot_path.read_bytes()

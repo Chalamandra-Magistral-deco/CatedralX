@@ -4,6 +4,8 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from .snapshot_signing import gap_inertia_in_range
+
 
 def validate_price_history(values: Any, minimum: int = 30) -> list[float]:
     if not isinstance(values, (list, tuple)):
@@ -39,5 +41,7 @@ def normalize_market_payload(payload: dict[str, Any]) -> dict[str, Any]:
     inertia = float(payload.get("inercia", 0.0))
     if not math.isfinite(gap) or not math.isfinite(inertia):
         raise ValueError("gap and inertia must be finite")
+    if not gap_inertia_in_range(gap) or not gap_inertia_in_range(inertia):
+        raise ValueError("gap and inertia are 1-minute returns and must be in [-1, 1]")
     return {"historial_precios": prices, "precio": current, "gap": gap, "inercia": inertia,
             "source": str(payload.get("source", "unspecified")), "observed_at": payload.get("observed_at")}

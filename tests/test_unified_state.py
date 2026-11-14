@@ -21,10 +21,22 @@ def _snapshot(observed_at):
             "precio": prices[-1],
             "gap": 0.0,
             "inercia": 0.0,
-            "source": "test",
+            "source": "synthetic-smoke-test",
             "observed_at": observed_at,
         }
     }
+
+
+def _signed_snapshot(observed_at, monkeypatch):
+    # H-02: the loop test exercises the real path, so the snapshot is signed.
+    from PERCEIVE.snapshot_signing import sign_snapshot_payload
+
+    monkeypatch.setenv(
+        "CATEDRALX_SNAPSHOT_SIGNING_SECRET",
+        "test-only-snapshot-signing-secret-32-bytes",
+    )
+    monkeypatch.delenv("CATEDRALX_SNAPSHOT_ALLOW_UNSIGNED", raising=False)
+    return sign_snapshot_payload(_snapshot(observed_at))
 
 
 def _fake_state():
@@ -57,7 +69,7 @@ def test_orchestrator_loop_uses_shared_cycle_and_keeps_snapshot_read_only(
     from REASON import orchestrator
 
     path = tmp_path / "input.json"
-    path.write_text(json.dumps(_snapshot(_iso(time.time()))), encoding="utf-8")
+    path.write_text(json.dumps(_signed_snapshot(_iso(time.time()), monkeypatch)), encoding="utf-8")
     original_bytes = path.read_bytes()
     monkeypatch.setattr(orchestrator, "SNAPSHOT_PATH", path)
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -38,29 +39,83 @@ def _decimal_text(value: Decimal) -> str:
     return format(value.normalize(), "f")
 
 
-def _attach_evaluation_hash(result: dict[str, Any]) -> dict[str, Any]:
-    """Hash the canonical result and policy, including all block reasons."""
+def evaluation_policy() -> dict[str, Any]:
+    """The exact policy covered by ``evaluation_hash`` (C-2: single source of truth)."""
+    return {
+        "score_scale": "integer_basis_points",
+        "score_range_bp": [0, 10000],
+        "evidence_min_bp": EVIDENCE_MIN_BP,
+        "reinvestment_min_bp": REINVESTMENT_MIN_BP,
+        "score_min_bp": SCORE_MIN_BP,
+        "weights_bp": {
+            "viability": W_VIABILITY_BP,
+            "resilience": W_RESILIENCE_BP,
+            "human_value": W_HUMAN_BP,
+            "distribution": W_DISTRIBUTION_BP,
+        },
+    }
+
+
+def _canonical_evaluation_payload(result: dict[str, Any]) -> bytes:
+    """Canonical bytes hashed for a central evaluation result.
+
+    The hash covers ``{schema_version, policy, result}`` where ``result`` is
+    the evaluation WITHOUT its own ``evaluation_hash`` field. It does NOT
+    cover input prices: a hash verifies the verdict and the policy, not the
+    market data that produced it.
+    """
     canonical = {
         "schema_version": 2,
-        "policy": {
-            "score_scale": "integer_basis_points",
-            "score_range_bp": [0, 10000],
-            "evidence_min_bp": EVIDENCE_MIN_BP,
-            "reinvestment_min_bp": REINVESTMENT_MIN_BP,
-            "score_min_bp": SCORE_MIN_BP,
-            "weights_bp": {
-                "viability": W_VIABILITY_BP,
-                "resilience": W_RESILIENCE_BP,
-                "human_value": W_HUMAN_BP,
-                "distribution": W_DISTRIBUTION_BP,
-            },
-        },
-        "result": result,
+        "policy": evaluation_policy(),
+        "result": {key: value for key, value in result.items() if key != "evaluation_hash"},
     }
-    payload = json.dumps(
+    return json.dumps(
         canonical, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
     ).encode("utf-8")
-    result["evaluation_hash"] = hashlib.sha256(payload).hexdigest()
+
+
+def compute_evaluation_hash(result: dict[str, Any]) -> str:
+    """Recompute the central ``evaluation_hash`` for an evaluation result."""
+    return hashlib.sha256(_canonical_evaluation_payload(result)).hexdigest()
+
+
+def verify_evaluation_hash(
+    result: dict[str, Any], *, expected: str | None = None
+) -> dict[str, Any]:
+    """Recompute and compare a central ``evaluation_hash`` (C-2).
+
+    ``expected`` overrides the hash embedded in ``result`` when given (for
+    callers that stripped it). Returns a report dict; never raises for a bad
+    input — any failure is ``valid: False`` with a reason code, so Agents
+    can fail closed on it.
+    """
+    if not isinstance(result, dict):
+        return {"valid": False, "kind": "central", "expected": expected,
+                "computed": None, "reason": "result_not_an_object"}
+    embedded = result.get("evaluation_hash")
+    wanted = expected if expected is not None else embedded
+    if not isinstance(wanted, str) or not wanted:
+        return {"valid": False, "kind": "central", "expected": wanted,
+                "computed": None, "reason": "missing_expected_hash"}
+    try:
+        computed = compute_evaluation_hash(result)
+    except (TypeError, ValueError):
+        return {"valid": False, "kind": "central", "expected": wanted,
+                "computed": None, "reason": "unserializable_result"}
+    try:
+        match = hmac.compare_digest(wanted, computed)
+    except (TypeError, ValueError):
+        match = False
+    if not match:
+        return {"valid": False, "kind": "central", "expected": wanted,
+                "computed": computed, "reason": "hash_mismatch"}
+    return {"valid": True, "kind": "central", "expected": wanted,
+            "computed": computed, "reason": "ok"}
+
+
+def _attach_evaluation_hash(result: dict[str, Any]) -> dict[str, Any]:
+    """Hash the canonical result and policy, including all block reasons."""
+    result["evaluation_hash"] = compute_evaluation_hash(result)
     return result
 
 

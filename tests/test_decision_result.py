@@ -186,6 +186,51 @@ def test_result_store_append_and_get(tmp_path):
     assert retrieved["result_id"] == result_id
     assert retrieved["status"] == result["status"]
 
+
+def test_result_store_append_is_0600_and_does_not_change_record_shape(tmp_path):
+    # H-04 (partial): flock + fsync + 0600 without changing the stored
+    # record format — the verify script compares stored == decision exactly.
+    import json
+    import os
+
+    path = tmp_path / "nested" / "results.jsonl"
+    result = build_decision_result(_make_state(decision="buy"), _make_cognitive())
+    append_result(result, path=path)
+    assert (os.stat(path).st_mode & 0o777) == 0o600
+    assert (os.stat(path.parent).st_mode & 0o777) == 0o700
+    stored = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+    assert stored == result
+
+
+def test_result_store_concurrent_appends_keep_all_lines_valid(tmp_path):
+    # H-04 (partial): flock serializes writers; no interleaved lines.
+    import json
+    import threading
+
+    path = tmp_path / "results.jsonl"
+    errors: list[BaseException] = []
+
+    def append_one(index: int) -> None:
+        try:
+            result = build_decision_result(_make_state(decision="buy"), _make_cognitive())
+            result["result_id"] = f"{index:032x}"
+            append_result(result, path=path)
+        except BaseException as exc:  # noqa: BLE001 - collected by the test
+            errors.append(exc)
+
+    threads = [threading.Thread(target=append_one, args=(i,)) for i in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert not errors
+    lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert len(lines) == 8
+    records = [json.loads(line) for line in lines]
+    assert len({record["result_id"] for record in records}) == 8
+    for index in range(8):
+        assert get_result(f"{index:032x}", path=path) is not None
+
 def test_result_store_rejects_accepted_result_without_evidence(tmp_path):
     result = build_decision_result(
         _make_state(),
