@@ -36,6 +36,13 @@ Estas rutas cumplen funciones distintas; no son duplicados. Los datos persistent
 Los contratos de `elite/contracts` normalizan acciones y construyen/validan resultados trazables.
 Los gates de gobernanza y defensa pueden bloquear el flujo. Una etiqueta `buy`, `sell` o `hold` es análisis, no una orden.
 
+## Defensa y unidades de gobernanza
+
+- Las dimensiones de gobernanza expresadas en basis points usan enteros en el rango `[0, 10000]`; las cantidades monetarias y tasas conservan sus unidades propias y no deben mezclarse con basis points.
+- Las entradas inválidas, incompletas, vencidas o no verificables deben bloquear o degradar el resultado conforme al contrato canónico (`fail-closed`); nunca se sustituyen por valores inventados.
+- Los mecanismos de defensa existentes, incluidos `guardian_ram` y `PATH_PANIC` cuando correspondan al flujo ejecutado, deben conservar su autoridad de veto. Su presencia documental no prueba por sí sola que estén activos en runtime.
+- `buy`, `sell` y `hold` son resultados analíticos; no son órdenes ni autorizaciones de ejecución.
+
 ## NEXUS y endpoint loopback
 
 `elite/bin/nexus.py status()` expone el estado resumido del motor.
