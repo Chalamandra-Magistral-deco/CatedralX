@@ -47,3 +47,13 @@ Las menciones a VM, procesos systemd y estado activo de 2026-10-28 son evidencia
 - La fórmula dinámica `surplus >= entropy_time_scale * entropy_rate` requiere definición de unidades, periodo, moneda y método de calibración antes de interpretarse como umbral económico validado. La CI verifica implementación y fail-closed, no validez dimensional ni predictiva.
 - En `DYNAMIC_CONSTRAINTS`, `dominant_signal_weight` y `minimum_confidence` son campos opcionales validados cuando se suministran, pero no participan actualmente en `growth_allowed`. `degradation_rate` y `accumulated_noise` se conservan como observaciones; no activan recalibración ni bloqueo por sí solos. No presentarlos como métricas ya calibradas.
 - `uncertainty` del ciclo sintético acepta cualquier número finito no negativo; su unidad, normalización y umbral no están fijados por este contrato. No compararlo con porcentajes o probabilidades.
+
+
+## Evaluación económica de oportunidades — contrato 1.0
+
+- El contrato ejecutable es `elite/REASON/core_contract.py::evaluate_economic_opportunity`; su salida se describe en `elite/contracts/schemas/economic_opportunity_result.json`.
+- El dominio `business_opportunity` no exige precios históricos ni sustituye el contrato de análisis de mercado.
+- El campo `income_model` clasifica el modelo como `active`, `passive`, `hybrid`, `investment` o `asset`. Ingresos y costos requieren partidas explícitas con frecuencia (`one_time`, `monthly`, `quarterly`, `annual`) y referencia a evidencia declarada. Los escenarios conservador, base y optimista requieren multiplicadores suministrados; el motor no los inventa.
+- Los cálculos informan ingresos/costos del horizonte, resultado neto, margen, ROI, recuperación estimada de capital y brecha de financiación inicial. El capital de trabajo periódico no se considera validado sin flujos de caja por periodo; los impuestos solo se consideran si se declaran como partidas de costo. Son cálculos sobre supuestos declarados, no resultados observados.
+- `evidence_status=declared_digest_not_source_authentication` significa que el digest vincula la entrada declarada, no que se haya autenticado la fuente original. `uncertainty.status=not_probability_calibrated` impide interpretar escenarios como probabilidades.
+- `PURSUE`, `DEFER` y `REJECT` son candidatos analíticos. La salida fija `authorization=NOT_GRANTED`, `analysis_only=true`, `orders_created=false` y `orders_executed=false`; requiere aceptación independiente y autorización humana separadas.
