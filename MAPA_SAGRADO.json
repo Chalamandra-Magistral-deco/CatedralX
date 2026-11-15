@@ -1,15 +1,16 @@
 {
   "sagrada_version": "4.3",
-  "estado": "Inventario estructural reconciliado con el árbol GitHub de main; no equivale a despliegue operativo.",
+  "estado": "Snapshot estructural de main anclado al commit de origen indicado; no equivale al HEAD posterior ni demuestra despliegue operativo.",
   "fuente_de_verdad": {
     "repositorio": "Chalamandra-Magistral-deco/CatedralX",
     "rama": "main",
-    "commit": "f757a7cfa4e622a4bd6fc242d00408e1751c7e33",
-    "tree_sha": "22ecff1f22ea43db42496abc23df40b06e7cac2a",
-    "tree_entries": 216,
-    "tracked_files": 184,
-    "python_files": 121,
-    "conteo_scope": "Snapshot del árbol Git en el commit indicado; incluye archivos y directorios versionados, no módulos funcionales ni procesos."
+    "snapshot_commit": "b1841e18b9d64d215d7382e4ca9122efb959bb57",
+    "tree_sha": "c0faf72a346ce96015b118e8ccaeac8daad95c98",
+    "tree_entries": 217,
+    "tracked_files": 185,
+    "python_files": 126,
+    "captured_at": "2026-11-15",
+    "conteo_scope": "Snapshot recursivo no truncado del árbol Git del commit indicado; tree_entries incluye archivos y directorios versionados; tracked_files cuenta blobs; python_files cuenta archivos .py. Los commits documentales posteriores pueden mover HEAD sin cambiar este inventario de código."
   },
   "bin_canonico": "BIN/catedral",
   "vectores": {
