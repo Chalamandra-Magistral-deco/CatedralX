@@ -1,8 +1,11 @@
 # Estado de implementación — CatedralX
 
-**Actualizado:** 2026-11-11  
+**Corte técnico de estado:** 2026-11-11  
+**Actualización documental:** 2026-11-15  
 **Fuente de verdad:** rama `main` de Chalamandra-Magistral-deco/CatedralX.  
-**Commit inspeccionado:** `f757a7cfa4e622a4bd6fc242d00408e1751c7e33`.
+**Commit inspeccionado para el estado técnico:** `f757a7cfa4e622a4bd6fc242d00408e1751c7e33`.
+
+> La actualización del 2026-11-15 corrige referencias documentales; no vuelve a ejecutar pruebas ni actualiza el corte técnico del 2026-11-11. Para arquitectura, contratos y estructura, consulta `docs/ARQUITECTURA_OBJETIVO.md`, `docs/contracts/README.md` y `MAPA_SAGRADO.json`. `docs/INDICE_DOCUMENTAL_Y_GOBIERNO.md` ya no existe en `main`.
 
 ## Estado vigente verificado
 
@@ -28,7 +31,7 @@
 - Un gate central `ACCEPTED` no equivale a aceptación independiente ni a permiso de publicación; la siguiente acción es solicitar aceptación independiente Ed25519. El flujo público solo podrá exponer `accepted` tras verificar esa firma y el digest.
 - No hay evidencia de runtime nuevo ni integración end-to-end activa. CI verde acredita el código y la imagen construida, no despliegue, conexión con Agents ni operación real.
 - Seguridad: revisión estática parcial; consultar `docs/SEGURIDAD_REPOSITORIO.md`. No se certifica ausencia de secretos en el historial ni estado de Secret Scanning.
-- Documentación histórica: clasificada y preservada según `docs/INDICE_DOCUMENTAL_Y_GOBIERNO.md`.
+- Documentación histórica: existen documentos y registros históricos, pero no hay un índice documental vigente que certifique su clasificación integral. No inferir que todo el material histórico esté clasificado o preservado a partir de referencias anteriores.
 
 ## Veredicto
 
@@ -40,7 +43,8 @@ La revisión cubre el árbol GitHub de `main`, archivos versionados, workflows, 
 
 ## Documentos de referencia
 
-- Índice y conservación: `docs/INDICE_DOCUMENTAL_Y_GOBIERNO.md`.
+- Arquitectura y responsabilidades: `docs/ARQUITECTURA_OBJETIVO.md`.
+- Inventario estructural: `MAPA_SAGRADO.json` (snapshot anclado a su commit de origen; no equivale al HEAD ni a despliegue operativo).
 - Seguridad: `docs/SEGURIDAD_REPOSITORIO.md`.
 - Arquitectura: `docs/ARQUITECTURA_OBJETIVO.md`.
 - Contratos: `docs/contracts/README.md`.
