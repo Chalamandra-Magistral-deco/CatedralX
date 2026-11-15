@@ -1,6 +1,6 @@
 # CatedralX — motor financiero de análisis
 
-> Navegación: [índice documental](docs/INDICE_DOCUMENTAL_Y_GOBIERNO.md) · [mapa estructural](MAPA_SAGRADO.json) · [estado vigente](docs/ESTADO_PRODUCCION.md) · [revisión de seguridad](docs/SEGURIDAD_REPOSITORIO.md).
+> Navegación: [arquitectura objetivo](docs/ARQUITECTURA_OBJETIVO.md) · [contratos](docs/contracts/README.md) · [mapa estructural](MAPA_SAGRADO.json) · [estado de implementación](docs/ESTADO_PRODUCCION.md) · [revisión de seguridad](docs/SEGURIDAD_REPOSITORIO.md).
 
 CatedralX es el motor financiero experimental del ecosistema Chalamandra Magistral. Esta versión ejecuta análisis determinista sobre precios observados y conserva los subsistemas de Hurst, geometría, energía libre y giro como diagnósticos complementarios. La etiqueta financiera final ya no depende de la decisión estocástica del subsistema antiguo.
 
@@ -71,4 +71,4 @@ Para consultar el agregado de solo lectura:
 
 La ruta por defecto es ~/.local/state/chalamandra/catedralx/user_feedback.jsonl. Se puede definir CATEDRALX_USER_FEEDBACK_PATH. No ingreses secretos ni datos personales en la corrección opcional. La integración del formulario/API externo debe implementarse y verificarse en el repositorio de Agents/producto.
 
-Diseño mecánico, depuración y retroalimentación: [arquitectura mecánica](docs/ARQUITECTURA_MECANICA_RETROALIMENTACION.md). El estado vigente y la clasificación de evidencias están en el [índice documental](docs/INDICE_DOCUMENTAL_Y_GOBIERNO.md) y el [estado del repositorio](docs/ESTADO_PRODUCCION.md).
+Diseño mecánico, depuración y retroalimentación: [arquitectura mecánica](docs/ARQUITECTURA_MECANICA_RETROALIMENTACION.md). Para el estado de implementación consulta [ESTADO_PRODUCCION.md](docs/ESTADO_PRODUCCION.md); para responsabilidades y límites consulta [ARQUITECTURA_OBJETIVO.md](docs/ARQUITECTURA_OBJETIVO.md); para los contratos consulta [docs/contracts/README.md](docs/contracts/README.md).
