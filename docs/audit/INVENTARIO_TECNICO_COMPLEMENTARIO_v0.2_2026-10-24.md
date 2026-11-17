@@ -49,7 +49,7 @@ Consulta de solo lectura el 2026-10-24. Los SHA se muestran abreviados aquí; el
 | oraculo.chalamandramagistral.com | or-culo-chalamandra | Chalamandra-Magistral-deco/Or-culo-Chalamandra | READY; main; e6027459d1d6; 2026-10-17 03:29 UTC. |
 | pirinola.chalamandramagistral.com | pirinola-neural | Chalamandra-Magistral-deco/Pirinola- | READY; main; 89b1bba44d33; 2026-10-17 01:13 UTC. |
 | srap-barrio.vercel.app | srap-barrio | Chalamandra-Magistral-deco/Blueprint-Chalamandra---SRAP-Barrio-Edition | READY; feat/real-money-flow; cee51dd26749; 2026-10-06 10:32 UTC. No se observó dominio propio vinculado al proyecto. |
-| azureuser-liart.vercel.app | azureuser | No se obtuvo repo vinculado en el contexto del proveedor | La consulta reciente no devolvió deployments. Sin dominio propio. |
+| Proyecto Vercel histórico sin repositorio identificado | — | No se obtuvo repositorio asociado; la consulta no devolvió deployments. Sin dominio propio. |
 
 Todos los dominios personalizados listados en la tabla de productos aparecieron como verificados en la configuración del proyecto. Esto acredita la asociación en Vercel, no toda la resolución DNS externa ni el funcionamiento del backend.
 
