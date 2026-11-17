@@ -2,6 +2,10 @@
 
 Este documento registra la implementación que se está reconstruyendo dentro del repositorio existente `CatedralX`. No implica que el sistema esté listo para producción ni que se haya validado para operar en mercados reales.
 
+## Nota de entorno
+
+Las rutas absolutas del entorno de ejecución anterior se han sustituido por marcadores (`<CATEDRALX_ROOT>` y `<VENV_PATH>`). La VM que alojaba ese checkout fue retirada; las pruebas descritas abajo son evidencia histórica y no acreditan un entorno actualmente disponible.
+
 ## Arquitectura y rutas actuales
 
 | Vector | Ruta canónica en este checkout | Estado |
@@ -36,15 +40,15 @@ Este documento registra la implementación que se está reconstruyendo dentro de
 
 ## Pruebas ejecutadas
 
-Entorno usado en la VM: entorno virtual existente en `/home/azureuser/workspace/repos/agents/venv`.
+Entorno usado en la VM: entorno virtual existente en `<VENV_PATH>`.
 
 ```bash
-cd /home/azureuser/workspace/repos/CatedralX
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=elite /home/azureuser/workspace/repos/agents/venv/bin/python -m pytest -q -p no:cacheprovider tests
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=elite /home/azureuser/workspace/repos/agents/venv/bin/python -m compileall -q elite tests
+cd <CATEDRALX_ROOT>
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=elite <VENV_PATH>/bin/python -m pytest -q -p no:cacheprovider tests
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=elite <VENV_PATH>/bin/python -m compileall -q elite tests
 ```
 
-Última verificación en la VM: 23 tests pasaron; `compileall` terminó sin errores; una descarga real escribió 59 velas cerradas y el ciclo SCX terminó con `ANALYSIS_COMPLETE` / `hold`. El estado marcó el feed como saludable. La prueba verde no valida rentabilidad ni trading real; estos resultados corresponden a una única ejecución.
+Última verificación histórica en la VM retirada: 23 tests pasaron; `compileall` terminó sin errores; una descarga real escribió 59 velas cerradas y el ciclo SCX terminó con `ANALYSIS_COMPLETE` / `hold`. El estado marcó el feed como saludable. La prueba verde no valida rentabilidad ni trading real; estos resultados corresponden a una única ejecución.
 
 ## Pendiente
 
