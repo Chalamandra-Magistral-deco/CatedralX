@@ -1,5 +1,9 @@
 # Comparación del clon y el repositorio principal — 2026-10-24
 
+## Nota de entorno
+
+Los nombres de rutas locales se han normalizado como marcadores porque pertenecían a una VM retirada. Este informe conserva resultados históricos de comparación; no describe una ruta de trabajo ni una infraestructura vigente.
+
 ## Dictamen
 
 **Resultado: divergencia de árboles de trabajo; no integrar todavía.**  
@@ -7,8 +11,8 @@ La comparación fue de solo lectura. No se editaron archivos del repositorio pri
 
 ## Identidad y base de comparación
 
-- Repositorio principal: `/home/azureuser/workspace/repos/CatedralX`
-- Clon de revisión: `/home/azureuser/workspace/repos/CatedralX-verify`
+- Repositorio principal: `<CATEDRALX_ROOT>`
+- Clon de revisión: `<CATEDRALX_VERIFY_ROOT>`
 - Rama del principal: `feat/financial-motor-deterministic`
 - El `HEAD` del principal es la base común detectada del clon; `git diff main-HEAD...clone-HEAD` no mostró cambios comprometidos entre las puntas comparadas. La divergencia examinada está en los árboles de trabajo no comprometidos.
 - Estado de trabajo informado: principal con 14 entradas; clon con 34 entradas. Los conteos incluyen modificaciones y archivos no rastreados.
