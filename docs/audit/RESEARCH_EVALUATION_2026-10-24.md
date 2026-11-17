@@ -1,5 +1,9 @@
 # CatedralX — evaluación histórica de señales (2026-10-24 UTC)
 
+## Nota de entorno
+
+La ubicación del artefacto se ha normalizado: el directorio original pertenecía a una VM retirada y no debe interpretarse como almacenamiento disponible actualmente.
+
 ## Decisión operativa
 
 **Mantener CatedralX en análisis únicamente. No habilitar trading ni conectar un bróker.** La muestra no muestra una ventaja direccional estable, y los resultados son brutos, sin costes.
@@ -35,7 +39,7 @@ Esta es una evaluación de etiquetas/señales, **no** una simulación completa 
 
 Reporte JSON completo guardado fuera del checkout:
 
-`/home/azureuser/.local/state/chalamandra/catedralx/reports/btcusdt_1m_30d_20261024T020416Z.json`
+`<LEGACY_STATE_DIR>/chalamandra/catedralx/reports/btcusdt_1m_30d_20261024T020416Z.json`
 
 El reporte de siete días también está guardado en el mismo directorio. El evaluador se encuentra en `scripts/backtest_public_candles.py` y permite repetir la comparación con `--compare-horizons`.
 
