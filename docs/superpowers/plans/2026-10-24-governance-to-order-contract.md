@@ -10,9 +10,13 @@
 
 **Spec:** User's Pergamino consolidation protocol (current conversation), `AUDITORIA_CONSOLIDACION_PERGAMINO.md`, and `CATEDRAL_COGNITIVE_STATE_V4_2.md`.
 
+## Entorno
+
+La ruta local del plan se ha normalizado como `<CATEDRALX_VERIFY_ROOT>`; la VM asociada fue retirada. Este plan no presupone que ese checkout o entorno sigan disponibles.
+
 ## Global Constraints
 
-- Work only in `/home/azureuser/workspace/repos/CatedralX-verify`.
+- Work only in `<CATEDRALX_VERIFY_ROOT>`.
 - No live exchange client, real order execution, publish, commit, or push.
 - Missing or invalid mandatory governance evidence must fail closed.
 - DSX enforces; SCX calculates cognitive evidence; FEX evaluates sustainability; MSX observes/traces; AEX persists only a pending local order.
