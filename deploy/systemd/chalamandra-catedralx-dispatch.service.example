@@ -1,0 +1,18 @@
+# Template only: replace every @PLACEHOLDER@ before installing as a systemd unit.
+[Unit]
+Description=Dispatch authorized CatedralX economic cycles to Agents API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=@SERVICE_USER@
+WorkingDirectory=@CATEDRALX_ROOT@
+EnvironmentFile=@CONFIG_FILE@
+Environment=CHALAMANDRA_API_URL=http://127.0.0.1:8766
+ExecStart=/usr/bin/python3 @CATEDRALX_ROOT@/elite/bin/dispatch_authorized_cycles.py
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=@STATE_DIR@
