@@ -3,7 +3,7 @@
 **Estado:** diseño documentado; feedback directo implementado en el código versionado.  
 **Fecha del diseño:** 2026-10-28. **Reconciliación documental:** 2026-11-11.  
 **Alcance:** repositorio CatedralX. La integración de formularios/API externos requiere una implementación separada en Agents/producto.  
-**Vigencia de pruebas:** el conteo de 337 pruebas mencionado en registros de octubre es histórico. La CI de main validó 354 pruebas, pip check, compileall, Compose config, Docker build y CLI smoke test en el commit f757a7cfa4e622a4bd6fc242d00408e1751c7e33 (run #182), incluyendo Gitleaks sobre 170 commits sin hallazgos no exceptuados.
+**Vigencia de pruebas:** el conteo de 337 pruebas mencionado en registros de octubre es histórico. La CI de main validó 372 pruebas, pip check, compileall, Compose config, Docker build y CLI smoke test en el commit f757a7cfa4e622a4bd6fc242d00408e1751c7e33 (run #182), incluyendo Gitleaks sobre 170 commits sin hallazgos no exceptuados.
 
 ## Resumen ejecutivo de intervención
 
