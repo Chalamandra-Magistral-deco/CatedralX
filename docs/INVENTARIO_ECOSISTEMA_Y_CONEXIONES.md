@@ -1,6 +1,6 @@
 # Inventario del ecosistema y matriz de conexiones — DecoX
 
-> **Aviso de vigencia (2026-11-11):** snapshot del 2026-10-26. Los conteos de pruebas, commits, estados de VM, proyectos, variables y conexiones que aparecen abajo no son estado actual certificado. No usar para decisiones operativas sin repetir la inspección en cada fuente. Consulta el [índice documental](INDICE_DOCUMENTAL_Y_GOBIERNO.md) y el [estado vigente de CatedralX](ESTADO_PRODUCCION.md).
+> **Aviso de vigencia (2026-11-11):** snapshot del 2026-10-26. Los conteos de pruebas, commits, estados de VM, proyectos, variables y conexiones que aparecen abajo no son estado actual certificado. No usar para decisiones operativas sin repetir la inspección en cada fuente. Consulta el [estado vigente de CatedralX](ESTADO_PRODUCCION.md); este inventario es un snapshot histórico y no sustituye la inspección actual.
 
 **Corte:** 2026-10-26  
 **Alcance:** metadatos de 23 repositorios de la organización, README/manifiestos y una selección de puntos de entrada, configuración y CI. Esto es una matriz estática inicial, no una certificación de integración de extremo a extremo.
