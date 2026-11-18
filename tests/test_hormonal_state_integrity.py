@@ -111,7 +111,7 @@ def test_orchestrator_singleton_is_lazy_before_first_cycle(tmp_path, monkeypatch
         encoding="utf-8",
     )
     monkeypatch.setenv("CATEDRALX_STATE_PATH", str(target))
-    module = importlib.import_module("REASON.orchestrator")
+    module = importlib.reload(importlib.import_module("REASON.orchestrator"))
     assert module._think_orchestrator._instance is None
 
 
