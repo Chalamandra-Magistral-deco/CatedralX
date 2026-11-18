@@ -27,7 +27,7 @@ Un flujo solo pasa a “validado” cuando el endpoint comprueba el scope correc
 
 ## Vigencia y límites — 2026-11-11
 
-Las menciones a VM, procesos systemd y estado activo de 2026-10-28 son evidencia histórica y no describen un runtime vigente. La VM anterior está fuera del plan operativo. La integración con Agents debe verificarse desde ambos repositorios y en un entorno actual antes de marcar Request, Distribution u Orchestration como end-to-end. Consulta [estado vigente](../ESTADO_PRODUCCION.md) y [índice documental](../INDICE_DOCUMENTAL_Y_GOBIERNO.md).
+Las menciones a VM, procesos systemd y estado activo de 2026-10-28 son evidencia histórica y no describen un runtime vigente. La VM anterior está fuera del plan operativo. La integración con Agents debe verificarse desde ambos repositorios y en un entorno actual antes de marcar Request, Distribution u Orchestration como end-to-end. Consulta [estado vigente](../ESTADO_PRODUCCION.md). No existe actualmente un índice documental vigente.
 
 ## Reglas normativas de los contratos — 2026-11-11
 
