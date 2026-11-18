@@ -3,6 +3,7 @@ import fcntl
 import hashlib
 import hmac
 import json
+import math
 import os
 import tempfile
 from datetime import UTC, datetime
@@ -46,7 +47,7 @@ def _s(value: Any) -> Any:
 
 
 def _hormonas_keyring() -> tuple[str, dict[str, bytes]]:
-    """Load the hormonal-state signing keyring (None-safe: see _sign_state)."""
+    """Load the hormonal-state signing keyring or fail closed."""
     raw_ring = os.environ.get(HORMONAS_KEYRING_ENV, "")
     active_id = os.environ.get(HORMONAS_ACTIVE_KEY_ID_ENV, "")
     if raw_ring:
@@ -76,18 +77,9 @@ def _hormonas_keyring() -> tuple[str, dict[str, bytes]]:
     return "legacy", {"legacy": legacy}
 
 
-def _sign_state(body: dict[str, Any]) -> dict[str, Any] | None:
-    """HMAC envelope for a state body, or None when no key is configured.
-
-    No key configured is NOT an error at write time: the state is written
-    unsigned (legacy format) and readers accept it once, then re-sign it
-    on the next save after a key is configured. Readers fail closed only
-    for corrupt JSON or for a PRESENT but invalid signature.
-    """
-    try:
-        active_key_id, keys = _hormonas_keyring()
-    except PermissionError:
-        return None
+def _sign_state(body: dict[str, Any]) -> dict[str, Any]:
+    """Create a mandatory HMAC envelope; missing or invalid keys are fatal."""
+    active_key_id, keys = _hormonas_keyring()
     canonical = json.dumps(
         body, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
     ).encode("utf-8")
@@ -96,15 +88,12 @@ def _sign_state(body: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _verify_state_integrity(data: dict[str, Any]) -> None:
-    """Fail closed when a PRESENT integrity envelope does not verify.
-
-    Legacy files without an envelope are accepted (migration path for state
-    written before H-03); they are re-signed on the next save once a key
-    is configured.
-    """
+    """Require a valid HMAC envelope; unsigned legacy data needs explicit migration."""
     envelope = data.get("integrity")
     if envelope is None:
-        return
+        raise ValueError(
+            "hormonas.json: estado sin firma; ejecute migrar_estado_legacy explícitamente"
+        )
     if not isinstance(envelope, dict) or envelope.get("alg") != _INTEGRITY_ALG:
         raise ValueError("hormonas.json: envelope de integridad inválido")
     key_id = envelope.get("key_id")
@@ -131,6 +120,88 @@ def _verify_state_integrity(data: dict[str, Any]) -> None:
         raise ValueError("hormonas.json: integridad inválida (contenido manipulado o corrupto)")
 
 
+def migrar_estado_legacy(output_path: Path | None = None) -> Path:
+    """Explicitly back up and sign a validated unsigned legacy hormonal state.
+
+    This function is never called during import or normal loading. It refuses
+    already-signed files, malformed state, invalid signing configuration, and
+    an existing backup. The original bytes are preserved in a sibling backup.
+    """
+    target = (
+        Path(output_path).expanduser().resolve()
+        if output_path is not None
+        else canonical_state_path()
+    )
+    try:
+        original = target.read_bytes()
+    except OSError as exc:
+        raise ValueError(f"No se pudo leer el estado legacy: {exc}") from exc
+    try:
+        legacy = json.loads(original)
+    except (json.JSONDecodeError, TypeError, ValueError) as exc:
+        raise ValueError("Estado legacy corrupto: no es JSON válido") from exc
+    if not isinstance(legacy, dict) or "integrity" in legacy:
+        raise ValueError("La migración solo acepta un objeto legacy sin campo integrity")
+    concentrations = legacy.get("concentracion_actual")
+    if not isinstance(concentrations, dict):
+        raise ValueError("Estado legacy inválido: concentracion_actual debe ser un objeto")
+    required = {
+        "oxitocina_O", "dopamina_D", "serotonina_S",
+        "cortisol_C", "adrenalina_A", "melatonina_M",
+    }
+    if not required.issubset(concentrations):
+        raise ValueError("Estado legacy inválido: faltan concentraciones obligatorias")
+    for name in required:
+        value = concentrations[name]
+        if isinstance(value, bool):
+            raise ValueError(f"Estado legacy inválido: {name} no es numérico")
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Estado legacy inválido: {name} no es numérico") from exc
+        if not math.isfinite(numeric) or not 0.0 <= numeric <= 1.0:
+            raise ValueError(f"Estado legacy inválido: {name} fuera de rango")
+    if not isinstance(legacy.get("contexto", {}), dict):
+        raise ValueError("Estado legacy inválido: contexto debe ser un objeto")
+
+    # Resolve signing configuration before creating the backup or changing files.
+    signed = dict(legacy)
+    signed["integrity"] = _sign_state(legacy)
+    backup = target.with_name(target.name + ".legacy.bak")
+    backup_fd = os.open(str(backup), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(backup_fd, "wb") as stream:
+            stream.write(original)
+            stream.flush()
+            os.fsync(stream.fileno())
+    except BaseException:
+        backup.unlink(missing_ok=True)
+        raise
+
+    target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{target.name}.", suffix=".tmp", dir=str(target.parent)
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            json.dump(signed, stream, indent=2, ensure_ascii=False, allow_nan=False)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        temporary.replace(target)
+        os.chmod(target, 0o600)
+        directory_fd = os.open(str(target.parent), os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
+    return backup
+
+
 class ProcesadorEndocrino:
     """Translate surprise and market dynamics into hormone concentrations."""
 
@@ -151,8 +222,8 @@ class ProcesadorEndocrino:
     def _cargar(self) -> None:
         # H-03: fail closed on corrupt JSON or on a present-but-invalid
         # integrity envelope, instead of silently falling back to defaults.
-        # A missing file still means first run (defaults). A legacy file
-        # without an envelope is accepted once and re-signed on next save.
+        # A missing file still means first run (defaults). Unsigned legacy
+        # files are rejected until explicitly migrated with a preserved backup.
         try:
             raw = self.output_path.read_text(encoding="utf-8")
         except FileNotFoundError:
@@ -209,9 +280,7 @@ class ProcesadorEndocrino:
             "contexto": self.contexto,
             "economic_feedback": getattr(self, "economic_feedback", {}),
         }
-        integrity = _sign_state(data)
-        if integrity is not None:
-            data["integrity"] = integrity
+        data["integrity"] = _sign_state(data)
         self.output_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         lock_path = self.output_path.with_name(self.output_path.name + ".lock")
         lock_fd = os.open(str(lock_path), os.O_CREAT | os.O_RDWR, 0o600)
@@ -275,7 +344,30 @@ def procesar_estado_integrado(inputs_entorno: dict[str, Any]) -> dict[str, Any]:
     return transductor.leer_estado_actual()
 
 
-# Legacy standalone object kept for backward compatibility only.
-# Internal execution should use the transducer owned by the shared orchestrator.
-procesador = ProcesadorEndocrino()
+class _LazyProcesadorEndocrino:
+    """Defer legacy singleton loading until first use, never during module import."""
+
+    def __init__(self) -> None:
+        object.__setattr__(self, "_instance", None)
+
+    def _get_instance(self) -> ProcesadorEndocrino:
+        instance = object.__getattribute__(self, "_instance")
+        if instance is None:
+            instance = ProcesadorEndocrino()
+            object.__setattr__(self, "_instance", instance)
+        return instance
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._get_instance(), name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "_instance":
+            object.__setattr__(self, name, value)
+        else:
+            setattr(self._get_instance(), name, value)
+
+
+# Legacy standalone object remains available, but loading is deferred until use.
+# Internal execution uses the transducer owned by the shared orchestrator.
+procesador = _LazyProcesadorEndocrino()
 TransductorEndocrino = ProcesadorEndocrino
