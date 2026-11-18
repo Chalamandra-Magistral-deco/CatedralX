@@ -11,7 +11,7 @@ import os
 from datetime import datetime
 
 import pytest
-from REASON.procesador import ProcesadorEndocrino
+from REASON.procesador import ProcesadorEndocrino, migrar_estado_legacy
 
 SECRET = "test-only-hormonal-state-hmac-key-32-bytes"
 
@@ -78,7 +78,7 @@ def test_missing_file_still_loads_defaults(tmp_path):
     assert proc.conc["dopamina_D"] == pytest.approx(0.60)
 
 
-def test_legacy_unsigned_state_is_accepted_once_then_resigned(tmp_path):
+def test_unsigned_legacy_state_is_rejected_until_explicit_migration(tmp_path):
     target = tmp_path / "hormonas.json"
     legacy = {
         "timestamp": "2026-11-14T00:00:00+00:00",
@@ -90,12 +90,34 @@ def test_legacy_unsigned_state_is_accepted_once_then_resigned(tmp_path):
         "contexto": {"market_phase": "desconocido"},
         "economic_feedback": {},
     }
-    target.write_text(json.dumps(legacy), encoding="utf-8")
-    proc = ProcesadorEndocrino(output_path=target)
-    assert proc.conc["cortisol_C"] == pytest.approx(0.30)
-    proc.guardar()
-    assert "integrity" in json.loads(target.read_text(encoding="utf-8"))
+    original = json.dumps(legacy).encode("utf-8")
+    target.write_bytes(original)
+    with pytest.raises(ValueError, match="estado sin firma"):
+        ProcesadorEndocrino(output_path=target)
+
+    backup = migrar_estado_legacy(output_path=target)
+    assert backup.read_bytes() == original
+    signed = json.loads(target.read_text(encoding="utf-8"))
+    assert "integrity" in signed
     assert ProcesadorEndocrino(output_path=target).conc["cortisol_C"] == pytest.approx(0.30)
+
+
+def test_legacy_migration_refuses_to_overwrite_existing_backup(tmp_path):
+    target = tmp_path / "hormonas.json"
+    legacy = {
+        "concentracion_actual": {
+            "oxitocina_O": 0.45, "dopamina_D": 0.60, "serotonina_S": 0.50,
+            "cortisol_C": 0.30, "adrenalina_A": 0.40, "melatonina_M": 0.20,
+        },
+        "contexto": {},
+    }
+    target.write_text(json.dumps(legacy), encoding="utf-8")
+    backup = target.with_name(target.name + ".legacy.bak")
+    backup.write_text("preserved", encoding="utf-8")
+    with pytest.raises(FileExistsError):
+        migrar_estado_legacy(output_path=target)
+    assert backup.read_text(encoding="utf-8") == "preserved"
+    assert "integrity" not in json.loads(target.read_text(encoding="utf-8"))
 
 
 def test_state_signed_with_retired_key_fails_closed(tmp_path, monkeypatch):
@@ -114,13 +136,26 @@ def test_state_signed_with_retired_key_fails_closed(tmp_path, monkeypatch):
         ProcesadorEndocrino(output_path=target)
 
 
-def test_guardar_without_key_writes_legacy_format(tmp_path, monkeypatch):
+def test_guardar_without_key_fails_closed_and_writes_nothing(tmp_path, monkeypatch):
     monkeypatch.delenv("CATEDRALX_HORMONAS_HMAC_KEY", raising=False)
+    monkeypatch.delenv("CATEDRALX_HORMONAS_KEYRING", raising=False)
+    monkeypatch.delenv("CATEDRALX_HORMONAS_ACTIVE_KEY_ID", raising=False)
     target = tmp_path / "hormonas.json"
     proc = ProcesadorEndocrino(output_path=target)
-    data = proc.guardar()
-    assert "integrity" not in data
-    assert ProcesadorEndocrino(output_path=target).conc["cortisol_C"] == pytest.approx(0.30)
+    with pytest.raises(PermissionError, match="Firma de hormonas bloqueada"):
+        proc.guardar()
+    assert not target.exists()
+
+
+def test_removing_integrity_from_signed_state_is_rejected(tmp_path):
+    target = tmp_path / "hormonas.json"
+    proc = ProcesadorEndocrino(output_path=target)
+    proc.guardar()
+    stored = json.loads(target.read_text(encoding="utf-8"))
+    del stored["integrity"]
+    target.write_text(json.dumps(stored), encoding="utf-8")
+    with pytest.raises(ValueError, match="estado sin firma"):
+        ProcesadorEndocrino(output_path=target)
 
 
 def test_concurrent_saves_keep_a_valid_signed_state(tmp_path):
