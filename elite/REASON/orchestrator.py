@@ -461,7 +461,30 @@ def execute_cycle(
     identifier = cycle_id or str(uuid.uuid4())
     return think(sensory_data, sensory_data.precio_historico, identifier)
 
-_think_orchestrator = Orchestrator()
+class _LazyOrchestrator:
+    """Defer shared state loading until a caller actually runs an orchestration cycle."""
+
+    def __init__(self) -> None:
+        object.__setattr__(self, "_instance", None)
+
+    def _get_instance(self) -> Orchestrator:
+        instance = object.__getattribute__(self, "_instance")
+        if instance is None:
+            instance = Orchestrator()
+            object.__setattr__(self, "_instance", instance)
+        return instance
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._get_instance(), name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "_instance":
+            object.__setattr__(self, name, value)
+        else:
+            setattr(self._get_instance(), name, value)
+
+
+_think_orchestrator = _LazyOrchestrator()
 
 
 def think(
