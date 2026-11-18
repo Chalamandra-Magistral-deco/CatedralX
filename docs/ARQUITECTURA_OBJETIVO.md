@@ -115,4 +115,4 @@ La matriz de repositorios, vínculos evidenciados, limpiezas aplicadas y brechas
 
 ## Nota de vigencia — 2026-11-11
 
-Este documento conserva el diseño objetivo fechado el 2026-10-28. Las menciones históricas a VM, systemd, túneles y runtime no describen un entorno actual. El estado verificable se mantiene en [ESTADO_PRODUCCION.md](ESTADO_PRODUCCION.md); la clasificación de snapshots está en [INDICE_DOCUMENTAL_Y_GOBIERNO.md](INDICE_DOCUMENTAL_Y_GOBIERNO.md).
+Este documento conserva el diseño objetivo fechado el 2026-10-28. Las menciones históricas a VM, systemd, túneles y runtime no describen un entorno actual. El estado verificable se mantiene en [ESTADO_PRODUCCION.md](ESTADO_PRODUCCION.md); no existe actualmente un índice documental vigente para clasificar los snapshots históricos.
