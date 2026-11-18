@@ -186,7 +186,7 @@ def migrar_estado_legacy(output_path: Path | None = None) -> Path:
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
             json.dump(signed, stream, indent=2, ensure_ascii=False, allow_nan=False)
-            stream.write("\\n")
+            stream.write("\n")
             stream.flush()
             os.fsync(stream.fileno())
         temporary.replace(target)
