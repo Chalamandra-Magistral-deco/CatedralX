@@ -77,7 +77,7 @@ def test_missing_file_still_loads_defaults(tmp_path):
     assert proc.conc["dopamina_D"] == pytest.approx(0.60)
 
 
-def test_legacy_singleton_does_not_load_state_during_module_import(tmp_path, monkeypatch):
+def test_legacy_singleton_remains_lazy_before_first_use(tmp_path, monkeypatch):
     import importlib
 
     target = tmp_path / "legacy-hormonas.json"
@@ -94,6 +94,25 @@ def test_legacy_singleton_does_not_load_state_during_module_import(tmp_path, mon
     monkeypatch.setenv("CATEDRALX_STATE_PATH", str(target))
     module = importlib.import_module("REASON.procesador")
     assert module.procesador._instance is None
+
+
+def test_orchestrator_singleton_is_lazy_before_first_cycle(tmp_path, monkeypatch):
+    import importlib
+
+    target = tmp_path / "legacy-orchestrator-state.json"
+    target.write_text(
+        json.dumps({
+            "concentracion_actual": {
+                "oxitocina_O": 0.45, "dopamina_D": 0.60, "serotonina_S": 0.50,
+                "cortisol_C": 0.30, "adrenalina_A": 0.40, "melatonina_M": 0.20,
+            },
+            "contexto": {},
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("CATEDRALX_STATE_PATH", str(target))
+    module = importlib.import_module("REASON.orchestrator")
+    assert module._think_orchestrator._instance is None
 
 
 def test_unsigned_legacy_state_is_rejected_until_explicit_migration(tmp_path):
