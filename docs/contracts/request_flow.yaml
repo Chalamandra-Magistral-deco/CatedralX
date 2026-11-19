@@ -25,8 +25,8 @@ paths:
         - name: traceparent
           in: header
           required: false
-          description: W3C Trace Context; el servidor genera una traza si falta o es inválida.
-          schema: { type: string }
+          description: W3C Trace Context. Debe cumplir el formato traceparent; el servidor genera una traza si falta o es inválida.
+          schema: { type: string, pattern: '^[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$' }
       requestBody:
         required: true
         content:
@@ -156,7 +156,7 @@ components:
         observed_at:
           type: string
           format: date-time
-          description: Timestamp ISO-8601 con zona horaria.
+          description: Timestamp RFC 3339 con zona horaria explícita; el consumidor debe rechazar timestamps sin offset.
         source:
           type: string
           minLength: 1
@@ -172,6 +172,7 @@ components:
               type: string
               minLength: 128
               maxLength: 128
+              pattern: '^[0-9a-fA-F]{128}$'
               description: Firma Ed25519 hexadecimal de los campos canónicos de mercado.
         dynamic_constraints:
           type: object
