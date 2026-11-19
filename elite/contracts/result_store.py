@@ -65,13 +65,13 @@ def _read_verified_records(stream) -> list[dict[str, Any]]:
             raise ValueError(f"ResultStore corrupto: JSON inválido en línea {line_number}") from exc
         if not isinstance(record, dict):
             raise ValueError(f"ResultStore corrupto: registro no objeto en línea {line_number}")
-        _verify_contract_hash(record)
         integrity = record.get("store_integrity")
         if not isinstance(integrity, dict):
             raise ValueError(
                 f"ResultStore contiene historial legado sin cadena verificable en línea {line_number}; "
                 "se requiere migración explícita"
             )
+        _verify_contract_hash(record)
         sequence = integrity.get("sequence")
         previous = integrity.get("previous_record_hash")
         actual = integrity.get("record_hash")
