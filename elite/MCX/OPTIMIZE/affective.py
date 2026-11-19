@@ -108,23 +108,12 @@ def perfil_texto(etiqueta: str) -> str:
 
 def actualizar_estado(cortisol: float = 0.3, dopamina: float = 0.5, sorpresa: float = 0.0,
                       volatilidad: float = 0.0) -> dict[str, float]:
-    """Preserve the existing MCX bounded-state API."""
     values = [cortisol, dopamina, sorpresa, volatilidad]
-    if any(isinstance(value, bool) for value in values):
-        raise ValueError("affective inputs must be finite real numbers")
-    try:
-        numeric = [float(value) for value in values]
-    except (TypeError, ValueError, OverflowError) as exc:
-        raise ValueError("affective inputs must be finite real numbers") from exc
-    if not all(math.isfinite(value) for value in numeric):
+    if not all(math.isfinite(float(v)) for v in values):
         raise ValueError("affective inputs must be finite")
-    cortisol_value, dopamine_value, surprise_value, volatility_value = numeric
-    risk = min(1.0, max(0.0, abs(surprise_value) * 0.25 + abs(volatility_value) * 5.0))
-    c = min(1.0, max(0.0, 0.7 * cortisol_value + 0.3 * risk))
-    d = min(1.0, max(0.0, 0.8 * dopamine_value + 0.2 * (1.0 - risk)))
-    return {
-        "cortisol": round(c, 6),
-        "dopamina": round(d, 6),
-        "serotonina": round(min(1.0, max(0.0, 1.0 - risk * 0.5)), 6),
-        "riesgo_estimado": round(risk, 6),
-    }
+    risk = min(1.0, max(0.0, abs(float(sorpresa)) * 0.25 + abs(float(volatilidad)) * 5.0))
+    c = min(1.0, max(0.0, 0.7 * float(cortisol) + 0.3 * risk))
+    d = min(1.0, max(0.0, 0.8 * float(dopamina) + 0.2 * (1.0 - risk)))
+    return {"cortisol": round(c, 6), "dopamina": round(d, 6),
+            "serotonina": round(min(1.0, max(0.0, 1.0 - risk * 0.5)), 6),
+            "riesgo_estimado": round(risk, 6)}
