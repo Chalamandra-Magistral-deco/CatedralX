@@ -6,7 +6,6 @@ import pytest
 
 from elite.contracts.builder import (
     build_decision_result,
-    canonical_decision_result_hash,
     verify_decision_result_hash,
 )
 from elite.contracts.result_store import (
