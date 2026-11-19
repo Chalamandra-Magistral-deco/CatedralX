@@ -46,7 +46,6 @@ La revisión cubre el árbol GitHub de `main`, archivos versionados, workflows, 
 - Arquitectura y responsabilidades: `docs/ARQUITECTURA_OBJETIVO.md`.
 - Inventario estructural: `MAPA_SAGRADO.json` (snapshot anclado a su commit de origen; no equivale al HEAD ni a despliegue operativo).
 - Seguridad: `docs/SEGURIDAD_REPOSITORIO.md`.
-- Arquitectura: `docs/ARQUITECTURA_OBJETIVO.md`.
 - Contratos: `docs/contracts/README.md`.
 
 ---
