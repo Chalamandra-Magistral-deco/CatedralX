@@ -102,7 +102,10 @@ class ActiveInferenceEngine:
 
         mu_q = float(np.mean(returns))
         # A variance floor avoids a degenerate Gaussian for constant returns.
-        sigma_q = self._bounded_sigma(float(np.std(returns)))
+        raw_sigma_q = float(np.std(returns))
+        if not math.isfinite(raw_sigma_q):
+            raise ValueError("La volatilidad posterior no es finita.")
+        sigma_q = min(MAX_SIGMA, max(MIN_SIGMA, raw_sigma_q))
         mu_p = self.mu_p
         sigma_p = self.sigma_p
 
