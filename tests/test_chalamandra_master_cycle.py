@@ -1,11 +1,10 @@
 """Governance and provenance regression tests for the synthetic master cycle."""
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from REASON import master_cycle
+from REASON.core_contract import build_cycle
 
 
 OBSERVED_AT = "2026-11-19T12:00:00+00:00"
@@ -35,6 +34,28 @@ def test_cognitive_approval_never_claims_independent_acceptance():
     }
     assert result["decision"]["final"] == "HOLD"
     assert result["action"]["status"] == "blocked"
+    assert result["action"]["executable"] is False
+
+
+def test_core_contract_rejects_cognitive_approval_as_independent_acceptance():
+    result = build_cycle(
+        cycle_id="cycle-gate-boundary",
+        observed_at=OBSERVED_AT,
+        source_status="valid",
+        context_ref="test-context",
+        signals=SIGNALS,
+        uncertainty=None,
+        prediction={},
+        decision="BUY",
+        risk_gate={
+            "status": "approved",
+            "independent": False,
+            "acceptance_status": "not_provided",
+        },
+        mode="PAPER",
+    )
+    assert result["decision"]["final"] == "HOLD"
+    assert result["action"]["reason"] == "risk_gate_not_approved"
     assert result["action"]["executable"] is False
 
 
@@ -88,11 +109,7 @@ def test_invalid_or_naive_observed_at_is_rejected(observed_at):
 
 @pytest.mark.parametrize(
     "signals",
-    [
-        None,
-        "not-a-list",
-        [{"name": "valid"}, "not-an-object"],
-    ],
+    [None, "not-a-list", [{"name": "valid"}, "not-an-object"]],
 )
 def test_invalid_signal_container_is_rejected(signals):
     with pytest.raises(ValueError):
