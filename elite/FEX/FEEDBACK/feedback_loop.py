@@ -1,4 +1,5 @@
-"""Append-only prediction/outcome ledger and offline evaluation.
+"""
+Append-only prediction/outcome ledger and offline evaluation.
 
 Outcomes are labeled from observed prices at fixed horizons. This module
 computes reports only; it never retrains a model or submits orders.
@@ -395,92 +396,3 @@ def evaluar_feedback(path: str | Path | None = None) -> dict[str, Any]:
         if key in seen_keys:
             duplicate_outcomes += 1
             continue
-        seen_keys.add(key)
-        predicted_signal = _safe_signal(prediction)
-        actual_signal = outcome.get("actual_signal")
-        realized = _safe_return(outcome)
-        if (
-            horizon not in HORIZONS_SECONDS
-            or predicted_signal is None
-            or actual_signal not in SIGNALS
-            or realized is None
-        ):
-            unscored_outcomes += 1
-            continue
-        financial = prediction.get("financial_analysis")
-        if not isinstance(financial, dict):
-            financial = {}
-        regime = str(prediction.get("regime") or financial.get("regime") or "UNKNOWN")
-        valid_rows.append({
-            "prediction_id": identifier,
-            "horizon": horizon,
-            "predicted_signal": predicted_signal,
-            "actual_signal": actual_signal,
-            "realized_return_pct": realized,
-            "regime": regime,
-        })
-        labeled_predictions.add(identifier)
-
-    by_horizon: dict[str, Any] = {}
-    by_horizon_and_regime: dict[str, Any] = {}
-    for horizon in HORIZONS_SECONDS:
-        horizon_rows = [row for row in valid_rows if row["horizon"] == horizon]
-        if horizon_rows:
-            by_horizon[horizon] = _metric_bundle(horizon_rows)
-        regimes = sorted({row["regime"] for row in horizon_rows})
-        for regime in regimes:
-            subset = [row for row in horizon_rows if row["regime"] == regime]
-            by_horizon_and_regime[f"{horizon}|{regime}"] = _metric_bundle(subset)
-
-    identified_predictions = len(predictions)
-    return {
-        "schema_version": SCHEMA_VERSION,
-        "report_status": "ok",
-        "predictions_recorded": prediction_count,
-        "identified_predictions": identified_predictions,
-        "legacy_unlinked_predictions": legacy_unlinked_predictions,
-        "duplicate_prediction_ids": duplicate_prediction_ids,
-        "predictions_with_at_least_one_valid_label": len(labeled_predictions),
-        "predictions_pending_outcome": max(0, identified_predictions - len(labeled_predictions)),
-        "outcomes_recorded": len(raw_outcomes) + legacy_unlinked_outcomes,
-        "outcomes_scored": len(valid_rows),
-        "outcomes_unscored_or_unlinked": unscored_outcomes + legacy_unlinked_outcomes,
-        "duplicate_outcomes": duplicate_outcomes,
-        "metrics_by_horizon": by_horizon,
-        "metrics_by_horizon_and_regime": by_horizon_and_regime,
-        "legacy_unlinked_outcomes": legacy_unlinked_outcomes,
-        "neutral_threshold_pct_default": DEFAULT_NEUTRAL_THRESHOLD_PCT,
-        "supported_horizons_seconds": HORIZONS_SECONDS,
-        "automatic_retraining": False,
-        "trading_enabled": False,
-        "orders_created": False,
-        "orders_executed": False,
-        "disclaimer": (
-            "Resultados descriptivos de etiquetas observadas; no son rentabilidad de "
-            "cartera, probabilidad calibrada ni prueba de ventaja predictiva. El retorno "
-            "alineado omite hold y no incluye costes."
-        ),
-    }
-
-
-def resumir_memoria_decisiones(decisions: list[str], max_history: int = 50) -> dict[str, Any]:
-    """Summarize observed decision labels; never infer PnL, accuracy, or outcomes."""
-    import math
-    from collections import Counter
-
-    if not isinstance(max_history, int) or max_history < 1:
-        raise ValueError("max_history debe ser entero positivo")
-    history = [x.lower() for x in decisions
-               if isinstance(x, str) and x.lower() in {"buy", "sell", "hold"}][-max_history:]
-    counts = Counter(history)
-    directional = counts["buy"] + counts["sell"]
-    bias = (counts["buy"] - counts["sell"]) / directional if directional else None
-    entropy = (-sum((n / len(history)) * math.log(n / len(history))
-                    for n in counts.values()) if history else None)
-    return {
-        "ultimas_decisiones": history, "conteos": dict(counts),
-        "sesgo_direccional": round(bias, 8) if bias is not None else None,
-        "entropia_decisiones_nats": round(entropy, 8) if entropy is not None else None,
-        "ciclos_observados": len(history),
-        "evidence_status": "computed_from_observed_decisions" if history else "no_history",
-    }
