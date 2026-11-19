@@ -31,7 +31,7 @@ def _record():
             "status": "synthetic",
         }],
         "cathedral_verdict": {
-            "status": "UNCERTAIN",
+            "status": "BLOCKED_UNCERTAINTY",
             "evaluation_hash": "b" * 64,
             "reason": "synthetic_test",
         },
