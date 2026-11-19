@@ -68,7 +68,7 @@ def test_store_detects_modified_contract_field(tmp_path):
     append_result(record, path)
     stored = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
     stored["decision"] = "buy"
-    path.write_text(json.dumps(stored) + "\\n", encoding="utf-8")
+    path.write_text(json.dumps(stored) + "\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match="contract_hash"):
         get_result(record["result_id"], path)
@@ -80,7 +80,7 @@ def test_store_detects_deleted_or_reordered_history(tmp_path):
     append_result(first, path)
     append_result(second, path)
     lines = path.read_text(encoding="utf-8").splitlines()
-    path.write_text(lines[1] + "\\n", encoding="utf-8")
+    path.write_text(lines[1] + "\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match="discontinuo"):
         verify_result_store(path)
@@ -88,14 +88,14 @@ def test_store_detects_deleted_or_reordered_history(tmp_path):
 
 def test_store_does_not_silently_skip_malformed_json(tmp_path):
     path = tmp_path / "results.jsonl"
-    path.write_text("{malformed}\\n", encoding="utf-8")
+    path.write_text("{malformed}\n", encoding="utf-8")
     with pytest.raises(ValueError, match="JSON inválido"):
         get_result("missing", path)
 
 
 def test_store_rejects_unmigrated_legacy_history(tmp_path):
     path = tmp_path / "results.jsonl"
-    path.write_text(json.dumps({"result_id": "legacy"}) + "\\n", encoding="utf-8")
+    path.write_text(json.dumps({"result_id": "legacy"}) + "\n", encoding="utf-8")
     with pytest.raises(ValueError, match="historial legado"):
         append_result(_record(), path)
 
@@ -106,6 +106,6 @@ def test_store_rejects_tampered_record_chain_hash(tmp_path):
     append_result(record, path)
     stored = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
     stored["store_integrity"]["record_hash"] = "0" * 64
-    path.write_text(json.dumps(stored) + "\\n", encoding="utf-8")
+    path.write_text(json.dumps(stored) + "\n", encoding="utf-8")
     with pytest.raises(ValueError, match="hash de cadena"):
         verify_result_store(path)
