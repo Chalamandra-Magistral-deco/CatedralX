@@ -143,6 +143,8 @@ def run_synthetic_master_cycle(
 
     # No source authentication is performed here. "unknown" prevents this
     # synthetic adapter from asserting that caller-provided signals are valid.
+    normalized_prediction = dict(prediction or {})
+    normalized_outcome = dict(outcome) if outcome is not None else None
     result = build_cycle(
         cycle_id=cycle_id,
         observed_at=timestamp,
@@ -150,14 +152,16 @@ def run_synthetic_master_cycle(
         context_ref=context_ref,
         signals=signals,
         uncertainty=uncertainty,
-        prediction=dict(prediction or {}),
+        prediction=normalized_prediction,
         regulation={"state": "review" if dsx["blocked"] else "normal"},
         decision=requested_decision.strip().upper(),
         risk_gate=dsx_gate,
-        outcome=outcome,
+        outcome=normalized_outcome,
         mode="PAPER",
     )
 
+    # MSX input_hash now binds the decision, prediction, outcome, context,
+    # uncertainty and core input digest for later trace inspection.
     records.append(build_provenance(
         name="synthetic_cycle_result",
         module="REASON.core_contract.build_cycle",
@@ -165,7 +169,12 @@ def run_synthetic_master_cycle(
         inputs={
             "cycle_id": cycle_id,
             "observed_at": timestamp,
-            "input_sha256": result["provenance"]["input_sha256"],
+            "context_ref": context_ref,
+            "requested_decision": requested_decision.strip().upper(),
+            "prediction": normalized_prediction,
+            "outcome": normalized_outcome,
+            "uncertainty": uncertainty,
+            "core_input_sha256": result["provenance"]["input_sha256"],
         },
         output={
             "decision": result["decision"],
