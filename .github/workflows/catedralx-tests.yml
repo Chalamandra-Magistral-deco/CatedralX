@@ -1,4 +1,4 @@
-name: CatedralX tests
+name: CatedralX Tests
 
 on:
   push:
@@ -11,26 +11,27 @@ permissions:
 
 jobs:
   unit-tests:
+    name: Pruebas Unitarias
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
-      - name: Checkout
+      - name: Obtener código
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Set up Python
+      - name: Configurar Python 3.12
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: requirements.lock
 
-      - name: Install locked dependencies (fail closed)
+      - name: Instalar dependencias (bloqueo cerrado)
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.lock
           python -m pip check
 
-      - name: Validate contract document syntax
+      - name: Validar sintaxis de contratos
         run: |
           ruby -e 'require "yaml"; ARGV.each { |file| YAML.parse_file(file) }' \
             docs/contracts/request_flow.yaml \
@@ -39,57 +40,57 @@ jobs:
           python -m json.tool elite/contracts/schemas/chalamandra_contract.json >/dev/null
           python -m json.tool elite/contracts/schemas/decision_result.json >/dev/null
 
-      - name: Run all tests and record the actual count
+      - name: Ejecutar suite de pruebas
         env:
           PYTHONPATH: ${{ github.workspace }}/elite
           PYTHONDONTWRITEBYTECODE: "1"
-        run: python -m pytest -q -p no:cacheprovider --junitxml=junit-catedralx.xml
+        run: python -m pytest tests/ -q -p no:cacheprovider --junitxml=junit-catedralx.xml
 
-      - name: Compile Python sources
+      - name: Compilar fuentes Python
         run: python -m compileall -q elite BIN tests
 
-      - name: Preserve test report
+      - name: Conservar reporte de pruebas
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: junit-catedralx-${{ github.run_id }}
+          name: reporte-pruebas-${{ github.run_id }}
           path: junit-catedralx.xml
           if-no-files-found: ignore
           retention-days: 14
 
   docker-build-and-smoke-test:
-    name: Build and smoke-test the CLI image
+    name: Imagen Docker + Prueba Básica
     runs-on: ubuntu-24.04
     needs: [unit-tests]
     timeout-minutes: 20
     steps:
-      - name: Checkout
+      - name: Obtener código
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Set up Docker Buildx
+      - name: Configurar Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
-      - name: Validate Compose configuration
+      - name: Validar configuración Compose
         run: docker compose config --quiet
 
-      - name: Build canonical Docker image (fail closed)
+      - name: Construir imagen canónica
         run: docker build --pull --file Dockerfile --tag catedralx:ci .
 
-      - name: Smoke-test the image's default command
+      - name: Prueba básica de la imagen
         run: docker run --rm --name catedralx-cli-smoke catedralx:ci
 
   secret-history-scan:
-    name: Scan all Git history with Gitleaks
+    name: Escaneo de Secretos (Gitleaks)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - name: Checkout all branches and tags
+      - name: Obtener historial completo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Install pinned Gitleaks and verify release checksum
+      - name: Instalar Gitleaks v8.30.1
         run: |
           set -euo pipefail
           version="8.30.1"
@@ -102,7 +103,7 @@ jobs:
           tar -xzf "/tmp/${archive}" -C /tmp gitleaks
           /tmp/gitleaks version
 
-      - name: Scan all reachable refs and redact findings
+      - name: Analizar historial completo
         run: |
           set +e
           /tmp/gitleaks git --verbose --redact --report-format json --report-path /tmp/gitleaks-report.json --log-opts="--all" .
@@ -110,17 +111,16 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-
           report = Path("/tmp/gitleaks-report.json")
           if report.exists():
               for finding in json.loads(report.read_text(encoding="utf-8")):
                   print(
                       "GITLEAKS_FINDING "
-                      f"rule={finding.get('RuleID')} "
-                      f"file={finding.get('File')} "
+                      f"regla={finding.get('RuleID')} "
+                      f"archivo={finding.get('File')} "
                       f"commit={finding.get('Commit')} "
-                      f"lines={finding.get('StartLine')}-{finding.get('EndLine')} "
-                      f"fingerprint={finding.get('Fingerprint')}"
+                      f"lineas={finding.get('StartLine')}-{finding.get('EndLine')} "
+                      f"huella={finding.get('Fingerprint')}"
                   )
           PY
           exit "$scan_status"
