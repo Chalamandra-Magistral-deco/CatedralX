@@ -38,6 +38,7 @@ jobs:
             docs/contracts/orchestration_flow.yaml
           python -m json.tool elite/contracts/schemas/chalamandra_contract.json >/dev/null
           python -m json.tool elite/contracts/schemas/decision_result.json >/dev/null
+          python -m json.tool elite/contracts/schemas/economic_opportunity_result.json >/dev/null
 
       - name: Run all tests and record the actual count
         env:

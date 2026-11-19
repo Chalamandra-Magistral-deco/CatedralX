@@ -1,0 +1,11 @@
+{
+  "equilibrio": "ESTADO DESEADO DEL SISTEMA",
+  "descripcion": "Define las condiciones de balance, sostenibilidad y estabilidad que el sistema busca mantener",
+  "actualizado": "2026-11-18T23:16:00-06:00",
+  "restricciones": {
+    "entropia": {},
+    "energia": {},
+    "informacion": {}
+  },
+  "metricas_esperadas": {}
+}

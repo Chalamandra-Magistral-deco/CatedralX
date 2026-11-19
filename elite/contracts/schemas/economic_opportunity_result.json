@@ -1,88 +1,321 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chalamandramagistral.com/schemas/economic-opportunity-result/v1.0",
   "title": "CatedralX Economic Opportunity Result",
+  "version": "1.0.0",
   "type": "object",
+  "additionalProperties": false,
   "required": [
-    "schema_version", "result_id", "engine", "evaluation_domain", "status",
-    "opportunity_id", "income_model", "currency", "horizon_months", "financials", "scenarios",
-    "decision_candidate", "risk_flags", "assumptions", "evidence",
-    "evidence_status", "uncertainty", "provenance", "trace_id",
-    "evaluation_hash", "analysis_only", "orders_created", "orders_executed",
-    "authorization", "independent_acceptance_required"
+    "schema_version",
+    "result_id",
+    "engine",
+    "evaluation_domain",
+    "status",
+    "opportunity_id",
+    "name",
+    "category",
+    "income_model",
+    "currency",
+    "horizon_months",
+    "financials",
+    "scenarios",
+    "decision_candidate",
+    "risk_flags",
+    "assumptions",
+    "evidence",
+    "evidence_status",
+    "uncertainty",
+    "provenance",
+    "trace_id",
+    "evaluation_hash",
+    "analysis_only",
+    "orders_created",
+    "orders_executed",
+    "authorization",
+    "independent_acceptance_required"
   ],
   "properties": {
-    "schema_version": { "const": "catedralx.economic-opportunity/1.0" },
-    "result_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
-    "engine": { "const": "CatedralX" },
-    "evaluation_domain": { "const": "business_opportunity" },
-    "status": { "const": "ANALYSIS_COMPLETE" },
-    "opportunity_id": { "type": "string", "minLength": 1 },
-    "income_model": { "enum": ["active", "passive", "hybrid", "investment", "asset"] },
-    "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
-    "horizon_months": { "type": "integer", "minimum": 1, "maximum": 120 },
+    "schema_version": {
+      "const": "catedralx.economic-opportunity/1.0"
+    },
+    "result_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$",
+      "description": "Identificador único del resultado"
+    },
+    "engine": {
+      "const": "CatedralX"
+    },
+    "evaluation_domain": {
+      "const": "business_opportunity"
+    },
+    "status": {
+      "const": "ANALYSIS_COMPLETE",
+      "description": "Análisis completo; no implica autorización"
+    },
+    "opportunity_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Nombre legible de la oportunidad; emitido por evaluate_economic_opportunity"
+    },
+    "category": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Categoría de la oportunidad; emitida por evaluate_economic_opportunity"
+    },
+    "income_model": {
+      "enum": [
+        "active",
+        "passive",
+        "hybrid",
+        "investment",
+        "asset"
+      ]
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$",
+      "description": "Código de moneda ISO-4217"
+    },
+    "horizon_months": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 120
+    },
     "financials": {
       "type": "object",
-      "required": ["capital_required", "available_capital", "funding_gap", "revenue_total_base_input", "cost_total_base_input", "initial_capital_status", "working_capital_assessment", "tax_assessment"],
+      "required": [
+        "capital_required",
+        "available_capital",
+        "funding_gap",
+        "revenue_total_base_input",
+        "cost_total_base_input",
+        "initial_capital_status",
+        "working_capital_assessment",
+        "tax_assessment"
+      ],
       "properties": {
-        "capital_required": { "type": "number", "minimum": 0 },
-        "available_capital": { "type": "number", "minimum": 0 },
-        "funding_gap": { "type": "number", "minimum": 0 },
-        "revenue_total_base_input": { "type": "number", "minimum": 0 },
-        "cost_total_base_input": { "type": "number", "minimum": 0 },
-        "initial_capital_status": { "enum": ["funded", "funding_gap"] },
-        "working_capital_assessment": { "const": "not_assessed_without_periodic_cashflow" },
-        "tax_assessment": { "const": "not_included_unless_declared_as_cost_line" }
+        "capital_required": {
+          "type": "number",
+          "minimum": 0
+        },
+        "available_capital": {
+          "type": "number",
+          "minimum": 0
+        },
+        "funding_gap": {
+          "type": "number",
+          "minimum": 0
+        },
+        "revenue_total_base_input": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cost_total_base_input": {
+          "type": "number",
+          "minimum": 0
+        },
+        "initial_capital_status": {
+          "enum": [
+            "funded",
+            "funding_gap"
+          ]
+        },
+        "working_capital_assessment": {
+          "const": "not_assessed_without_periodic_cashflow"
+        },
+        "tax_assessment": {
+          "const": "not_included_unless_declared_as_cost_line"
+        }
       },
       "additionalProperties": false
     },
     "scenarios": {
       "type": "object",
-      "required": ["conservative", "base", "optimistic"],
+      "required": [
+        "conservative",
+        "base",
+        "optimistic"
+      ],
       "properties": {
-        "conservative": { "$ref": "#/$defs/scenario" },
-        "base": { "$ref": "#/$defs/scenario" },
-        "optimistic": { "$ref": "#/$defs/scenario" }
+        "conservative": {
+          "$ref": "#/$defs/scenario"
+        },
+        "base": {
+          "$ref": "#/$defs/scenario"
+        },
+        "optimistic": {
+          "$ref": "#/$defs/scenario"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Tres escenarios con multiplicadores declarados"
+    },
+    "decision_candidate": {
+      "enum": [
+        "PURSUE",
+        "DEFER",
+        "REJECT"
+      ],
+      "description": "Candidato analítico, no es una orden"
+    },
+    "risk_flags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "evidence_id",
+          "source",
+          "digest",
+          "observed_at"
+        ],
+        "properties": {
+          "evidence_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "evidence_status": {
+      "const": "declared_digest_not_source_authentication"
+    },
+    "uncertainty": {
+      "type": "object",
+      "required": [
+        "status",
+        "note"
+      ],
+      "properties": {
+        "status": {
+          "const": "not_probability_calibrated"
+        },
+        "note": {
+          "type": "string"
+        }
       },
       "additionalProperties": false
     },
-    "decision_candidate": { "enum": ["PURSUE", "DEFER", "REJECT"] },
-    "risk_flags": { "type": "array", "items": { "type": "string" } },
-    "assumptions": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-    "evidence": { "type": "array", "minItems": 1, "items": { "type": "object" } },
-    "evidence_status": { "const": "declared_digest_not_source_authentication" },
-    "uncertainty": {
-      "type": "object",
-      "required": ["status", "note"],
-      "properties": {
-        "status": { "const": "not_probability_calibrated" },
-        "note": { "type": "string" }
-      }
-    },
     "provenance": {
       "type": "object",
-      "required": ["input_sha256"],
-      "properties": { "input_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }
+      "required": [
+        "input_sha256"
+      ],
+      "properties": {
+        "input_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "additionalProperties": false
     },
-    "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
-    "evaluation_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-    "analysis_only": { "const": true },
-    "orders_created": { "const": false },
-    "orders_executed": { "const": false },
-    "authorization": { "const": "NOT_GRANTED" },
-    "independent_acceptance_required": { "const": true }
+    "trace_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "evaluation_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 del paquete de evaluación, excluyendo este campo"
+    },
+    "analysis_only": {
+      "const": true
+    },
+    "orders_created": {
+      "const": false
+    },
+    "orders_executed": {
+      "const": false
+    },
+    "authorization": {
+      "const": "NOT_GRANTED"
+    },
+    "independent_acceptance_required": {
+      "const": true
+    }
   },
   "$defs": {
     "scenario": {
       "type": "object",
-      "required": ["revenue_total", "cost_total", "net_result", "net_margin_pct", "roi_pct", "payback_months", "decision_candidate"],
+      "required": [
+        "revenue_total",
+        "cost_total",
+        "net_result",
+        "net_margin_pct",
+        "roi_pct",
+        "payback_months",
+        "decision_candidate"
+      ],
       "properties": {
-        "revenue_total": { "type": "number", "minimum": 0 },
-        "cost_total": { "type": "number", "minimum": 0 },
-        "net_result": { "type": "number" },
-        "net_margin_pct": { "type": ["number", "null"] },
-        "roi_pct": { "type": ["number", "null"] },
-        "payback_months": { "type": ["number", "null"] },
-        "decision_candidate": { "enum": ["PURSUE", "DEFER", "REJECT"] }
+        "revenue_total": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cost_total": {
+          "type": "number",
+          "minimum": 0
+        },
+        "net_result": {
+          "type": "number"
+        },
+        "net_margin_pct": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "roi_pct": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "payback_months": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "decision_candidate": {
+          "enum": [
+            "PURSUE",
+            "DEFER",
+            "REJECT"
+          ]
+        }
       },
       "additionalProperties": false
     }
