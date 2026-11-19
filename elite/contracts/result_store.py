@@ -75,7 +75,11 @@ def _read_verified_records(stream) -> list[dict[str, Any]]:
         sequence = integrity.get("sequence")
         previous = integrity.get("previous_record_hash")
         actual = integrity.get("record_hash")
-        if sequence != expected_sequence or previous != previous_hash:
+        if (
+            isinstance(sequence, bool) or not isinstance(sequence, int)
+            or sequence != expected_sequence or previous != previous_hash
+            or not isinstance(record.get("result_id"), str)
+        ):
             raise ValueError(f"ResultStore discontinuo en línea {line_number}")
         expected = _record_chain_hash(
             sequence, previous, record["contract_hash"], record["result_id"]
