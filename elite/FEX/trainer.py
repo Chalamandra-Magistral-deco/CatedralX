@@ -1,4 +1,5 @@
-"""DEPRECATED: Compatibility facade - use FEX.FEEDBACK.trainer
+"""
+DEPRECATED: Compatibility facade - use FEX.FEEDBACK.trainer
 
 Original: Compatibility facade for the canonical FEX feedback trainer.
 
