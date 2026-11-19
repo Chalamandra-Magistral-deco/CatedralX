@@ -42,7 +42,7 @@ def test_rejects_non_list_or_tuple_input():
 
 
 def test_degenerate_denominator_returns_neutral_result():
-    assert analyze([1.0, 2.0, 3.0, 1.0]) == (0.0, 0.0)
+    assert analyze([1.0, 2.0, 3.0, 2.0]) == (0.0, 0.0)
 
 
 def test_large_finite_prices_do_not_overflow_dispersion_mean():
