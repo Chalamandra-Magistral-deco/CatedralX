@@ -34,7 +34,7 @@ paths:
             schema: { $ref: '#/components/schemas/OrchestrationTrigger' }
       responses:
         '202':
-          description: Trabajo persistido en TaskBus.
+          description: Run creado y tarea registrada en TaskBus; no implica ejecución ni aceptación.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/RunAccepted' }
@@ -97,7 +97,7 @@ paths:
             schema: { $ref: '#/components/schemas/AcceptanceDecision' }
       responses:
         '201':
-          description: Decisión firmada registrada y estado operativo reconciliado.
+          description: Decisión registrada tras la verificación definida por el servicio; no implica por sí sola publicación.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AcceptanceRecorded' }
@@ -204,6 +204,7 @@ components:
           type: string
           pattern: '^[0-9a-fA-F]{128}$'
           description: Firma Ed25519 hexadecimal de la decisión y el evidence_digest.
+        decided_at: { type: string, format: date-time, description: Fecha RFC 3339 con zona horaria explícita. }
         trace_id: { type: string, pattern: '^[0-9a-f]{32}$' }
     AcceptanceRecorded:
       type: object
