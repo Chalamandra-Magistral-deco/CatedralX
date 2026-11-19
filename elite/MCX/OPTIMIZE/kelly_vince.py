@@ -56,3 +56,5 @@ def optimal_f_vince(returns: list[float]) -> float:
             best_growth = growth
             best_f = fraction
     return round(float(best_f), 4)
+g
+
