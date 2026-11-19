@@ -77,7 +77,7 @@ def test_result_store_rejects_duplicate_result_id(tmp_path):
 
 def test_result_store_rejects_economic_hash_tampering(tmp_path):
     result = copy.deepcopy(_economic_result())
-    result["scenarios"]["base"]["net_result"] += 1
+    result["risk_flags"].append("tampered_after_hash")
 
     with pytest.raises(ValueError, match="evaluation_hash"):
         append_result(result, path=tmp_path / "results.jsonl")
