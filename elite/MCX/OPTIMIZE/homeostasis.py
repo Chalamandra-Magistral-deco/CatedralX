@@ -1,9 +1,21 @@
-"""Convert internal bounded state into conservative analysis thresholds."""
-def parametros_homeostaticos(neuro: dict, panic: bool = False) -> dict:
-    cortisol = min(1.0, max(0.0, float(neuro.get("cortisol", 1.0))))
-    dopamina = min(1.0, max(0.0, float(neuro.get("dopamina", 0.0))))
-    defensive = panic or cortisol >= 0.7
-    return {"modo": "DEFENSIVO" if defensive else "NORMAL",
-            "agresividad": 0.0 if defensive else round(dopamina * (1.0 - cortisol), 4),
-            "umbral_minimo": 1.0 if defensive else round(0.4 + cortisol * 0.4, 4),
-            "orders_allowed": False}
+"""
+homeostasis.py — Internal state reference targets
+Chalamandra Magistral DecoX · CatedralX
+
+Define los puntos de equilibrio saludable del sistema.
+"""
+from __future__ import annotations
+
+def setpoint() -> dict[str, float]:
+    """Estado de referencia al que el sistema tiende a volver."""
+    return {
+        "cortisol": 0.3,
+        "dopamina": 0.6,
+        "serotonina": 0.7,
+        "riesgo": 0.25,
+    }
+
+def desvio(actual: dict[str, float], objetivo: dict[str, float] | None = None) -> dict[str, float]:
+    """Diferencia entre estado actual y el objetivo."""
+    t = objetivo or setpoint()
+    return {k: round(actual.get(k, 0.0) - t[k], 6) for k in t}
