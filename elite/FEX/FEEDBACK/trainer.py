@@ -1,6 +1,5 @@
 """Gradient-descent trainer for a single logistic model."""
 
-
 import numpy as np
 
 
