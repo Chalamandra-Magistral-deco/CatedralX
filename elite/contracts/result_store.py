@@ -38,9 +38,16 @@ def _validate_decision_result(record: dict[str, Any]) -> None:
         "evidence", "assumptions", "risks", "provenance", "trace_id", "analysis_only",
         "orders_created", "orders_executed",
     }
+    optional = {"tests", "next_action", "missing_inputs", "blocking_reasons", "evaluation_reason"}
+    allowed = required | optional
     missing = sorted(required - set(record))
     if missing:
         raise ValueError("DecisionResult incompleto: faltan " + ", ".join(missing))
+    unknown = sorted(set(record) - allowed)
+    if unknown:
+        raise ValueError("DecisionResult contiene propiedades no permitidas: " + ", ".join(unknown))
+    if not isinstance(record["result_id"], str) or not record["result_id"].strip():
+        raise ValueError("DecisionResult.result_id debe ser texto no vacío")
     if record.get("status") not in {"ACCEPTED", "UNCERTAIN", "REJECTED", "BLOCKED_MISSING_INPUT"}:
         raise ValueError("DecisionResult.status inválido")
     if record.get("engine") != "CatedralX":
@@ -57,6 +64,8 @@ def _validate_decision_result(record: dict[str, Any]) -> None:
         record["evaluation_gate"] != "BLOCKED_UNCERTAINTY" or not record.get("missing_inputs")
     ):
         raise ValueError("BLOCKED_MISSING_INPUT requiere gate de incertidumbre e inputs faltantes")
+    if record["cycle_id"] is not None and type(record["cycle_id"]) not in {str, int}:
+        raise ValueError("DecisionResult.cycle_id debe ser string, integer o null")
     trace_id = record.get("trace_id")
     if not isinstance(trace_id, str) or not _TRACE_RE.fullmatch(trace_id) or trace_id == "0" * 32:
         raise ValueError("DecisionResult.trace_id debe ser un W3C trace ID válido")
@@ -65,17 +74,30 @@ def _validate_decision_result(record: dict[str, Any]) -> None:
     for key in ("evidence", "assumptions", "risks", "provenance"):
         if not isinstance(record.get(key), list):
             raise TypeError(f"DecisionResult.{key} debe ser una lista")
+    for key in ("assumptions", "risks", "provenance"):
+        if any(not isinstance(item, str) for item in record[key]):
+            raise TypeError(f"DecisionResult.{key} solo admite texto")
+    for key in ("tests", "missing_inputs", "blocking_reasons"):
+        if key in record and (
+            not isinstance(record[key], list) or any(not isinstance(item, str) for item in record[key])
+        ):
+            raise TypeError(f"DecisionResult.{key} debe ser una lista de texto")
+    if "next_action" in record and not isinstance(record["next_action"], str):
+        raise TypeError("DecisionResult.next_action debe ser texto")
+    if "evaluation_reason" in record and record["evaluation_reason"] is not None and not isinstance(record["evaluation_reason"], str):
+        raise TypeError("DecisionResult.evaluation_reason debe ser texto o null")
+    if any(not isinstance(item, dict) for item in record["evidence"]):
+        raise TypeError("DecisionResult.evidence debe contener objetos")
     if record["status"] == "ACCEPTED":
         if not record["evidence"] or not record["provenance"]:
             raise ValueError("DecisionResult ACCEPTED requiere evidencia y procedencia")
         provenance_ids = record["provenance"]
-        if any(not isinstance(item, str) or not item.strip() for item in provenance_ids):
+        if any(not item.strip() for item in provenance_ids):
             raise ValueError("DecisionResult ACCEPTED requiere IDs de procedencia válidos")
         evidence_ids = []
         for item in record["evidence"]:
             if (
-                not isinstance(item, dict)
-                or not isinstance(item.get("evidence_id"), str)
+                not isinstance(item.get("evidence_id"), str)
                 or not item["evidence_id"].strip()
                 or item.get("kind") not in {"input", "observation", "calculation", "test", "external_source", "contradiction"}
                 or not isinstance(item.get("digest"), str)
