@@ -16,6 +16,7 @@ from DSX.DEFENSE.guards import (
     verificar_autorizacion_ejecucion,
 )
 from FEX.FEEDBACK.feedback_loop import resumir_memoria_decisiones
+from MCX.OPTIMIZE.affective import estado_afectivo
 from PERCEIVE.api_pulse import validate_snapshot_payload
 from PERCEIVE.data_feeder import snapshot_path as rsx_snapshot_path
 
@@ -403,12 +404,26 @@ class Orchestrator:
             "cognicion": cognitive,
         }
         self.transductor.volcar_estado_quimico(package)
+        hormonal_state = self.transductor.leer_estado_actual()
+        concentrations = hormonal_state.get("concentracion_actual", {})
+        try:
+            affective_profile = estado_afectivo(concentrations)
+        except (TypeError, ValueError, OverflowError) as error:
+            # Affective characterization is optional observability, never a cycle gate.
+            affective_profile = {
+                "estado": "NO_DISPONIBLE",
+                "rol": "observacional_no_autoritativo",
+                "decision_authority": False,
+                "error": type(error).__name__,
+            }
+        package["contexto"]["estado_afectivo"] = affective_profile
+        cognitive["estado_afectivo"] = affective_profile
         state = CathedralState(
             int(time.time()),
             decision,
             signal_strength,
             round(fe, 4),
-            self.transductor.leer_estado_actual().get("concentracion_actual", {}),
+            concentrations,
             giro,
             package["razon_anarmonica"],
             package["percepcion_espacial"],
