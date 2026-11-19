@@ -70,7 +70,7 @@ def normalize_market_payload(payload: dict[str, Any]) -> dict[str, Any]:
     )
     if raw_history is None:
         raise ValueError("observed price history is required")
-    if isinstance(raw_history, list) and raw_history and isinstance(raw_history[0], dict):
+    if isinstance(raw_history, list) and any(isinstance(item, dict) for item in raw_history):
         extracted: list[Any] = []
         for index, item in enumerate(raw_history):
             if not isinstance(item, dict):
