@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from MCX.OPTIMIZE.affective import estado_afectivo, perfil_texto
+from REASON.affective import estado_afectivo, perfil_texto
 
 
 def test_affective_profile_is_bounded_and_observational():
