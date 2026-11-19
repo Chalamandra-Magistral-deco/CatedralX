@@ -1,5 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chalamandramagistral.com/schemas/decision-result/v1.0",
+  "title": "CatedralX Decision Result",
+  "description": "Registro de decisión con trazabilidad completa. Append-only a nivel de ResultStore; no implica autorización ni aceptación independiente.",
   "type": "object",
   "required": [
     "result_id",
@@ -20,7 +23,9 @@
   ],
   "properties": {
     "result_id": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1,
+      "description": "Identificador único del resultado"
     },
     "status": {
       "type": "string",
@@ -29,14 +34,20 @@
         "UNCERTAIN",
         "REJECTED",
         "BLOCKED_MISSING_INPUT"
-      ]
+      ],
+      "description": "Estado final del resultado tras validación completa"
     },
     "engine": {
       "type": "string",
       "const": "CatedralX"
     },
     "decision": {
-      "type": "string"
+      "type": "string",
+      "enum": [
+        "buy",
+        "sell",
+        "hold"
+      ]
     },
     "evidence": {
       "type": "array",
@@ -60,7 +71,8 @@
       "type": "array",
       "items": {
         "type": "string"
-      }
+      },
+      "default": []
     },
     "provenance": {
       "type": "array",
@@ -95,13 +107,15 @@
       "type": "array",
       "items": {
         "type": "string"
-      }
+      },
+      "default": []
     },
     "blocking_reasons": {
       "type": "array",
       "items": {
         "type": "string"
-      }
+      },
+      "default": []
     },
     "evaluation_reason": {
       "type": [
@@ -151,5 +165,6 @@
         }
       }
     }
-  ]
+  ],
+  "additionalProperties": false
 }
