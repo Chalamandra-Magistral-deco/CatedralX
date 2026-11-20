@@ -245,6 +245,7 @@ def test_from_snapshot_preserves_governance_contracts():
         "PERCEIVE": {
             "historial_precios": [100.0 + index for index in range(30)],
             "precio": 129.0,
+            "observed_at": "2026-11-18T23:40:00Z",
         },
         "CENTRAL_DIMENSIONS_BP": dimensions,
         "DYNAMIC_CONSTRAINTS": constraints,
@@ -262,6 +263,7 @@ def test_from_snapshot_rejects_non_object_governance_contracts():
         "PERCEIVE": {
             "historial_precios": [100.0 + index for index in range(30)],
             "precio": 129.0,
+            "observed_at": "2026-11-18T23:40:00Z",
         }
     }
     for key in ("DYNAMIC_CONSTRAINTS", "CENTRAL_DIMENSIONS_BP"):
@@ -278,7 +280,7 @@ def test_snapshot_rejects_non_object_governance_contracts():
     from REASON import orchestrator
 
     prices = [100.0 + index for index in range(30)]
-    base = {"PERCEIVE": {"historial_precios": prices, "precio": prices[-1]}}
+    base = {"PERCEIVE": {"historial_precios": prices, "precio": prices[-1], "observed_at": "2026-11-18T23:40:00Z"}}
     for key in ("DYNAMIC_CONSTRAINTS", "CENTRAL_DIMENSIONS_BP"):
         invalid = {**base, key: [1, 2, 3]}
         try:
