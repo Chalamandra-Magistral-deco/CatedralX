@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from elite.contracts.builder import build_decision_result
+from elite.contracts.builder import build_decision_result, canonical_decision_result_hash
 from elite.contracts.result_store import append_result, get_result
 
 
@@ -214,6 +214,7 @@ def test_result_store_concurrent_appends_keep_all_lines_valid(tmp_path):
         try:
             result = build_decision_result(_make_state(decision="buy"), _make_cognitive())
             result["result_id"] = f"{index:032x}"
+            result["contract_hash"] = canonical_decision_result_hash(result)
             append_result(result, path=path)
         except BaseException as exc:  # noqa: BLE001 - collected by the test
             errors.append(exc)

@@ -1,5 +1,6 @@
 """Append-only ResultStore for CatedralX (Fase 0)."""
 import fcntl
+import hashlib
 import json
 import os
 import re
@@ -27,11 +28,75 @@ def default_result_store_path() -> Path:
         raise ValueError("CATEDRALX_RESULT_STORE_PATH debe estar fuera del repositorio")
     return resolved
 
+def _canonical_json(value: Any) -> bytes:
+    return json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+    ).encode("utf-8")
+
+
+def _verify_contract_hash(record: dict[str, Any]) -> None:
+    from .builder import verify_decision_result_hash
+
+    if not verify_decision_result_hash(record):
+        raise ValueError("DecisionResult.contract_hash ausente o inválido")
+
+
+def _record_chain_hash(sequence: int, previous_hash: str, contract_hash: str, result_id: str) -> str:
+    payload = {
+        "sequence": sequence,
+        "previous_record_hash": previous_hash,
+        "contract_hash": contract_hash,
+        "result_id": result_id,
+    }
+    return hashlib.sha256(_canonical_json(payload)).hexdigest()
+
+
+def _read_verified_records(stream) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    previous_hash = "0" * 64
+    expected_sequence = 1
+    stream.seek(0)
+    for line_number, raw_line in enumerate(stream, start=1):
+        if not raw_line.strip():
+            continue
+        try:
+            record = json.loads(raw_line)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"ResultStore corrupto: JSON inválido en línea {line_number}") from exc
+        if not isinstance(record, dict):
+            raise ValueError(f"ResultStore corrupto: registro no objeto en línea {line_number}")
+        integrity = record.get("store_integrity")
+        if not isinstance(integrity, dict):
+            raise ValueError(
+                f"ResultStore contiene historial legado sin cadena verificable en línea {line_number}; "
+                "se requiere migración explícita"
+            )
+        _verify_contract_hash(record)
+        sequence = integrity.get("sequence")
+        previous = integrity.get("previous_record_hash")
+        actual = integrity.get("record_hash")
+        if (
+            isinstance(sequence, bool) or not isinstance(sequence, int)
+            or sequence != expected_sequence or previous != previous_hash
+            or not isinstance(record.get("result_id"), str)
+        ):
+            raise ValueError(f"ResultStore discontinuo en línea {line_number}")
+        expected = _record_chain_hash(
+            sequence, previous, record["contract_hash"], record["result_id"]
+        )
+        if not isinstance(actual, str) or actual != expected:
+            raise ValueError(f"ResultStore con hash de cadena inválido en línea {line_number}")
+        records.append(record)
+        previous_hash = actual
+        expected_sequence += 1
+    return records
+
+
 def _validate_decision_result(record: dict[str, Any]) -> None:
     required = {
         "result_id", "status", "engine", "decision", "evaluation_hash", "evaluation_gate", "cycle_id",
         "evidence", "assumptions", "risks", "provenance", "trace_id", "analysis_only",
-        "orders_created", "orders_executed",
+        "orders_created", "orders_executed", "contract_hash",
     }
     missing = sorted(required - set(record))
     if missing:
@@ -89,20 +154,11 @@ def _validate_decision_result(record: dict[str, Any]) -> None:
 
 
 def append_result(record: dict[str, Any], path: str | Path | None = None) -> str:
-    """Validate and append a DecisionResult. Invalid or untraceable decisions fail closed.
-
-    H-04 (partial): the append is serialized with flock, fsynced and stored
-    0600, so concurrent writers cannot interleave lines and a crash cannot
-    lose a buffered write. The stored record format is unchanged on
-    purpose: a hash chain would change what ``get_result`` returns and
-    what ``verify_isolated_safety.sh`` compares byte-for-byte, so it stays
-    [PENDIENTE] as a contract decision (see the liberación report). The
-    canonical audit evidence remains the economic ledger, which already
-    has a hash chain.
-    """
+    """Validate, chain and append a DecisionResult under an exclusive file lock."""
     if not isinstance(record, dict):
         raise TypeError("DecisionResult debe ser un objeto")
     _validate_decision_result(record)
+    _verify_contract_hash(record)
     target = Path(path) if path else default_result_store_path()
     target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
 
@@ -110,12 +166,29 @@ def append_result(record: dict[str, Any], path: str | Path | None = None) -> str
     if not isinstance(result_id, str) or not result_id.strip():
         raise ValueError("El record debe tener un 'result_id' válido")
 
-    line = json.dumps(record, ensure_ascii=False, allow_nan=False, sort_keys=True) + "\n"
-    fd = os.open(str(target), os.O_CREAT | os.O_APPEND | os.O_WRONLY, 0o600)
+    fd = os.open(str(target), os.O_CREAT | os.O_RDWR, 0o600)
     try:
-        with os.fdopen(fd, "a", encoding="utf-8") as stream:
+        with os.fdopen(fd, "r+", encoding="utf-8") as stream:
             fcntl.flock(stream, fcntl.LOCK_EX)
             try:
+                existing = _read_verified_records(stream)
+                if any(item.get("result_id") == result_id for item in existing):
+                    raise ValueError("DecisionResult.result_id duplicado")
+                previous_hash = (
+                    existing[-1]["store_integrity"]["record_hash"] if existing else "0" * 64
+                )
+                sequence = len(existing) + 1
+                record["store_integrity"] = {
+                    "sequence": sequence,
+                    "previous_record_hash": previous_hash,
+                    "record_hash": _record_chain_hash(
+                        sequence, previous_hash, record["contract_hash"], result_id
+                    ),
+                }
+                line = json.dumps(
+                    record, ensure_ascii=False, allow_nan=False, sort_keys=True
+                ) + "\n"
+                stream.seek(0, os.SEEK_END)
                 stream.write(line)
                 stream.flush()
                 os.fsync(stream.fileno())
@@ -130,21 +203,23 @@ def append_result(record: dict[str, Any], path: str | Path | None = None) -> str
         raise
     return result_id
 
+
+def verify_result_store(path: str | Path | None = None) -> dict[str, Any]:
+    """Verify every record and chain link; corruption is reported, never skipped."""
+    target = Path(path) if path else default_result_store_path()
+    if not target.exists():
+        return {"valid": True, "record_count": 0, "head_hash": "0" * 64}
+    with target.open("r", encoding="utf-8") as stream:
+        records = _read_verified_records(stream)
+    head = records[-1]["store_integrity"]["record_hash"] if records else "0" * 64
+    return {"valid": True, "record_count": len(records), "head_hash": head}
+
+
 def get_result(result_id: str, path: str | Path | None = None) -> dict[str, Any] | None:
-    """Read a DecisionResult by result_id. Returns None if not found."""
+    """Read only after verifying the complete history; corruption fails loudly."""
     target = Path(path) if path else default_result_store_path()
     if not target.exists():
         return None
-
     with target.open("r", encoding="utf-8") as stream:
-        for line in stream:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                record = json.loads(line)
-                if record.get("result_id") == result_id:
-                    return record
-            except json.JSONDecodeError:
-                continue
-    return None
+        records = _read_verified_records(stream)
+    return next((record for record in records if record.get("result_id") == result_id), None)
