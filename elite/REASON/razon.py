@@ -71,6 +71,7 @@ def main() -> int:
         "trading_enabled": False,
         "orders_created": False,
         "orders_executed": False,
+        "trace_id": trace_id,
     }
     result["prediction_id"] = registrar_prediccion(result)
 
