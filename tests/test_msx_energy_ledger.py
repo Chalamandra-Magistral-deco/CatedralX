@@ -85,6 +85,8 @@ def test_governor_blocks_spend_below_reserve(monkeypatch, tmp_path):
     consume_cycle_budget("cycle-1", amount=2)
     consume_cycle_budget("cycle-2", amount=2)
     consume_cycle_budget("cycle-3", amount=2)
+    # A balance exactly equal to the reserve is valid; only crossing it is blocked.
+    consume_cycle_budget("cycle-4", amount=2)
     with pytest.raises(ValueError, match="Reserva insuficiente"):
-        consume_cycle_budget("cycle-4", amount=2)
-    assert energy_budget_snapshot()["operational"].charge == 4
+        consume_cycle_budget("cycle-5", amount=0.01)
+    assert energy_budget_snapshot()["operational"].charge == 2
