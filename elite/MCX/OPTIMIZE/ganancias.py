@@ -86,3 +86,53 @@ def sharpe_ratio(
     if desviacion == 0:
         return 0.0
     return (media - tasa_sin_riesgo) / desviacion
+
+def financiar_analisis_adaptativo(
+    *,
+    prediction_id: str,
+    horizon: str,
+    outcome: dict,
+    feedback_path: str | Path,
+    amount: float | None = None,
+) -> dict:
+    """Authorize MCX adaptive analysis only after FEX validates an observed outcome.
+
+    FEX validates prediction linkage, source, observed timestamps and elapsed
+    horizon before the adaptive reserve can be debited. Predictions, signals
+    and hypothetical outcomes cannot reach the governor through this function.
+    The stable cycle ID prevents a second debit for the same prediction/horizon.
+    """
+    from ENERGY.resource_governor import consume_adaptive_budget
+    from FEX.FEEDBACK.feedback_loop import registrar_resultado
+
+    if not isinstance(prediction_id, str) or not prediction_id.strip():
+        raise ValueError("prediction_id requerido")
+    if not isinstance(horizon, str) or not horizon.strip():
+        raise ValueError("horizon requerido")
+    if not isinstance(feedback_path, (str, Path)) or not str(feedback_path).strip():
+        raise ValueError("feedback_path explícito requerido")
+
+    # This append happens only after FEX has validated a real, horizon-matured
+    # observed-price outcome. Any validation error exits before resource spend.
+    registrar_resultado(
+        prediction_id,
+        {**outcome, "horizon": horizon},
+        path=feedback_path,
+    )
+    cycle_id = f"mcx-outcome:{prediction_id}:{horizon}"
+    receipt, snapshot, ledger_record = consume_adaptive_budget(
+        cycle_id, amount=amount
+    )
+    return {
+        "status": "ADAPTIVE_ANALYSIS_AUTHORIZED",
+        "prediction_id": prediction_id,
+        "horizon": horizon,
+        "cycle_id": cycle_id,
+        "unit": "virtual_compute_credit",
+        "credits_spent": receipt.amount,
+        "adaptive_balance": receipt.balance,
+        "ledger_sequence": ledger_record["sequence"],
+        "ledger_record_hash": ledger_record["record_hash"],
+        "orders_created": False,
+        "orders_executed": False,
+    }
