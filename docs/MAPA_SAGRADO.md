@@ -48,7 +48,7 @@ Esta topología refleja el árbol Git inspeccionado en la rama `fix/perceive-con
 | DSX — Defensa | `elite/DSX/DEFENSE/` | Aplicar guardas, límites y controles defensivos |
 | AEX — Acción/decisión | `elite/AEX/` | Modelar decisiones, riesgo, límites y operaciones potenciales |
 | FEX — Feedback/gobernanza | `elite/FEX/` | Gobernanza económica, retroalimentación y evaluación supervisada/offline |
-| MSX — Interfaz/procedencia | `elite/MSX/` y `elite/bin/` | Exponer adaptadores de operación y registrar procedencia; la CLI vive en `BIN/` y `elite/bin/` |
+| MSX — Procedencia | `elite/MSX/` | Registrar procedencia, secuencia y evidencia; no es la CLI ni la interfaz de usuario |
 
 **Frontera importante:** los nombres de los subsistemas expresan responsabilidades. No deben interpretarse como prueba de que exista una integración completa, una llamada en runtime o un despliegue independiente.
 
@@ -60,6 +60,10 @@ Esta topología refleja el árbol Git inspeccionado en la rama `fix/perceive-con
 - El guardián versionado es `elite/DSX/DEFENSE/guardian_ram.py`; no se debe documentar un `guardian.py` inexistente.
 - FEX separa `GOVERNANCE/` y `FEEDBACK/`. `elite/FEX/trainer.py` se conserva como fachada de compatibilidad.
 - Los contratos de resultado están en `elite/contracts/`; sus esquemas JSON están en `elite/contracts/schemas/`.
+
+## Contrato de clasificación y fronteras
+
+La taxonomía normativa, los tipos de elemento, la separación de niveles, los límites de responsabilidad, las relaciones, los estados de evidencia y los principios antierror se definen en [CONTRATO_ARQUITECTONICO.md](CONTRATO_ARQUITECTONICO.md). Este mapa conserva la vista estructural; el contrato citado gobierna la clasificación y evita confundir MSX con la CLI, ENERGY con un subsistema funcional o los flujos objetivo del ecosistema con integraciones demostradas.
 
 ## 4. Flujo interno de referencia
 
