@@ -34,9 +34,9 @@ def main() -> int:
     args = parser.parse_args()
     try:
         if args.report:
-            if args.event or args.payload or args.cycle_id:
+            if args.event or args.payload or args.cycle_id or args.trace_id:
                 raise ValueError(
-                    "--report no se combina con --event, --payload ni --cycle-id."
+                    "--report no se combina con --event, --payload, --cycle-id ni --trace-id."
                 )
             result: dict[str, Any] = resumir_ciclos(args.path)
         else:
