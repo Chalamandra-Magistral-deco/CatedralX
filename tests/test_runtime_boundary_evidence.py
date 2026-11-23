@@ -61,8 +61,7 @@ def test_feedback_prediction_write_persists_upstream_trace_id(tmp_path):
     ledger = tmp_path / "feedback.jsonl"
     trace_id = "a" * 32
     cycle_id = "feedback-cycle-probe"
-    # This mirrors the payload assembled in REASON.razon.main before it adds
-    # trace_id to the printed response / DecisionResult.
+    # This mirrors REASON.razon.main: trace_id is present before prediction persistence.
     prediction = {
         "cycle_id": cycle_id,
         "trace_id": trace_id,
@@ -104,7 +103,25 @@ def test_economic_ledger_write_is_real_and_keeps_governance_separate_from_trace(
     assert all(row["controls"]["money_moved"] is False for row in rows)
 
 
-def test_authorized_dispatch_does_not_receive_upstream_traceparent(monkeypatch, tmp_path):
+
+def test_economic_ledger_rejects_trace_id_changes_within_cycle(tmp_path):
+    ledger = tmp_path / "impact_cycle.jsonl"
+    cycle_id = registrar_evento(
+        "measure",
+        {"metric": "m", "source": "synthetic_probe", "period": "test",
+         "unit": "count", "formula": "count", "value": 1,
+         "observed_at": datetime.now(UTC).isoformat()},
+        path=ledger, trace_id="f" * 32,
+    )
+    import pytest
+
+    with pytest.raises(ValueError, match="no coincide"):
+        registrar_evento(
+            "evaluate", {"assessment": "test", "evidence": "synthetic"},
+            path=ledger, cycle_id=cycle_id, trace_id="1" * 32,
+        )
+
+def test_authorized_dispatch_propagates_upstream_traceparent(monkeypatch, tmp_path):
     from AEX.DECISION import ordenes
 
     monkeypatch.setattr(
