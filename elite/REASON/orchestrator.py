@@ -455,11 +455,27 @@ class Orchestrator:
 
 
 def execute_cycle(
-    sensory_data: SensoryInput, cycle_id: str | None = None
+    sensory_data: SensoryInput,
+    cycle_id: str | None = None,
+    *,
+    trace_id: str | None = None,
 ) -> CathedralState:
-    """Run one analysis with a traceable ID shared by state and entry-point output."""
+    """Run one analysis with shared cycle and W3C trace identifiers."""
     identifier = cycle_id or str(uuid.uuid4())
-    return think(sensory_data, sensory_data.precio_historico, identifier)
+    trace_identifier = trace_id or uuid.uuid4().hex
+    if (
+        not isinstance(trace_identifier, str)
+        or len(trace_identifier) != 32
+        or any(char not in "0123456789abcdef" for char in trace_identifier)
+        or trace_identifier == "0" * 32
+    ):
+        raise ValueError("trace_id debe ser un W3C trace ID hexadecimal de 32 caracteres")
+    state = think(
+        sensory_data, sensory_data.precio_historico, identifier,
+        trace_id=trace_identifier,
+    )
+    state.percepcion_espacial["trace_id"] = trace_identifier
+    return state
 
 class _LazyOrchestrator:
     """Defer shared state loading until a caller actually runs an orchestration cycle."""
@@ -491,6 +507,8 @@ def think(
     sensory_input: SensoryInput,
     historial_precios: list[float],
     ciclo_id: str,
+    *,
+    trace_id: str | None = None,
 ) -> CathedralState:
     """Run deterministic financial analysis plus optional geometry diagnostics."""
     raw_prices = list(historial_precios)
@@ -540,6 +558,8 @@ def think(
         state.percepcion_espacial["diagnostico_geometrico_error"] = geo_state["diagnostic_error"]
     state.percepcion_espacial["ciclo_id"] = ciclo_id
     state.percepcion_espacial["cycle_id"] = ciclo_id
+    if trace_id is not None:
+        state.percepcion_espacial["trace_id"] = trace_id
     state.percepcion_espacial["neurovector"] = neurovector
     # Preserve upstream governance inputs without deriving or recalibrating them.
     state.percepcion_espacial["central_dimensions_bp"] = dict(
