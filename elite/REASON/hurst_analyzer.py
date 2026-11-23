@@ -1,4 +1,4 @@
-"""Estimador del exponente de Hurst mediante analisis R/S."""
+"""Estimador del exponente de Hurst mediante análisis R/S."""
 
 from typing import Union
 
@@ -8,7 +8,7 @@ SerieNumerica = Union[list[float], np.ndarray]
 
 
 def calcular_hurst(serie: SerieNumerica) -> float:
-    """Calcula H sobre los retornos logaritmicos de una serie de precios."""
+    """Calcula H sobre los retornos logarítmicos de una serie de precios."""
     try:
         precios = np.asarray(serie, dtype=np.float64)
     except (TypeError, ValueError):
@@ -46,7 +46,7 @@ class HurstAnalyzer:
         self.ventana = max(20, int(ventana))
 
     def calcular(self, serie: SerieNumerica) -> float:
-        """Calcula H usando como maximo los ultimos ``ventana`` puntos."""
+        """Calcula H usando como máximo los últimos ``ventana`` puntos."""
         try:
             precios = np.asarray(serie, dtype=np.float64)
         except (TypeError, ValueError):
@@ -56,7 +56,7 @@ class HurstAnalyzer:
         return calcular_hurst(precios[-self.ventana :])
 
     def compute(self, serie: SerieNumerica) -> float:
-        """Alias en ingles para compatibilidad."""
+        """Alias en inglés para compatibilidad."""
         return self.calcular(serie)
 
     def tendencia_hurst(self, serie: SerieNumerica, window_meta: int = 5) -> str:
