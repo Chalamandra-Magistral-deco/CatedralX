@@ -53,6 +53,7 @@ def test_manifest_hash_changes_only_with_payload():
 def test_seal_is_idempotent_and_freezes_object():
     manifest = _manifest()
     sealed = manifest.sellar()
+    assert manifest.hash_final() == sealed["hash_integridad"]
     assert manifest.sellar() == sealed
     with pytest.raises(AttributeError):
         manifest._payload = {}
