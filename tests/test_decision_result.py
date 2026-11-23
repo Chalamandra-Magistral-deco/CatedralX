@@ -311,3 +311,91 @@ def test_high_cognitive_dissonance_cannot_override_a_blocked_gate(gate_status):
     result = build_decision_result(_make_state(decision="buy"), cognitive)
     assert result["evaluation_gate"] == gate_status
     assert result["status"] == "UNCERTAIN"
+
+
+def _economic_integrity_fixture(result_id="00000000000000000000000000000002"):
+    from elite.contracts.result_store import _opportunity_hash
+
+    scenario = {
+        "revenue_total": 1200.0, "cost_total": 240.0, "net_result": 960.0,
+        "net_margin_pct": 80.0, "roi_pct": 96.0, "payback_months": 1.0,
+        "decision_candidate": "PURSUE",
+    }
+    record = {
+        "schema_version": "catedralx.economic-opportunity/1.0",
+        "result_id": result_id, "engine": "CatedralX",
+        "evaluation_domain": "business_opportunity", "status": "ANALYSIS_COMPLETE",
+        "opportunity_id": "synthetic-opportunity", "income_model": "hybrid",
+        "currency": "MXN", "horizon_months": 6,
+        "financials": {
+            "capital_required": 100.0, "available_capital": 100.0, "funding_gap": 0.0,
+            "revenue_total_base_input": 1200.0, "cost_total_base_input": 240.0,
+            "initial_capital_status": "funded",
+            "working_capital_assessment": "not_assessed_without_periodic_cashflow",
+            "tax_assessment": "not_included_unless_declared_as_cost_line",
+        },
+        "scenarios": {"conservative": scenario, "base": scenario, "optimistic": scenario},
+        "decision_candidate": "PURSUE", "risk_flags": [],
+        "assumptions": ["Synthetic test assumptions."],
+        "evidence": [{
+            "evidence_id": "ev-1", "source": "synthetic://test", "digest": "c" * 64,
+            "observed_at": "2026-11-23T12:00:00-06:00",
+        }],
+        "evidence_status": "declared_digest_not_source_authentication",
+        "uncertainty": {"status": "not_probability_calibrated", "note": "Synthetic."},
+        "provenance": {"input_sha256": "d" * 64},
+        "trace_id": "1234567890abcdef1234567890abcdef",
+        "evaluation_hash": "", "analysis_only": True, "orders_created": False,
+        "orders_executed": False, "authorization": "NOT_GRANTED",
+        "independent_acceptance_required": True,
+    }
+    record["evaluation_hash"] = _opportunity_hash(record)
+    return record
+
+
+def test_result_store_integrity_chains_both_contract_types(tmp_path):
+    from elite.contracts.result_store import verify_result_store
+
+    path = tmp_path / "results.jsonl"
+    decision = build_decision_result(
+        _make_state(), _make_cognitive(gate_status="BLOCKED_UNCERTAINTY"),
+        trace_id="1234567890abcdef1234567890abcdef",
+    )
+    decision["result_id"] = "00000000000000000000000000000001"
+    economic = _economic_integrity_fixture()
+    append_result(decision, path)
+    append_result(economic, path)
+
+    assert verify_result_store(path)["record_count"] == 2
+    assert get_result(decision["result_id"], path) == decision
+    assert get_result(economic["result_id"], path) == economic
+
+
+def test_result_store_integrity_detects_suffix_truncation(tmp_path):
+    from elite.contracts.result_store import verify_result_store
+
+    path = tmp_path / "results.jsonl"
+    decision = build_decision_result(_make_state(), _make_cognitive())
+    append_result(decision, path)
+    append_result(build_decision_result(_make_state(), _make_cognitive()), path)
+    lines = path.read_text(encoding="utf-8").splitlines()
+    path.write_text(lines[0] + "\\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="Checkpoint"):
+        verify_result_store(path)
+
+
+def test_result_store_integrity_rejects_legacy_without_migration(tmp_path):
+    path = tmp_path / "results.jsonl"
+    path.write_text('{"result_id":"legacy"}\\n', encoding="utf-8")
+    with pytest.raises(ValueError, match="legado/no migrado"):
+        append_result(build_decision_result(_make_state(), _make_cognitive()), path)
+
+
+def test_result_store_integrity_rejects_duplicate_id_across_types(tmp_path):
+    path = tmp_path / "results.jsonl"
+    shared_id = "00000000000000000000000000000004"
+    decision = build_decision_result(_make_state(), _make_cognitive())
+    decision["result_id"] = shared_id
+    append_result(decision, path)
+    with pytest.raises(ValueError, match="duplicado"):
+        append_result(_economic_integrity_fixture(shared_id), path)
