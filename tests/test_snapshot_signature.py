@@ -195,11 +195,21 @@ def test_write_observation_without_key_writes_unsigned_and_reader_rejects(
     tmp_path, monkeypatch
 ):
     monkeypatch.delenv("CATEDRALX_SNAPSHOT_SIGNING_SECRET", raising=False)
+    monkeypatch.setenv("CATEDRALX_SNAPSHOT_ALLOW_UNSIGNED", "true")
     target = tmp_path / "snapshot.json"
     write_observation(make_payload()["PERCEIVE"], path=target)
     stored = json.loads(target.read_text(encoding="utf-8"))
     assert "signature" not in stored
     assert validate_snapshot_payload(stored)["reason"] == "snapshot_signature_missing"
+
+
+def test_write_observation_without_key_fails_closed_by_default(tmp_path, monkeypatch):
+    monkeypatch.delenv("CATEDRALX_SNAPSHOT_SIGNING_SECRET", raising=False)
+    monkeypatch.delenv("CATEDRALX_SNAPSHOT_ALLOW_UNSIGNED", raising=False)
+    target = tmp_path / "snapshot.json"
+    with pytest.raises(PermissionError, match="Firma de snapshot bloqueada"):
+        write_observation(make_payload()["PERCEIVE"], path=target)
+    assert not target.exists()
 
 
 def test_short_signing_secret_fails_closed_on_sign(monkeypatch):
