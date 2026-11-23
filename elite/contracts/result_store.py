@@ -39,7 +39,7 @@ def _validate_decision_result(record: dict[str, Any]) -> None:
         "evidence", "assumptions", "risks", "provenance", "trace_id", "analysis_only",
         "orders_created", "orders_executed",
     }
-    optional = {"tests", "next_action", "missing_inputs", "blocking_reasons", "evaluation_reason"}
+    optional = {"tests", "next_action", "missing_inputs", "blocking_reasons", "evaluation_reason", "evaluation"}
     allowed = required | optional
     missing = sorted(required - set(record))
     if missing:
@@ -87,6 +87,8 @@ def _validate_decision_result(record: dict[str, Any]) -> None:
         raise TypeError("DecisionResult.next_action debe ser texto")
     if "evaluation_reason" in record and record["evaluation_reason"] is not None and not isinstance(record["evaluation_reason"], str):
         raise TypeError("DecisionResult.evaluation_reason debe ser texto o null")
+    if "evaluation" in record and not isinstance(record["evaluation"], dict):
+        raise TypeError("DecisionResult.evaluation debe ser un objeto")
     if any(not isinstance(item, dict) for item in record["evidence"]):
         raise TypeError("DecisionResult.evidence debe contener objetos")
     if record["status"] == "ACCEPTED":
