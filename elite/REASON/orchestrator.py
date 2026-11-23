@@ -473,7 +473,7 @@ def execute_cycle(
         raise ValueError("trace_id debe ser un W3C trace ID hexadecimal de 32 caracteres")
     # DSX resource gate: a cycle cannot start without operational budget.
     # Credits are virtual compute quotas, not physical/electrical energy.
-    energy_receipt, energy_snapshot = consume_cycle_budget(identifier)
+    energy_receipt, energy_snapshot, energy_ledger_record = consume_cycle_budget(identifier)
     state = think(
         sensory_data, sensory_data.precio_historico, identifier,
         trace_id=trace_identifier,
@@ -494,6 +494,8 @@ def execute_cycle(
             "transaction_id": energy_receipt.transaction_id,
             "reservoir": energy_receipt.reservoir,
             "credits_spent": energy_receipt.amount,
+            "ledger_sequence": energy_ledger_record["sequence"],
+            "ledger_record_hash": energy_ledger_record["record_hash"],
         },
         output={
             "authorized": True,
@@ -575,7 +577,9 @@ def execute_cycle(
         "adaptive_balance": energy_snapshot["adaptive"].charge,
         "state_of_charge": energy_snapshot["state_of_charge"],
         "unit": "virtual_compute_credit",
-        "durability": "process_local",
+        "durability": "msx_hash_chained_jsonl",
+        "ledger_sequence": energy_ledger_record["sequence"],
+        "ledger_record_hash": energy_ledger_record["record_hash"],
     }
     cognitive["provenance"] = records
     cognitive["cycle_trace"] = aggregate_cycle(identifier, records)
