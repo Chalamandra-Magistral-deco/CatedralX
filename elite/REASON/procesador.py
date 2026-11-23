@@ -84,10 +84,7 @@ def _sign_state(body: dict[str, Any]) -> dict[str, Any] | None:
     on the next save after a key is configured. Readers fail closed only
     for corrupt JSON or for a PRESENT but invalid signature.
     """
-    try:
-        active_key_id, keys = _hormonas_keyring()
-    except PermissionError:
-        return None
+    active_key_id, keys = _hormonas_keyring()
     canonical = json.dumps(
         body, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
     ).encode("utf-8")
@@ -104,7 +101,10 @@ def _verify_state_integrity(data: dict[str, Any]) -> None:
     """
     envelope = data.get("integrity")
     if envelope is None:
-        return
+        raise ValueError(
+            "hormonas.json: estado sin firma; ejecute migrar_estado_legacy() "
+            "para crear una copia de respaldo y firmarlo explícitamente"
+        )
     if not isinstance(envelope, dict) or envelope.get("alg") != _INTEGRITY_ALG:
         raise ValueError("hormonas.json: envelope de integridad inválido")
     key_id = envelope.get("key_id")
@@ -275,7 +275,116 @@ def procesar_estado_integrado(inputs_entorno: dict[str, Any]) -> dict[str, Any]:
     return transductor.leer_estado_actual()
 
 
-# Legacy standalone object kept for backward compatibility only.
-# Internal execution should use the transducer owned by the shared orchestrator.
-procesador = ProcesadorEndocrino()
+def migrar_estado_legacy(output_path: Path | None = None) -> Path:
+    """Back up an unsigned legacy state, then atomically migrate it to HMAC format.
+
+    Migration is explicit and backup-preserving. Existing backups are never
+    overwritten. The HMAC key is validated before any filesystem mutation.
+    """
+    target = (
+        Path(output_path).expanduser().resolve()
+        if output_path is not None
+        else canonical_state_path()
+    )
+    # Validate key configuration before creating a backup or changing state.
+    active_key_id, keys = _hormonas_keyring()
+    lock_path = target.with_name(target.name + ".lock")
+    target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    lock_fd = os.open(str(lock_path), os.O_CREAT | os.O_RDWR, 0o600)
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        original = target.read_bytes()
+        try:
+            legacy = json.loads(original.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
+            raise ValueError("hormonas.json corrupto: no se puede migrar") from exc
+        if not isinstance(legacy, dict):
+            raise ValueError("hormonas.json corrupto: el estado debe ser un objeto")
+        if "integrity" in legacy:
+            raise ValueError("hormonas.json ya contiene un sobre de integridad")
+        concentrations = legacy.get("concentracion_actual")
+        if not isinstance(concentrations, dict):
+            raise ValueError("hormonas.json legacy sin concentracion_actual válida")
+
+        canonical = json.dumps(
+            legacy, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False,
+        ).encode("utf-8")
+        signature = hmac.new(
+            keys[active_key_id], canonical, hashlib.sha256
+        ).hexdigest()
+        migrated = dict(legacy)
+        migrated["integrity"] = {
+            "key_id": active_key_id,
+            "alg": _INTEGRITY_ALG,
+            "signature": signature,
+        }
+        serialized = (
+            json.dumps(migrated, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+        ).encode("utf-8")
+
+        backup = target.with_name(target.name + ".legacy.bak")
+        backup_fd = os.open(
+            str(backup), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600
+        )
+        try:
+            with os.fdopen(backup_fd, "wb") as stream:
+                stream.write(original)
+                stream.flush()
+                os.fsync(stream.fileno())
+        except BaseException:
+            backup.unlink(missing_ok=True)
+            raise
+
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{target.name}.", suffix=".migration.tmp",
+            dir=str(target.parent),
+        )
+        temporary = Path(temporary_name)
+        try:
+            with os.fdopen(descriptor, "wb") as stream:
+                stream.write(serialized)
+                stream.flush()
+                os.fsync(stream.fileno())
+            temporary.replace(target)
+            os.chmod(target, 0o600)
+            directory_fd = os.open(str(target.parent), os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
+        return backup
+    finally:
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        os.close(lock_fd)
+
+
+class _LazyProcesador:
+    """Load the shared hormonal processor only when it is first accessed."""
+
+    def __init__(self) -> None:
+        object.__setattr__(self, "_instance", None)
+
+    def _get_instance(self) -> ProcesadorEndocrino:
+        instance = object.__getattribute__(self, "_instance")
+        if instance is None:
+            instance = ProcesadorEndocrino()
+            object.__setattr__(self, "_instance", instance)
+        return instance
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._get_instance(), name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "_instance":
+            object.__setattr__(self, name, value)
+        else:
+            setattr(self._get_instance(), name, value)
+
+
+# Backward-compatible lazy singleton: importing the module does not touch disk.
+procesador = _LazyProcesador()
 TransductorEndocrino = ProcesadorEndocrino
