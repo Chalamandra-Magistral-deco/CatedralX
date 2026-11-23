@@ -124,7 +124,9 @@ class CicloManifest:
         return json.loads(self._payload_json)
 
     def hash_final(self) -> str:
-        """Calculate the SHA-256 digest of the canonical payload."""
+        """Return the payload digest, or the sealed digest after closure."""
+        if self._sealed:
+            return json.loads(self._sealed_manifest_json)["hash_integridad"]
         return calcular_hash_conjunto(json.loads(self._payload_json))
 
     def sellar(
