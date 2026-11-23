@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .sensors import normalize_market_payload
-from .snapshot_signing import sign_snapshot_payload
+from .snapshot_signing import sign_snapshot_payload, snapshots_require_signature
 
 
 def snapshot_path() -> Path:
@@ -20,12 +20,10 @@ def write_observation(payload: dict[str, Any], path: str | Path | None = None) -
     target = Path(path).expanduser() if path else snapshot_path()
     target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     envelope: dict[str, Any] = {"PERCEIVE": data}
-    try:
+    if snapshots_require_signature():
+        # A missing or invalid signing key is a hard failure in the canonical path.
+        # Unsigned output is permitted only when isolated tests explicitly opt in.
         envelope = sign_snapshot_payload(envelope)
-    except PermissionError:
-        # Preserve the documented unsigned-test path. Readers remain fail-closed
-        # unless unsigned mode is explicitly enabled by their test environment.
-        pass
 
     fd, temporary_name = tempfile.mkstemp(
         prefix=target.name + ".", dir=str(target.parent), text=True
