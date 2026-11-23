@@ -1,91 +1,52 @@
 # Validación dinámica de fronteras — CatedralX
 
-> Estado: probes aislados añadidos a CI; no es telemetría de una instancia productiva.
+> Estado: validación aislada de escrituras/lecturas y propagación W3C en CI; no es telemetría de una instancia productiva.
 > Rama: `fix/perceive-contract-hardening-20261122`
 > Alcance: feedback, gobernanza económica, despacho Agents, DecisionResult y correlación.
 > Restricción: no fusionar módulos, no eliminar archivos, no autorizar operaciones reales.
 
 ## 1. Método y límites
 
-Se añade `tests/test_runtime_boundary_evidence.py`. Ejecuta funciones reales de escritura/lectura contra JSONL temporales y sustituye únicamente el transporte hacia Agents y el verificador de identidad por dobles sintéticos. No usa los ledgers personales del host, no contacta servicios externos, no mueve dinero, no crea órdenes y no modifica datos de producción.
+Los probes de `tests/test_runtime_boundary_evidence.py` ejecutan funciones reales de escritura/lectura contra JSONL temporales. Sustituyen únicamente el transporte hacia Agents y el verificador de identidad por dobles sintéticos. No usan los ledgers del host, no contactan servicios externos, no mueven dinero, no crean órdenes y no modifican datos de producción.
 
-La evidencia se clasifica así:
+La corrección de propagación añade el mismo `trace_id` W3C al registro de predicción, a cada evento del ledger económico y al `traceparent` enviado al adaptador de Agents. En cada salto HTTP se genera un nuevo `parent-id` de 16 bytes, manteniendo el `trace-id` de 16 bytes original. Los ciclos históricos sin traza siguen siendo válidos y conservan el comportamiento previo: Agents genera una nueva raíz.
 
-- **Runtime aislado:** función real invocada dentro del proceso de prueba y escritura comprobada leyendo el archivo temporal.
-- **Simulado:** identidad del aprobador y transporte HTTP a Agents sustituidos por dobles de prueba.
-- **Estático:** conclusión derivada de leer la ruta de producción.
-- **No demostrado:** requiere observar la instancia real o un consumidor remoto.
+## 2. Evidencia y resultados
 
-Los probes no deben presentarse como prueba de conectividad real con Agents.
+| Frontera | Comportamiento corregido | Protección |
+|---|---|---|
+| Feedback predictivo | `razon.main` añade `trace_id` antes de llamar a `registrar_prediccion` | El probe vuelve a leer el JSONL y verifica igualdad de `cycle_id` y `trace_id` |
+| Gobernanza económica | `registrar_evento` persiste `trace_id` opcional en el nivel del evento; las etapas posteriores heredan la traza del ciclo y rechazan una traza diferente | El probe vuelve a leer measure/evaluate y verifica la misma traza y `money_moved=false` |
+| Autorización → despacho | `cargar_propuesta_autorizada` devuelve la traza del ciclo tras verificar que no hay trazas contradictorias; el scanner construye un `traceparent` con esa traza y un parent-id nuevo | El probe verifica que el transporte simulado recibe la traza upstream; el adaptador conserva validación W3C |
+| DecisionResult | El almacén mantiene `cycle_id` y `trace_id` | El probe comprueba append y read-back |
 
-## 2. Resultados de los probes
+Los campos de traza son metadatos de correlación. No cambian la autoridad de los eventos, no sustituyen la firma del aprobador y no autorizan efectos externos.
 
-| Frontera | Invocación y escritor observados | Lectura posterior | Resultado |
-|---|---|---|---|
-| Feedback predictivo | `registrar_prediccion` escribe `feedback.jsonl` | El probe vuelve a leer el JSONL y comprueba `prediction_id` y `cycle_id` | Escritura real en fixture temporal; la predicción no incluye `trace_id` en el payload que construye `REASON.razon.main` |
-| Gobernanza económica | `registrar_evento` escribe eventos `measure` y `evaluate` en `impact_cycle.jsonl` | El probe vuelve a leer ambos eventos | Escritura real en fixture temporal; los eventos comparten `cycle_id`, no llevan `trace_id`, y declaran `money_moved=false` |
-| Autorización → despacho | `scan_and_dispatch` lee el ledger y escribe `dispatches.jsonl` | El probe vuelve a leer el registro de despacho | Identidad y transporte simulados; el scanner no pasa `traceparent` a `dispatch_task` |
-| DecisionResult | `append_result` escribe `results.jsonl` y `get_result` lo lee | El probe comprueba `cycle_id`, `trace_id` y límites de ejecución | Escritura y lectura real en fixture temporal; la traza se conserva dentro de este almacén |
+## 3. Fronteras que siguen separadas
 
-## 3. Hallazgo principal: la traza no cruza todas las fronteras
+### 3.1 Feedback predictivo frente a gobernanza económica
 
-### 3.1 Feedback predictivo
+El ledger de feedback conserva predicciones y resultados observados para evaluación offline. El ledger económico conserva medición, evaluación, propuesta, autorización, verificación y feedback gobernado. La nueva traza correlaciona ambos dominios cuando el mismo ciclo la transporta, pero no combina sus esquemas, escritores ni lectores.
 
-En `elite/REASON/razon.py`, el diccionario `result` se construye con `cycle_id`, pero `registrar_prediccion(result)` se invoca antes de añadir `trace_id` a ese diccionario. El `DecisionResult` sí recibe el `trace_id` explícito al llamar a `build_decision_result`.
+### 3.2 Intención frente a ejecución
 
-Consecuencia: la predicción y el DecisionResult pueden relacionarse por `cycle_id` cuando ese identificador existe, pero el registro de predicción no conserva la misma traza W3C. El probe deja esta diferencia comprobable.
+El scanner solo despacha propuestas con autorización válida y clave de idempotencia. El HTTP `202` sigue indicando aceptación de la tarea por la API, no ejecución completada, publicación de candidato ni aceptación independiente. El `traceparent` permite correlación distribuida; no cambia ese significado.
 
-### 3.2 Gobernanza económica
+### 3.3 Procedencia frente a autorización y aceptación
 
-`registrar_evento` persiste `event_id`, `cycle_id`, tipo de evento, payload y controles. No incluye un campo de traza W3C de primer nivel. Su secuencia contractual es:
+`DecisionResult`, el ledger económico, el ledger de feedback y el log de despacho siguen siendo artefactos distintos. `DecisionResult.ACCEPTED` es un veredicto interno. La aceptación independiente debe conservar evidencia separada.
 
-`measure → evaluate → propose → authorize → verify → feedback`
+## 4. Compatibilidad y controles
 
-La autorización exige una aserción de identidad verificada, un subject coincidente y el permiso `economic_cycle_authorize`. Esto es gobernanza de propuesta, no ejecución de una operación financiera.
+- `trace_id` es opcional para ciclos históricos y llamadas existentes.
+- Cuando un ciclo ya tiene traza, las etapas posteriores heredan esa traza si el caller no proporciona una.
+- Si se proporciona otra traza o el ledger contiene trazas contradictorias, la operación falla cerrada.
+- Los eventos económicos siguen pasando por la misma máquina de estados, verificación de identidad, digest de evidencia y nonce.
+- La traza no se incluye en la autorización como permiso ni altera el conjunto de operaciones permitidas.
+- No se fusionan ledgers, módulos o estados de aceptación.
 
-### 3.3 Intención de despacho y aceptación remota
+## 5. Lo que todavía no queda demostrado
 
-`dispatch_authorized_cycles.scan_and_dispatch` llama a `dispatch_task` con clave de idempotencia, pero no entrega un `traceparent` derivado del ciclo de razonamiento. `dispatch_agents.dispatch_task` genera una nueva raíz W3C cuando recibe `traceparent=None`.
+Los probes usan un transporte simulado. No prueban que el servicio Agents real conserve el contexto W3C en sus workers, ni que el candidato final y la aceptación independiente se puedan recuperar con el mismo `trace_id`. Tampoco prueban una instancia productiva de `hormonas.json` o snapshots. Esa fase requiere instrumentación del runtime real, lectura de logs de ambos servicios y correlación de `trace_id`, `run_id`, `task_id` y candidate/acceptance IDs.
 
-El scanner exige `task_id` y `run_id`, y registra la respuesta HTTP `202` como `status=dispatched`. Ese registro prueba que la API aceptó la tarea para procesamiento; no prueba que el worker la ejecutó, que produjo un candidato ni que un verificador independiente lo aceptó.
-
-Además, `dispatch_task` construye la solicitud con `side_effects=none` y success criteria que exigen aceptación independiente. No hay orden financiera habilitada por esta ruta.
-
-### 3.4 Procedencia y aceptación
-
-`MSX.provenance` crea registros de procedencia en memoria; `REASON.orchestrator.execute_cycle` los agrega al estado cognitivo y `contracts.builder.build_decision_result` los proyecta al contrato. `result_store` conserva `cycle_id` y `trace_id`.
-
-El módulo `MSX.cycle_manifest` puede sellar un manifiesto, pero su propia documentación declara que no autoriza ejecución ni sustituye verificación independiente. La ruta one-shot no persiste actualmente un manifiesto de ciclo.
-
-El estado interno `DecisionResult.status=ACCEPTED` significa que la evaluación interna pasó sus condiciones. El propio builder deja como siguiente acción `SOLICITAR_ACEPTACION_INDEPENDIENTE`; por tanto, no es evidencia de aceptación externa.
-
-## 4. Lectores y escritores relevantes
-
-| Artefacto | Escritor observado / identificado | Lectores identificados | Límite |
-|---|---|---|---|
-| `feedback.jsonl` | `razon.main → registrar_prediccion`; etiquetado por `bin/feedback_label.py` / adaptador FEX | `evaluar_feedback`, `bin/feedback_report.py`, adaptador FEX, ciclo sintético maestro con ruta explícita | Etiquetado por acción explícita; no hay servicio continuo de etiquetado |
-| `impact_cycle.jsonl` | `economic_cycle.registrar_evento` | `resumir_ciclos`, `cargar_propuesta_autorizada`, scanner de despacho | El scanner consume autorización; no crea la autorización |
-| `dispatches.jsonl` | `dispatch_authorized_cycles._append_jsonl` | `_read_jsonl` para idempotencia | El estado dispatched no es estado de ejecución final |
-| `results.jsonl` | `result_store.append_result` | `result_store.get_result` | Append-only; preserva traza y procedencia del contrato |
-| `hormonas.json` | `REASON.procesador.TransductorEndocrino.guardar` | `TransductorEndocrino._cargar`, orquestador / Nexus según configuración | Los probes nuevos no ejecutan un ciclo completo de estado hormonal |
-
-## 5. Decisiones conservadoras
-
-1. Mantener feedback predictivo y gobernanza económica separados.
-2. Mantener `DecisionResult`, ledger económico, ledger de feedback y log de despacho como artefactos distintos.
-3. No interpretar `202` ni `dispatched` como ejecución terminada.
-4. No interpretar `DecisionResult.ACCEPTED` como aceptación independiente.
-5. No declarar `MSX.cycle_manifest` integrado en la ruta one-shot.
-6. No fusionar módulos ni cambiar contratos como parte de estos probes.
-
-## 6. Siguiente corrección propuesta — aún no aplicada
-
-Para lograr correlación verificable sin mezclar responsabilidades:
-
-- Propagar el mismo `trace_id` a la predicción antes de `registrar_prediccion`.
-- Añadir `trace_id` opcional y validado a cada evento económico, manteniendo `cycle_id` como clave de negocio.
-- Derivar y pasar un `traceparent` W3C al scanner/adaptador de despacho, conservando la relación padre-hijo.
-- Mantener estados explícitos y separados para `dispatch_accepted`, `execution_completed`, `candidate_published` y `independent_acceptance`.
-- Persistir el manifiesto solo cuando exista una decisión contractual y una prueba de su lector/verificador.
-
-No se aplican estas modificaciones hasta revisar el resultado del probe y su CI. La observación de una instancia productiva requiere ejecutar el mismo protocolo en el host real con sus rutas configuradas y sin sustituir el transporte remoto.
+No se han fusionado módulos, desplegado servicios ni ejecutado órdenes.
