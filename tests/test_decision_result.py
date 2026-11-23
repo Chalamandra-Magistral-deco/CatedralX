@@ -429,3 +429,37 @@ def test_result_store_integrity_detects_checkpoint_rewrite(tmp_path):
 
     with pytest.raises(ValueError, match="Checkpoint no coincide"):
         verify_result_store(path)
+
+def test_result_store_verifies_persisted_record_binding(tmp_path):
+    from elite.contracts.result_store import verify_result_record
+
+    path = tmp_path / "results.jsonl"
+    result = build_decision_result(_make_state(), _make_cognitive())
+    append_result(result, path)
+    report = verify_result_record(result["result_id"], result, path)
+    assert report["valid"] is True
+    assert report["result_id"] == result["result_id"]
+    assert report["sequence"] == 1
+    assert len(report["content_hash"]) == 64
+    assert len(report["record_hash"]) == 64
+
+
+def test_result_store_rejects_caller_copy_mismatch(tmp_path):
+    from elite.contracts.result_store import verify_result_record
+
+    path = tmp_path / "results.jsonl"
+    result = build_decision_result(_make_state(), _make_cognitive())
+    append_result(result, path)
+    altered = dict(result)
+    altered["decision"] = "sell" if result["decision"] != "sell" else "buy"
+    with pytest.raises(ValueError, match="no coincide"):
+        verify_result_record(result["result_id"], altered, path)
+
+
+def test_result_store_rejects_missing_persisted_record(tmp_path):
+    from elite.contracts.result_store import verify_result_record
+
+    path = tmp_path / "results.jsonl"
+    result = build_decision_result(_make_state(), _make_cognitive())
+    with pytest.raises(ValueError, match="ausente"):
+        verify_result_record(result["result_id"], result, path)
