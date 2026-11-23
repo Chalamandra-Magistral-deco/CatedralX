@@ -475,6 +475,77 @@ def execute_cycle(
         trace_id=trace_identifier,
     )
     state.percepcion_espacial["trace_id"] = trace_identifier
+
+    # MSX cycle evidence: persistable provenance records are attached to the
+    # same DecisionResult consumed by the append-only result store.
+    from MSX.provenance import aggregate_cycle, build_provenance
+
+    sensory_record = build_provenance(
+        "sensory_observation",
+        "PERCEIVE",
+        "1",
+        {
+            "cycle_id": identifier,
+            "trace_id": trace_identifier,
+            "price_count": len(sensory_data.precio_historico),
+            "current_price": float(sensory_data.precio_actual),
+            "gap": float(sensory_data.gap),
+            "inertia": float(sensory_data.inercia),
+        },
+        output={"accepted_for_reasoning": True},
+        vector="RSX",
+        status="observed",
+    )
+    reasoning_record = build_provenance(
+        "reasoning_result",
+        "REASON",
+        "1",
+        {
+            "cycle_id": identifier,
+            "trace_id": trace_identifier,
+            "sensory_record_id": sensory_record["id"],
+        },
+        output={
+            "decision": state.decision,
+            "free_energy": float(state.free_energy),
+            "hamiltonian": float(state.hamiltoniano),
+            "signal_strength": float(state.confianza),
+            "regime": str(state.regimen),
+        },
+        vector="SCX",
+        parent=sensory_record["id"],
+        status="computed",
+    )
+    cognitive = state.cognicion if isinstance(state.cognicion, dict) else {}
+    policy = cognitive.get("operational_policy", {})
+    if not isinstance(policy, dict):
+        policy = {}
+    dsx_record = build_provenance(
+        "safety_regulation",
+        "DSX",
+        "1",
+        {
+            "cycle_id": identifier,
+            "trace_id": trace_identifier,
+            "reasoning_record_id": reasoning_record["id"],
+        },
+        output={
+            "hard_block": bool(policy.get("hard_block", True)),
+            "execution_handoff": policy.get("execution_handoff", {
+                "status": "UNVERIFIED",
+                "trading_enabled": False,
+                "orders_created": False,
+                "orders_executed": False,
+            }),
+        },
+        vector="DSX",
+        parent=reasoning_record["id"],
+        status="regulated",
+    )
+    records = [sensory_record, reasoning_record, dsx_record]
+    cognitive["provenance"] = records
+    cognitive["cycle_trace"] = aggregate_cycle(identifier, records)
+    state.cognicion = cognitive
     return state
 
 class _LazyOrchestrator:
