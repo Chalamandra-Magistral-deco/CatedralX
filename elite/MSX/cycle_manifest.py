@@ -40,7 +40,7 @@ def _private_key(value: Ed25519PrivateKey | bytes) -> Ed25519PrivateKey:
         return value
     if isinstance(value, bytes):
         return Ed25519PrivateKey.from_private_bytes(value)
-    raise TypeError("signing_key debe ser Ed25519PrivateKey o 32 bytes privados")
+    raise TypeError("private_key debe ser Ed25519PrivateKey o 32 bytes privados")
 
 
 def _public_key(value: Ed25519PublicKey | bytes) -> Ed25519PublicKey:
@@ -129,7 +129,7 @@ class CicloManifest:
 
     def sellar(
         self,
-        signing_key: Ed25519PrivateKey | bytes | None = None,
+        private_key: Ed25519PrivateKey | bytes | None = None,
         *,
         key_id: str | None = None,
     ) -> dict[str, Any]:
@@ -149,15 +149,15 @@ class CicloManifest:
         complete["canonicalization"] = "JSON-sort-keys-UTF8-compact-v1"
         complete["sellado_utc"] = datetime.now(UTC).isoformat()
 
-        if signing_key is None:
+        if private_key is None:
             if key_id is not None:
-                raise ValueError("key_id no se admite sin signing_key")
+                raise ValueError("key_id no se admite sin private_key")
             complete["signature"] = None
             complete["signature_status"] = "UNSIGNED"
         else:
             if not isinstance(key_id, str) or not key_id.strip():
                 raise ValueError("key_id requerido para identificar la clave de firma")
-            signer = _private_key(signing_key)
+            signer = _private_key(private_key)
             signature = signer.sign(digest.encode("ascii"))
             complete["signature"] = {
                 "algorithm": SIGNATURE_ALGORITHM,
