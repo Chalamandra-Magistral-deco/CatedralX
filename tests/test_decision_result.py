@@ -228,7 +228,7 @@ def test_result_store_concurrent_appends_keep_all_lines_valid(tmp_path):
     lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
     assert len(lines) == 8
     records = [json.loads(line) for line in lines]
-    assert len({record["result_id"] for record in records}) == 8
+    assert len({record["record"]["result_id"] for record in records}) == 8
     for index in range(8):
         assert get_result(f"{index:032x}", path=path) is not None
 
