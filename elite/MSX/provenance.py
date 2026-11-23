@@ -69,7 +69,7 @@ def build_provenance(
     event_time = int(timestamp if timestamp is not None else time.time())
     record = {
         "provenance_format_version": PROVENANCE_FORMAT_VERSION,
-        "id": f"{vector}:{module}:{event_time}:{input_hash[:16]}",
+        "id": f"{vector}:{name}:{module}:{event_time}:{input_hash[:16]}",
         "name": name,
         "vector": vector,
         "modulo": module,
@@ -127,7 +127,7 @@ def verify_provenance(record: Any, original_inputs: Any) -> bool:
     if not hmac.compare_digest(str(record.get("record_hash", "")), expected_record_hash):
         return False
     expected_id = (
-        f"{record['vector']}:{record['modulo']}:{record['timestamp']}:"
+        f"{record['vector']}:{record['name']}:{record['modulo']}:{record['timestamp']}:"
         f"{expected_input_hash[:16]}"
     )
     return hmac.compare_digest(str(record.get("id", "")), expected_id)
