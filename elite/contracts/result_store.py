@@ -7,6 +7,7 @@ import json
 import math
 import os
 import re
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -312,7 +313,7 @@ def _read_envelopes(stream) -> tuple[list[dict[str, Any]], int]:
         record, integrity = envelope["record"], envelope["store_integrity"]
         if not isinstance(record, dict) or not isinstance(integrity, dict):
             raise ValueError(f"Envoltura inválida en línea {line_number}")
-        required = {"sequence", "previous_record_hash", "record_hash", "kind", "content_hash"}
+        required = {"sequence", "previous_record_hash", "record_hash", "kind", "result_id", "content_hash"}
         if set(integrity) != required:
             raise ValueError(f"Metadatos de integridad incompletos en línea {line_number}")
         sequence = integrity["sequence"]
@@ -323,6 +324,7 @@ def _read_envelopes(stream) -> tuple[list[dict[str, Any]], int]:
             type(sequence) is not int or sequence != expected_sequence
             or integrity["previous_record_hash"] != previous_hash
             or integrity["kind"] != kind
+            or integrity["result_id"] != result_id
             or integrity["content_hash"] != content_hash
             or not isinstance(result_id, str) or not result_id.strip()
         ):
@@ -333,7 +335,7 @@ def _read_envelopes(stream) -> tuple[list[dict[str, Any]], int]:
         entries.append(envelope)
         previous_hash = expected_hash
         expected_sequence += 1
-    return entries, stream.tell()
+    return entries, os.fstat(stream.fileno()).st_size
 
 
 def _read_checkpoint(target: Path) -> dict[str, Any] | None:
@@ -381,9 +383,10 @@ def _atomic_checkpoint_write(target: Path, entries: list[dict[str, Any]], file_s
         "head_hash": head,
         "file_size": file_size,
     }, sort_keys=True, separators=(",", ":")) + "\n"
-    temporary = checkpoint.with_name(checkpoint.name + f".tmp-{os.getpid()}")
+    temporary_fd, temporary_name = tempfile.mkstemp(prefix=f".{checkpoint.name}.", dir=checkpoint.parent)
+    temporary = Path(temporary_name)
     try:
-        fd = os.open(str(temporary), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        fd = temporary_fd
         with os.fdopen(fd, "w", encoding="utf-8") as stream:
             stream.write(payload)
             stream.flush()
@@ -421,7 +424,7 @@ def append_result(record: dict[str, Any], path: str | Path | None = None) -> str
             with target.open("r+", encoding="utf-8") as stream:
                 entries, _ = _read_envelopes(stream)
                 file_size = target.stat().st_size
-                if entries:
+                if entries or _checkpoint_path(target).exists():
                     _verify_checkpoint(target, entries, file_size)
                 elif file_size:
                     raise ValueError("ResultStore no vacío sin registros verificables; migración explícita requerida")
@@ -442,7 +445,7 @@ def append_result(record: dict[str, Any], path: str | Path | None = None) -> str
                 envelope = {"record": record, "store_integrity": integrity}
                 line = _canonical_json(envelope) + b"\n"
                 stream.seek(0, os.SEEK_END)
-                stream.buffer.write(line)
+                stream.write(line.decode("utf-8"))
                 stream.flush()
                 os.fsync(stream.fileno())
                 os.chmod(target, 0o600)
