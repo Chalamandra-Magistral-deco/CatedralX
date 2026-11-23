@@ -2,8 +2,8 @@
 
 > Inventario estático de llamadas, estado persistente y protección por pruebas.  
 > Repositorio: `Chalamandra-Magistral-deco/CatedralX`  
-> Rama inspeccionada: `fix/perceive-contract-hardening-20261122`  
-> Commit base inspeccionado: `e2faa3d16b1e0c6489480d55d348e387e8a8685e`  
+> Rama documental actualizada: `work` (CatedralX).  
+> Snapshot de referencia del inventario: `62c0214d63f24cc1f5d3670e703baa70c64f2315` (main, 2026-11-23).  
 > Alcance: código Python bajo `elite/`, entrypoints `elite/bin/` y pruebas bajo `tests/`.  
 > Naturaleza de la evidencia: lectura estática de fuentes y tests; no equivale a telemetría de runtime ni a ejecución de CI.
 
@@ -221,3 +221,58 @@ El árbol del commit contiene **37 archivos Python bajo `tests/`**:
 - Pruebas: `tests/` en el mismo commit.
 - Contrato de arquitectura: [CONTRATO_ARQUITECTONICO.md](./CONTRATO_ARQUITECTONICO.md).
 - Mapa sagrado: [MAPA_SAGRADO.md](./MAPA_SAGRADO.md).
+
+
+## 7. Membrana API empresarial: frontera CatedralX ↔ Agents
+
+**Definición arquitectónica:** la Membrana API no es un octavo subsistema de CatedralX ni un repositorio comercial separado. Es la frontera contractual de integración expuesta por la API de Agents. CatedralX conserva la autoridad de razonamiento y producción de resultados; Agents aloja la entrada HTTP, la cola/worker, la coordinación y los mecanismos de publicación y aceptación.
+
+### 7.1 Topología comprobada en código
+
+```mermaid
+flowchart TD
+  CLIENTE["Producto / consumidor autorizado"] -->|"HTTPS/HTTP API + JWT y scope"| API["Agents · api/server.py<br/>Membrana API"]
+  API -->|"contrato validado + trace_id"| BUS["Agents · TaskBus SQLite/WAL"]
+  BUS -->|"lease + heartbeat"| WORKER["Agents · api/worker_loop.py"]
+  WORKER -->|"subproceso BIN/catedral<br/>CATEDRALX_PATH"| CX["CatedralX · BIN/catedral"]
+  CX -->|"DecisionResult / evaluación + evidencia"| WORKER
+  WORKER --> CAND["Candidate Store + outbox"]
+  CAND --> VERIFY["Verificador independiente"]
+  VERIFY -->|"dictamen firmado Ed25519"| ACCEPT["Acceptance Store"]
+  ACCEPT -->|"solo tras aceptación"| CONSUMER["GET resultado / distribución autorizada"]
+```
+
+### 7.2 Responsabilidades y controles
+
+| Frontera | Implementación identificada | Garantía / límite |
+|---|---|---|
+| Entrada HTTP | `api/server.py` | Rutas explícitas; límite de cuerpo 64 KiB; sin shell arbitraria ni CORS; JWT Bearer y scopes por operación. |
+| Contrato de tarea | `api/task_contracts.py` | Valida tipos de tarea y payloads; evaluación de oportunidad exige evidencia, referencias, escenarios y `trace_id`; datos de mercado requieren attestation verificable. |
+| Cola | `api/task_bus.py` | TaskBus persistente SQLite/WAL con leases y estados; no es un bus universal de eventos distribuido. |
+| Worker | `api/worker_loop.py` | Consume tareas con lease/heartbeat y ejecuta CatedralX como subproceso usando `BIN/catedral`; conserva y valida traza, snapshot y hash de evaluación. |
+| Resultado candidato | `api/candidate_store.py` y stores relacionados | Persistencia append-only e integridad HMAC del candidato; publicar candidato no equivale a aceptación independiente. |
+| Aceptación | `api/acceptance_store.py` y verificador independiente | La aceptación requiere dictamen separado y firma Ed25519; no se infiere del despacho ni de la publicación. |
+| Retorno | rutas de resultados de `api/server.py` | El resultado no se entrega como aceptado hasta completar el estado de aceptación correspondiente. |
+
+### 7.3 Tres flujos empresariales
+
+1. **Normal:** producto/usuario autorizado → Membrana API de Agents → TaskBus → worker → CatedralX → resultado candidato y evidencia.
+2. **Inverso:** candidato publicado → verificador independiente → aceptación firmada → consulta/entrega o distribución autorizada.
+3. **Invertido:** condición o evento autorizado → despachador de CatedralX → Membrana API de Agents → TaskBus/worker → CatedralX → evidencia y verificación. El adaptador de despacho es opt-in; el flujo no se presume activo por existir el código.
+
+### 7.4 Invariantes que no deben colapsarse
+
+- `dispatch_accepted` ≠ `execution_completed` ≠ `candidate_published` ≠ `independent_acceptance`.
+- `trace_id` identifica la traza; `cycle_id` es identificador de negocio y no la sustituye.
+- El JWT de servicio autentica el despacho; la firma Ed25519 autentica el dictamen de aceptación. Son mecanismos y propósitos distintos.
+- La Membrana puede autenticar, autorizar, validar contratos, limitar y enrutar; no reemplaza el razonamiento de CatedralX ni sus invariantes de dominio.
+- Los productos consumen capacidades a través de Agents/Membrana API; no reciben acceso directo al motor interno de CatedralX.
+- No se debe presentar esta topología de código como runtime activo. La evidencia inspeccionada es estática y de pruebas aisladas; no se hizo una llamada real entre servicios en esta actualización.
+
+### 7.5 Criterio externo de diseño
+
+La guía NIST SP 800-228 (API Protection for Cloud-Native Systems) recomienda autorización granular por identidad de servicio/usuario, validación de solicitudes y respuestas contra esquema, y orden de autenticación → autorización → validación de negocio. Se usa como criterio de revisión, no como prueba de que cada control esté desplegado:
+- https://csrc.nist.gov/pubs/sp/800/228/upd1/final
+- https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-228-upd1.pdf
+
+**Estado de evidencia:** código de API/contratos/worker y pruebas de integración aisladas identificados; runtime entre repositorios no verificado en esta actualización.
