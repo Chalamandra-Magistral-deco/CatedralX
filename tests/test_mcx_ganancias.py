@@ -7,7 +7,6 @@ import pytest
 
 from MCX.OPTIMIZE.ganancias import (
     factor_profit,
-    ledger_path,
     maximo_drawdown,
     pnl,
     registrar_resultado,
