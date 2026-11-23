@@ -379,14 +379,14 @@ def test_result_store_integrity_detects_suffix_truncation(tmp_path):
     append_result(decision, path)
     append_result(build_decision_result(_make_state(), _make_cognitive()), path)
     lines = path.read_text(encoding="utf-8").splitlines()
-    path.write_text(lines[0] + "\\n", encoding="utf-8")
+    path.write_text(lines[0] + "\n", encoding="utf-8")
     with pytest.raises(ValueError, match="Checkpoint"):
         verify_result_store(path)
 
 
 def test_result_store_integrity_rejects_legacy_without_migration(tmp_path):
     path = tmp_path / "results.jsonl"
-    path.write_text('{"result_id":"legacy"}\\n', encoding="utf-8")
+    path.write_text('{"result_id":"legacy"}\n', encoding="utf-8")
     with pytest.raises(ValueError, match="legado/no migrado"):
         append_result(build_decision_result(_make_state(), _make_cognitive()), path)
 
