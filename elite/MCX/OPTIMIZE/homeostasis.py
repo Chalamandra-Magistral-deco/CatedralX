@@ -153,7 +153,8 @@ def tamaño_posicion_optimo(
     liquidez, exposición o autorización externos.
     """
     if not rendimientos:
-        return 0.02
+        # Sin observaciones no existe evidencia para asumir exposición.
+        return 0.0
 
     perdida = float(perdida_max_aceptada)
     if not np.isfinite(perdida) or perdida <= 0.0:
@@ -163,8 +164,10 @@ def tamaño_posicion_optimo(
     if returns.ndim != 1 or not np.all(np.isfinite(returns)):
         raise ValueError("rendimientos debe ser una lista unidimensional finita")
 
-    mejor_fraccion = 0.02
-    mejor_crecimiento = -np.inf
+    # La exposición cero es la alternativa base: nunca se fuerza una
+    # posición positiva cuando ninguna fracción mejora el log-crecimiento.
+    mejor_fraccion = 0.0
+    mejor_crecimiento = 0.0
     for fraccion in np.linspace(0.01, 0.5, 20):
         factores = 1.0 + fraccion * returns / perdida
         if np.any(factores <= 0.0):
