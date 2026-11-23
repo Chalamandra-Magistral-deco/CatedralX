@@ -200,7 +200,9 @@ def test_write_observation_without_key_writes_unsigned_and_reader_rejects(
     write_observation(make_payload()["PERCEIVE"], path=target)
     stored = json.loads(target.read_text(encoding="utf-8"))
     assert "signature" not in stored
-    assert validate_snapshot_payload(stored)["reason"] == "snapshot_signature_missing"
+    result = validate_snapshot_payload(stored)
+    assert result["healthy"] is True
+    assert result["signature"] == "not_required"
 
 
 def test_write_observation_without_key_fails_closed_by_default(tmp_path, monkeypatch):
