@@ -10,6 +10,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import time
 import uuid
 from datetime import datetime
@@ -40,6 +41,13 @@ def _text(value: Any, field: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field} debe ser texto no vacío.")
     return value.strip()
+
+
+def _trace_identifier(value: Any) -> str:
+    """Validate a W3C trace-id without accepting all-zero or non-hex values."""
+    if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{32}", value) is None or value == "0" * 32:
+        raise ValueError("trace_id debe contener 32 caracteres hexadecimales W3C no nulos.")
+    return value
 
 
 def _timestamp(value: Any, field: str) -> str:
@@ -221,8 +229,9 @@ def registrar_evento(
     path: str | Path | None = None,
     *,
     cycle_id: str | None = None,
+    trace_id: str | None = None,
 ) -> str:
-    """Validate and append one governed event. Each cycle advances one stage at a time."""
+    """Validate and append one governed event, preserving optional W3C cycle correlation."""
     kind = _text(event_type, "event_type")
     if kind not in EVENTS:
         raise ValueError("event_type debe ser uno de: " + ", ".join(EVENTS))
@@ -232,6 +241,16 @@ def registrar_evento(
     records = _read(target)
     identifier = _text(cycle_id, "cycle_id") if cycle_id else str(uuid.uuid4())
     existing = [row for row in records if row.get("cycle_id") == identifier]
+    existing_trace_ids = {row.get("trace_id") for row in existing if row.get("trace_id") is not None}
+    if len(existing_trace_ids) > 1:
+        raise PermissionError("El ciclo contiene trace_id inconsistentes; requiere revisión.")
+    inherited_trace_id = next(iter(existing_trace_ids), None)
+    if trace_id is not None:
+        trace_id = _trace_identifier(trace_id)
+        if inherited_trace_id is not None and trace_id != inherited_trace_id:
+            raise ValueError("trace_id no coincide con la traza ya asociada al ciclo.")
+    else:
+        trace_id = inherited_trace_id
 
     if kind == "measure":
         if existing:
@@ -335,6 +354,7 @@ def registrar_evento(
             "schema_version": SCHEMA_VERSION,
             "event_id": event_id,
             "cycle_id": identifier,
+            **({"trace_id": trace_id} if trace_id is not None else {}),
             "event_type": kind,
             "recorded_at_epoch": time.time(),
             "payload": dict(payload),
@@ -361,6 +381,12 @@ def cargar_propuesta_autorizada(path: str | Path, cycle_id: str) -> dict[str, An
             "El ciclo debe contener measure → evaluate → propose → authorize, "
             "sin etapas adicionales ni omisiones"
         )
+    trace_ids = {row.get("trace_id") for row in events if row.get("trace_id") is not None}
+    if len(trace_ids) > 1:
+        raise PermissionError("Despacho bloqueado: trace_id inconsistentes dentro del ciclo.")
+    cycle_trace_id = next(iter(trace_ids), None)
+    if cycle_trace_id is not None:
+        cycle_trace_id = _trace_identifier(cycle_trace_id)
     by_type = {row["event_type"]: row.get("payload") for row in events}
     measure, evaluation, proposal, authorization = (
         by_type["measure"], by_type["evaluate"], by_type["propose"], by_type["authorize"]
@@ -436,6 +462,7 @@ def cargar_propuesta_autorizada(path: str | Path, cycle_id: str) -> dict[str, An
     return {
         "origin": "CatedralX.FEX.GOVERNANCE.economic_cycle",
         "cycle_id": identifier,
+        **({"trace_id": cycle_trace_id} if cycle_trace_id is not None else {}),
         "measurement": dict(measure),
         "assessment": dict(evaluation),
         "proposal": dict(proposal),

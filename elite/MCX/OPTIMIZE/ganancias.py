@@ -1,108 +1,138 @@
-"""
-ganancias.py — Métricas de rendimiento, rentabilidad y riesgo
-Chalamandra Magistral DecoX · CatedralX
-
-Cálculos objetivos de resultados del sistema. No predicen — miden lo ocurrido.
-"""
+"""Append-only results ledger; this module never places orders."""
 from __future__ import annotations
 
-import math
+import json
+import os
+from pathlib import Path
 from typing import Sequence
 
 
+def ledger_path() -> Path:
+    return Path(os.environ.get("CATEDRALX_LEDGER_PATH", str(Path.home()/".local/state/chalamandra/catedralx/ledger.jsonl"))).expanduser()
+
+def registrar_resultado(record: dict, path: str | Path | None = None) -> Path:
+    target = Path(path).expanduser() if path else ledger_path()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    safe = dict(record)
+    safe["orders_executed_by_this_module"] = False
+    with target.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(safe, ensure_ascii=False, allow_nan=False) + "\n")
+    return target
+
+
+# Backward-compatible financial metrics retained alongside the append-only ledger.
 def rendimiento_porcentaje(precio_entrada: float, precio_salida: float) -> float:
-    """
-    Calcula el rendimiento porcentual de una operación.
-    
-    Ejemplo: entrada=1000, salida=1050 → 5.0
-    """
+    """Return percentage return between entry and exit prices."""
     if precio_entrada <= 0:
         raise ValueError("El precio de entrada debe ser positivo")
     return ((precio_salida - precio_entrada) / precio_entrada) * 100
 
 
 def pnl(precio_entrada: float, precio_salida: float, tamano: float = 1.0) -> float:
-    """
-    Profit & Loss — Ganancia o pérdida absoluta.
-    Positivo = ganancia, Negativo = pérdida.
-    """
+    """Return absolute profit/loss for the supplied position size."""
     return (precio_salida - precio_entrada) * tamano
 
 
 def tasa_acierto(operaciones_exitosas: int, total_operaciones: int) -> float:
-    """
-    Porcentaje de operaciones con resultado positivo.
-    """
+    """Return the percentage of profitable operations."""
     if total_operaciones <= 0:
         return 0.0
     return (operaciones_exitosas / total_operaciones) * 100
 
 
-def rendimiento_esperado(tasa_acierto_pct: float, ganancia_promedio: float, perdida_promedio: float) -> float:
-    """
-    Valor esperado por operación:
-    (prob_ganar × ganancia_prom) − (prob_perder × perdida_prom)
-    
-    > 0 → sistema rentable a largo plazo
-    """
+def rendimiento_esperado(
+    tasa_acierto_pct: float, ganancia_promedio: float, perdida_promedio: float
+) -> float:
+    """Return expected value per operation using win rate and average outcomes."""
     p_ganar = tasa_acierto_pct / 100.0
     p_perder = 1.0 - p_ganar
     return (p_ganar * ganancia_promedio) - (p_perder * perdida_promedio)
 
 
 def factor_profit(ganancias: Sequence[float], perdidas: Sequence[float]) -> float:
-    """
-    Ratio entre ganancia total y pérdida total.
-    
-    > 1.5 = aceptable
-    > 2.0 = sólido
-    > 3.0 = excelente
-    """
+    """Return gross profits divided by gross losses."""
     suma_ganancias = sum(g for g in ganancias if g > 0)
     suma_perdidas = abs(sum(p for p in perdidas if p < 0))
-    
     if suma_perdidas == 0:
         return float("inf") if suma_ganancias > 0 else 0.0
     return suma_ganancias / suma_perdidas
 
 
 def maximo_drawdown(precios: Sequence[float]) -> float:
-    """
-    Mayor caída desde un pico hasta un valle, en porcentaje.
-    Medida de riesgo: cuánto se perdió en el peor momento.
-    """
+    """Return the maximum peak-to-trough drawdown in percentage points."""
     if len(precios) < 2:
         return 0.0
-    
     maximo = precios[0]
     peor_caida = 0.0
-    
-    for p in precios:
-        if p > maximo:
-            maximo = p
-        caida = ((maximo - p) / maximo) * 100
+    for precio in precios:
+        if precio > maximo:
+            maximo = precio
+        caida = ((maximo - precio) / maximo) * 100
         if caida > peor_caida:
             peor_caida = caida
-    
     return peor_caida
 
 
-def sharpe_ratio(rendimientos: Sequence[float], tasa_sin_riesgo: float = 0.0) -> float:
-    """
-    Rentabilidad extra por unidad de riesgo.
-    
-    > 0 → mejor que no operar
-    > 1.0 → aceptable
-    > 1.5 → bueno
-    """
+def sharpe_ratio(
+    rendimientos: Sequence[float], tasa_sin_riesgo: float = 0.0
+) -> float:
+    """Return excess mean return divided by population standard deviation."""
     import statistics
-    n = len(rendimientos)
-    if n < 2:
+
+    if len(rendimientos) < 2:
         return 0.0
-    
     media = statistics.mean(rendimientos)
-    desv = statistics.pstdev(rendimientos)
-    
-    if desv == 0:
+    desviacion = statistics.pstdev(rendimientos)
+    if desviacion == 0:
         return 0.0
-    return (media - tasa_sin_riesgo) / desv
+    return (media - tasa_sin_riesgo) / desviacion
+
+def financiar_analisis_adaptativo(
+    *,
+    prediction_id: str,
+    horizon: str,
+    outcome: dict,
+    feedback_path: str | Path,
+    amount: float | None = None,
+) -> dict:
+    """Authorize MCX adaptive analysis only after FEX validates an observed outcome.
+
+    FEX validates prediction linkage, source, observed timestamps and elapsed
+    horizon before the adaptive reserve can be debited. Predictions, signals
+    and hypothetical outcomes cannot reach the governor through this function.
+    The stable cycle ID prevents a second debit for the same prediction/horizon.
+    """
+    from ENERGY.resource_governor import consume_adaptive_budget
+    from FEX.FEEDBACK.feedback_loop import registrar_resultado
+
+    if not isinstance(prediction_id, str) or not prediction_id.strip():
+        raise ValueError("prediction_id requerido")
+    if not isinstance(horizon, str) or not horizon.strip():
+        raise ValueError("horizon requerido")
+    if not isinstance(feedback_path, (str, Path)) or not str(feedback_path).strip():
+        raise ValueError("feedback_path explícito requerido")
+
+    # This append happens only after FEX has validated a real, horizon-matured
+    # observed-price outcome. Any validation error exits before resource spend.
+    registrar_resultado(
+        prediction_id,
+        {**outcome, "horizon": horizon},
+        path=feedback_path,
+    )
+    cycle_id = f"mcx-outcome:{prediction_id}:{horizon}"
+    receipt, snapshot, ledger_record = consume_adaptive_budget(
+        cycle_id, amount=amount
+    )
+    return {
+        "status": "ADAPTIVE_ANALYSIS_AUTHORIZED",
+        "prediction_id": prediction_id,
+        "horizon": horizon,
+        "cycle_id": cycle_id,
+        "unit": "virtual_compute_credit",
+        "credits_spent": receipt.amount,
+        "adaptive_balance": receipt.balance,
+        "ledger_sequence": ledger_record["sequence"],
+        "ledger_record_hash": ledger_record["record_hash"],
+        "orders_created": False,
+        "orders_executed": False,
+    }

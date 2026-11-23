@@ -1,10 +1,5 @@
-"""
-Kelly clásico y Optimal-f de Ralph Vince para gestión de capital.
-Chalamandra Magistral DecoX · CatedralX
+"""Kelly clásico y Optimal-f de Ralph Vince para gestión de capital."""
 
-Kelly clásico → fracción óptima con probabilidad conocida
-Optimal-f Vince → estima el crecimiento máximo desde historial de resultados
-"""
 import numpy as np
 
 
@@ -13,11 +8,7 @@ def kelly_clasico(
     ganancia_porcentaje: float,
     perdida_porcentaje: float,
 ) -> float:
-    """
-    Return the capped Kelly fraction for a single payoff distribution.
-    
-    Devuelve cuánto capital comprometer: 0.0 a 0.5 (nunca más del 50%)
-    """
+    """Return the capped Kelly fraction for a single payoff distribution."""
     if perdida_porcentaje <= 0.0 or ganancia_porcentaje <= 0.0:
         return 0.0
 
@@ -29,12 +20,7 @@ def kelly_clasico(
 
 
 def optimal_f_vince(returns: list[float]) -> float:
-    """
-    Estimate Vince's Optimal-f by maximizing mean log growth.
-    
-    Busca la fracción f que maximiza el crecimiento compuesto
-    basándose en el historial real de rendimientos.
-    """
+    """Estimate Vince's Optimal-f by maximizing mean log growth."""
     if len(returns) < 10:
         return 0.02
 
@@ -56,5 +42,3 @@ def optimal_f_vince(returns: list[float]) -> float:
             best_growth = growth
             best_f = fraction
     return round(float(best_f), 4)
-g
-
