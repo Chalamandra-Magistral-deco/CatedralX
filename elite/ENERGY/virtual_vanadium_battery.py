@@ -103,12 +103,16 @@ class VirtualVanadiumBattery:
                 "ledger_entries": len(self._ledger),
             }
 
-    def _record(self, operation: str, reservoir: ReservoirName, amount: float, transaction_id: str | None) -> EnergyReceipt:
-        txid = transaction_id or uuid.uuid4().hex
+    def _validate_transaction_id(self, transaction_id: str | None) -> str:
+        txid = uuid.uuid4().hex if transaction_id is None else transaction_id
         if not isinstance(txid, str) or not txid.strip():
             raise ValueError("transaction_id debe ser una cadena no vacía")
         if txid in self._transaction_ids:
             raise ValueError("transaction_id duplicado")
+        return txid
+
+    def _record(self, operation: str, reservoir: ReservoirName, amount: float, transaction_id: str) -> EnergyReceipt:
+        txid = self._validate_transaction_id(transaction_id)
         self._transaction_ids.add(txid)
         receipt = EnergyReceipt(txid, operation, reservoir, amount, self._charges[reservoir], time.time())
         self._ledger.append(receipt)
@@ -119,24 +123,26 @@ class VirtualVanadiumBattery:
         if reservoir not in self._charges:
             raise ValueError("depósito desconocido")
         with self._lock:
+            txid = self._validate_transaction_id(transaction_id)
             if requested > self.max_discharge_per_cycle:
                 raise ValueError("Demanda supera la potencia máxima por ciclo")
             available = self._charges[reservoir] - self._reserves[reservoir]
             if requested > available:
                 raise ValueError("Reserva insuficiente; descarga rechazada")
             self._charges[reservoir] -= requested
-            return self._record("discharge", reservoir, requested, transaction_id)
+            return self._record("discharge", reservoir, requested, txid)
 
     def charge(self, reservoir: ReservoirName, amount: float, *, transaction_id: str | None = None) -> EnergyReceipt:
         supplied = _finite_non_negative("amount", amount)
         if reservoir not in self._charges:
             raise ValueError("depósito desconocido")
         with self._lock:
+            txid = self._validate_transaction_id(transaction_id)
             remaining = self._capacities[reservoir] - self._charges[reservoir]
             if supplied > remaining:
                 raise ValueError("La carga supera la capacidad disponible")
             self._charges[reservoir] += supplied
-            return self._record("charge", reservoir, supplied, transaction_id)
+            return self._record("charge", reservoir, supplied, txid)
 
     def ledger(self) -> tuple[EnergyReceipt, ...]:
         with self._lock:
