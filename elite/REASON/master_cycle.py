@@ -46,34 +46,51 @@ def run_synthetic_master_cycle(
         "evidence_status": coherence["evidence_status"],
         "counterevidence_status": opposing["evidence_status"],
     }
-    records = [
-        build_provenance(
-            name="perception",
-            module="SCX.pairwise_coherence",
-            version="existing",
-            inputs={"signals": signals},
-            output=coherence,
-            status=coherence["evidence_status"],
-            vector="SCX",
-        ),
-        build_provenance(
-            name="safety_gate",
-            module="DSX.cognitive_execution_guard",
-            version="existing",
-            inputs={"coherence": coherence, "counterevidence": opposing, "panic": panic},
-            output=dsx_gate,
-            status="blocked" if dsx["blocked"] else "approved",
-            vector="DSX",
-        ),
-    ]
+
+    records: list[dict[str, Any]] = []
+    original_inputs: dict[str, Any] = {}
+
+    perception_inputs = {"signals": signals}
+    perception_record = build_provenance(
+        name="perception",
+        module="SCX.pairwise_coherence",
+        version="existing",
+        inputs=perception_inputs,
+        output=coherence,
+        status=coherence["evidence_status"],
+        vector="SCX",
+        parent=cycle_id,
+    )
+    records.append(perception_record)
+    original_inputs[perception_record["id"]] = perception_inputs
+
+    safety_inputs = {
+        "coherence": coherence,
+        "counterevidence": opposing,
+        "panic": panic,
+    }
+    safety_record = build_provenance(
+        name="safety_gate",
+        module="DSX.cognitive_execution_guard",
+        version="existing",
+        inputs=safety_inputs,
+        output=dsx_gate,
+        status="blocked" if dsx["blocked"] else "approved",
+        vector="DSX",
+        parent=cycle_id,
+    )
+    records.append(safety_record)
+    original_inputs[safety_record["id"]] = safety_inputs
+
     fex_report = None
     if fex_feedback_path is not None:
         fex_report = evaluate_ledger(path=fex_feedback_path)
-        records.append(build_provenance(
+        feedback_inputs = {"ledger_path_explicit": True}
+        feedback_record = build_provenance(
             name="feedback_evaluation",
             module="FEX.FEEDBACK.feedback_loop.evaluar_feedback",
             version="existing",
-            inputs={"ledger_path_explicit": True},
+            inputs=feedback_inputs,
             output={
                 "predictions_recorded": fex_report["predictions_recorded"],
                 "outcomes_scored": fex_report["outcomes_scored"],
@@ -81,8 +98,16 @@ def run_synthetic_master_cycle(
             },
             status=fex_report["report_status"],
             vector="FEX",
-        ))
-    trace = aggregate_cycle(cycle_id, records)
+            parent=cycle_id,
+        )
+        records.append(feedback_record)
+        original_inputs[feedback_record["id"]] = feedback_inputs
+
+    trace = aggregate_cycle(
+        cycle_id,
+        records,
+        original_inputs=original_inputs,
+    )
     result = build_cycle(
         cycle_id=cycle_id,
         observed_at=timestamp,
