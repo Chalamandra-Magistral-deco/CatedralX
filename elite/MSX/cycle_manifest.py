@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import copy
+import json
 from datetime import UTC, datetime
 from typing import Any, Mapping
 
@@ -53,7 +54,7 @@ def _public_key(value: Ed25519PublicKey | bytes) -> Ed25519PublicKey:
 class CicloManifest:
     """A cycle manifest whose payload and seal cannot be mutated after sealing."""
 
-    __slots__ = ("_payload", "_sealed_manifest", "_sealed")
+    __slots__ = ("_payload_json", "_sealed_manifest_json", "_sealed")
 
     def __init__(
         self,
@@ -83,7 +84,7 @@ class CicloManifest:
             ):
                 raise TypeError("huellas_modulos debe mapear nombres a hashes str")
 
-        self._payload = {
+        payload = {
             "schema_version": SCHEMA_VERSION,
             "ciclo_id": ciclo_id,
             "timestamp_inicio": _utc_timestamp(timestamp_inicio, "timestamp_inicio"),
@@ -94,9 +95,11 @@ class CicloManifest:
             "observacion_fex": copy.deepcopy(dict(observacion_fex)) if observacion_fex is not None else None,
             "huellas_modulos": copy.deepcopy(dict(huellas_modulos or {})),
         }
-        # Validate canonicalizability immediately; never defer a serialization error to seal time.
-        calcular_hash_conjunto(self._payload)
-        self._sealed_manifest = None
+        # Keep canonical JSON text, not a mutable dict, as the internal source of truth.
+        self._payload_json = json.dumps(
+            payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+        )
+        self._sealed_manifest_json = None
         self._sealed = False
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -106,23 +109,23 @@ class CicloManifest:
 
     @property
     def ciclo_id(self) -> str:
-        return self._payload["ciclo_id"]
+        return json.loads(self._payload_json)["ciclo_id"]
 
     @property
     def timestamp_inicio(self) -> str:
-        return self._payload["timestamp_inicio"]
+        return json.loads(self._payload_json)["timestamp_inicio"]
 
     @property
     def timestamp_cierre(self) -> str:
-        return self._payload["timestamp_cierre"]
+        return json.loads(self._payload_json)["timestamp_cierre"]
 
     def generar_manifest(self) -> dict[str, Any]:
         """Return a detached copy of the unsigned manifest payload."""
-        return copy.deepcopy(self._payload)
+        return json.loads(self._payload_json)
 
     def hash_final(self) -> str:
         """Calculate the SHA-256 digest of the canonical payload."""
-        return calcular_hash_conjunto(self._payload)
+        return calcular_hash_conjunto(json.loads(self._payload_json))
 
     def sellar(
         self,
@@ -137,10 +140,10 @@ class CicloManifest:
         an authenticated closure.
         """
         if self._sealed:
-            return copy.deepcopy(self._sealed_manifest)
+            return json.loads(self._sealed_manifest_json)
 
         digest = self.hash_final()
-        complete = copy.deepcopy(self._payload)
+        complete = self.generar_manifest()
         complete["hash_integridad"] = digest
         complete["hash_algorithm"] = "SHA-256"
         complete["canonicalization"] = "JSON-sort-keys-UTF8-compact-v1"
@@ -164,9 +167,13 @@ class CicloManifest:
             complete["signature_status"] = "SIGNED"
 
         # Store a detached snapshot before freezing the object.
-        object.__setattr__(self, "_sealed_manifest", copy.deepcopy(complete))
+        object.__setattr__(
+            self,
+            "_sealed_manifest_json",
+            json.dumps(complete, sort_keys=True, ensure_ascii=False, separators=(",", ":"), allow_nan=False),
+        )
         object.__setattr__(self, "_sealed", True)
-        return copy.deepcopy(complete)
+        return json.loads(self._sealed_manifest_json)
 
 
 def verificar_firma_manifest(
