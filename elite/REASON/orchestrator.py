@@ -462,7 +462,7 @@ def execute_cycle(
 ) -> CathedralState:
     """Run one analysis with shared cycle and W3C trace identifiers."""
     identifier = cycle_id or str(uuid.uuid4())
-    trace_identifier = trace_id or uuid.uuid4().hex
+    trace_identifier = uuid.uuid4().hex if trace_id is None else trace_id
     if (
         not isinstance(trace_identifier, str)
         or len(trace_identifier) != 32
