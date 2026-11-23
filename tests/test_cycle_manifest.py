@@ -68,6 +68,9 @@ def test_signed_manifest_verifies_and_detects_tampering():
     tampered = dict(sealed)
     tampered["conclusion_reason"] = "changed"
     assert verificar_firma_manifest(tampered, public_key) is False
+    tampered_timestamp = dict(sealed)
+    tampered_timestamp["sellado_utc"] = "2000-01-01T00:00:00+00:00"
+    assert verificar_firma_manifest(tampered_timestamp, public_key) is False
 
 
 def test_signed_manifest_requires_key_id():
