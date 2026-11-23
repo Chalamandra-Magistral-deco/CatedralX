@@ -142,12 +142,13 @@ class CicloManifest:
         if self._sealed:
             return json.loads(self._sealed_manifest_json)
 
-        digest = self.hash_final()
         complete = self.generar_manifest()
-        complete["hash_integridad"] = digest
         complete["hash_algorithm"] = "SHA-256"
         complete["canonicalization"] = "JSON-sort-keys-UTF8-compact-v1"
         complete["sellado_utc"] = datetime.now(UTC).isoformat()
+        # The seal timestamp and canonicalization metadata are part of the digest.
+        digest = calcular_hash_conjunto(complete)
+        complete["hash_integridad"] = digest
 
         if signer is None:
             if key_id is not None:
@@ -199,10 +200,7 @@ def verificar_firma_manifest(
     payload = {
         key: copy.deepcopy(value)
         for key, value in manifest.items()
-        if key not in {
-            "hash_integridad", "hash_algorithm", "canonicalization",
-            "sellado_utc", "signature", "signature_status",
-        }
+        if key not in {"hash_integridad", "signature", "signature_status"}
     }
     if calcular_hash_conjunto(payload) != digest:
         return False
