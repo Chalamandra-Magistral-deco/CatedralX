@@ -300,6 +300,7 @@ def _read_envelopes(stream) -> tuple[list[dict[str, Any]], int]:
     entries: list[dict[str, Any]] = []
     previous_hash = "0" * 64
     expected_sequence = 1
+    seen_result_ids: set[str] = set()
     for line_number, raw_line in enumerate(stream, start=1):
         if not raw_line.strip():
             continue
@@ -323,6 +324,8 @@ def _read_envelopes(stream) -> tuple[list[dict[str, Any]], int]:
         kind = _result_kind(record)
         result_id = record.get("result_id")
         content_hash = _content_hash(record)
+        if isinstance(result_id, str) and result_id in seen_result_ids:
+            raise ValueError(f"result_id duplicado en línea {line_number}")
         if (
             type(sequence) is not int or sequence != expected_sequence
             or integrity["previous_record_hash"] != previous_hash
@@ -336,6 +339,7 @@ def _read_envelopes(stream) -> tuple[list[dict[str, Any]], int]:
         if integrity["record_hash"] != expected_hash:
             raise ValueError(f"Hash de cadena inválido en línea {line_number}")
         entries.append(envelope)
+        seen_result_ids.add(result_id)
         previous_hash = expected_hash
         expected_sequence += 1
     return entries, os.fstat(stream.fileno()).st_size
