@@ -129,7 +129,7 @@ class CicloManifest:
 
     def sellar(
         self,
-        private_key: Ed25519PrivateKey | bytes | None = None,
+        signer: Ed25519PrivateKey | bytes | None = None,
         *,
         key_id: str | None = None,
     ) -> dict[str, Any]:
@@ -149,7 +149,7 @@ class CicloManifest:
         complete["canonicalization"] = "JSON-sort-keys-UTF8-compact-v1"
         complete["sellado_utc"] = datetime.now(UTC).isoformat()
 
-        if private_key is None:
+        if signer is None:
             if key_id is not None:
                 raise ValueError("key_id no se admite sin private_key")
             complete["signature"] = None
@@ -157,8 +157,8 @@ class CicloManifest:
         else:
             if not isinstance(key_id, str) or not key_id.strip():
                 raise ValueError("key_id requerido para identificar la clave de firma")
-            signer = _private_key(private_key)
-            signature = signer.sign(digest.encode("ascii"))
+            signer_instance = _private_key(signer)
+            signature = signer_instance.sign(digest.encode("ascii"))
             complete["signature"] = {
                 "algorithm": SIGNATURE_ALGORITHM,
                 "key_id": key_id,
