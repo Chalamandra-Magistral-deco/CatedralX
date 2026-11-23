@@ -485,6 +485,49 @@ def verify_result_store(path: str | Path | None = None) -> dict[str, Any]:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
+def verify_result_record(
+    result_id: str,
+    expected_record: dict[str, Any],
+    path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Verify the full store chain and bind one persisted DecisionResult to its caller copy."""
+    if not isinstance(result_id, str) or not result_id.strip():
+        raise ValueError("result_id requerido")
+    if not isinstance(expected_record, dict) or expected_record.get("result_id") != result_id:
+        raise ValueError("El registro esperado no coincide con result_id")
+    if _result_kind(expected_record) != "DecisionResult":
+        raise ValueError("Esta verificación de frontera solo admite DecisionResult")
+    target = Path(path) if path else default_result_store_path()
+    if not target.exists():
+        raise ValueError("DecisionResult ausente del ResultStore")
+    with _lock_path(target).open("a+b") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_SH)
+        try:
+            with target.open("r", encoding="utf-8") as stream:
+                entries, _ = _read_envelopes(stream)
+            checkpoint = _verify_checkpoint(target, entries, target.stat().st_size)
+            for envelope in entries:
+                record = envelope["record"]
+                if record.get("result_id") != result_id:
+                    continue
+                integrity = envelope["store_integrity"]
+                expected_hash = _content_hash(expected_record)
+                if not hashlib.compare_digest(integrity["content_hash"], expected_hash):
+                    raise ValueError("DecisionResult recibido no coincide con el registro persistido")
+                return {
+                    "valid": True,
+                    "result_id": result_id,
+                    "sequence": integrity["sequence"],
+                    "content_hash": integrity["content_hash"],
+                    "record_hash": integrity["record_hash"],
+                    "head_hash": checkpoint["head_hash"],
+                    "record_count": checkpoint["record_count"],
+                }
+            raise ValueError("DecisionResult ausente del ResultStore")
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
 def get_result(result_id: str, path: str | Path | None = None) -> dict[str, Any] | None:
     """Return a result only after verifying the full chain and external checkpoint."""
     if not isinstance(result_id, str) or not result_id.strip():
