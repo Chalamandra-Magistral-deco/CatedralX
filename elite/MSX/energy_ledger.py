@@ -66,7 +66,7 @@ class EnergyLedger:
         previous = _GENESIS
         with self.path.open("rb") as stream:
             for number, raw in enumerate(stream, 1):
-                if not raw.endswith(b"\\n"):
+                if not raw.endswith(b"\n"):
                     raise ValueError(f"MSX energy ledger: línea {number} incompleta")
                 try:
                     record = json.loads(raw)
@@ -99,27 +99,9 @@ class EnergyLedger:
             fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
             try:
                 with os.fdopen(fd, "ab", closefd=False) as stream:
-                    stream.write(_canonical(record) + b"\\n"); stream.flush(); os.fsync(stream.fileno())
+                    stream.write(_canonical(record) + b"\n"); stream.flush(); os.fsync(stream.fileno())
             finally: os.close(fd)
             return record
     def append(self, transaction: dict[str, Any]) -> dict[str, Any]:
-        if not isinstance(transaction, dict): raise TypeError("transaction debe ser dict")
-        _canonical(transaction)  # strict JSON / finite numbers check
-        with self._locked():
-            records = self._read_unlocked()
-            txid = transaction.get("transaction_id")
-            if not isinstance(txid, str) or not txid.strip():
-                raise ValueError("transaction_id requerido")
-            if any(item.get("transaction_id") == txid for item in records):
-                raise ValueError("transaction_id duplicado en MSX")
-            previous = records[-1]["record_hash"] if records else _GENESIS
-            payload = {**transaction, "sequence": len(records) + 1, "previous_hash": previous}
-            record = {**payload, "record_hash": hashlib.sha256(_canonical(payload)).hexdigest()}
-            encoded = _canonical(record) + b"\\n"
-            fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
-            try:
-                with os.fdopen(fd, "ab", closefd=False) as stream:
-                    stream.write(encoded); stream.flush(); os.fsync(stream.fileno())
-            finally:
-                os.close(fd)
-            return record
+        """Append one caller-built event using the same serialized transaction path."""
+        return self.transact(lambda _records: transaction)
