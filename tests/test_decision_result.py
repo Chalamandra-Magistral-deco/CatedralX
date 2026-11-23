@@ -199,7 +199,8 @@ def test_result_store_append_is_0600_and_does_not_change_record_shape(tmp_path):
     assert (os.stat(path).st_mode & 0o777) == 0o600
     assert (os.stat(path.parent).st_mode & 0o777) == 0o700
     stored = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
-    assert stored == result
+    assert stored["record"] == result
+    assert stored["store_integrity"]["sequence"] == 1
 
 
 def test_result_store_concurrent_appends_keep_all_lines_valid(tmp_path):
