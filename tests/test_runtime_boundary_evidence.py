@@ -31,33 +31,33 @@ scanner = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(scanner)
 
 
-def _authorized_cycle(path: Path) -> str:
+def _authorized_cycle(path: Path, trace_id: str | None = None) -> str:
     now = datetime.now(UTC).isoformat()
     cycle_id = registrar_evento(
         "measure",
         {"metric": "probe_metric", "source": "synthetic_probe", "period": "test",
          "unit": "count", "formula": "count", "value": 1, "observed_at": now},
-        path=path,
+        path=path, trace_id=trace_id,
     )
     registrar_evento(
         "evaluate", {"assessment": "synthetic", "evidence": "probe only"},
-        path=path, cycle_id=cycle_id,
+        path=path, cycle_id=cycle_id, trace_id=trace_id,
     )
     registrar_evento(
         "propose", {"proposal": "review only", "expected_outcome": "candidate",
                     "verification_plan": "independent review"},
-        path=path, cycle_id=cycle_id,
+        path=path, cycle_id=cycle_id, trace_id=trace_id,
     )
     registrar_evento(
         "authorize",
         {"approved": True, "approver": "probe-owner", "rationale": "isolated test",
          "identity_assertion": {"signed": "probe-only"}},
-        path=path, cycle_id=cycle_id,
+        path=path, cycle_id=cycle_id, trace_id=trace_id,
     )
     return cycle_id
 
 
-def test_feedback_prediction_write_is_real_and_exposes_trace_correlation_gap(tmp_path):
+def test_feedback_prediction_write_persists_upstream_trace_id(tmp_path):
     ledger = tmp_path / "feedback.jsonl"
     trace_id = "a" * 32
     cycle_id = "feedback-cycle-probe"
@@ -65,6 +65,7 @@ def test_feedback_prediction_write_is_real_and_exposes_trace_correlation_gap(tmp
     # trace_id to the printed response / DecisionResult.
     prediction = {
         "cycle_id": cycle_id,
+        "trace_id": trace_id,
         "decision": "hold",
         "reference_price": 100.0,
         "observed_at": datetime.now(UTC).isoformat(),
@@ -78,29 +79,29 @@ def test_feedback_prediction_write_is_real_and_exposes_trace_correlation_gap(tmp
 
     assert persisted["prediction_id"] == prediction_id
     assert persisted["prediction"]["cycle_id"] == cycle_id
-    assert "trace_id" not in persisted["prediction"]
-    assert trace_id not in ledger.read_text(encoding="utf-8")
+    assert persisted["prediction"]["trace_id"] == trace_id
 
 
 def test_economic_ledger_write_is_real_and_keeps_governance_separate_from_trace(tmp_path):
     ledger = tmp_path / "impact_cycle.jsonl"
+    trace_id = "e" * 32
     cycle_id = registrar_evento(
         "measure",
         {"metric": "qualified_leads", "source": "synthetic_probe", "period": "test",
          "unit": "count", "formula": "count", "value": 2,
          "observed_at": datetime.now(UTC).isoformat()},
-        path=ledger,
+        path=ledger, trace_id=trace_id,
     )
     registrar_evento(
         "evaluate", {"assessment": "measured", "evidence": "synthetic only"},
-        path=ledger, cycle_id=cycle_id,
+        path=ledger, cycle_id=cycle_id, trace_id=trace_id,
     )
     rows = [json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines()]
 
     assert [row["event_type"] for row in rows] == ["measure", "evaluate"]
     assert {row["cycle_id"] for row in rows} == {cycle_id}
+    assert {row["trace_id"] for row in rows} == {trace_id}
     assert all(row["controls"]["money_moved"] is False for row in rows)
-    assert all("trace_id" not in row for row in rows)
 
 
 def test_authorized_dispatch_does_not_receive_upstream_traceparent(monkeypatch, tmp_path):
@@ -117,7 +118,8 @@ def test_authorized_dispatch_does_not_receive_upstream_traceparent(monkeypatch, 
     )
     ledger = tmp_path / "impact_cycle.jsonl"
     dispatch_log = tmp_path / "dispatches.jsonl"
-    cycle_id = _authorized_cycle(ledger)
+    trace_id = "a" * 32
+    cycle_id = _authorized_cycle(ledger, trace_id=trace_id)
     observed = {}
 
     def fake_dispatch(objective, payload, api_url, secret, timeout=5.0,
@@ -125,7 +127,7 @@ def test_authorized_dispatch_does_not_receive_upstream_traceparent(monkeypatch, 
         observed.update(objective=objective, cycle_id=payload["cycle_id"],
                         idempotency_key=idempotency_key, traceparent=traceparent)
         return {"status": "queued", "run_id": "probe-run", "task_id": "probe-task",
-                "trace_id": "b" * 32}
+                "trace_id": trace_id}
 
     monkeypatch.setattr(scanner, "dispatch_task", fake_dispatch)
     result = scanner.scan_and_dispatch(
@@ -138,8 +140,8 @@ def test_authorized_dispatch_does_not_receive_upstream_traceparent(monkeypatch, 
     assert result["dispatched"][0]["cycle_id"] == cycle_id
     assert observed["cycle_id"] == cycle_id
     assert observed["idempotency_key"] == "catedralx-economic-cycle:" + cycle_id
-    assert observed["traceparent"] is None
-    assert persisted["trace_id"] == "b" * 32
+    assert observed["traceparent"].startswith(f"00-{trace_id}-")
+    assert persisted["trace_id"] == trace_id
     assert persisted["status"] == "dispatched"
 
 
