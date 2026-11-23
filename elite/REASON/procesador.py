@@ -76,14 +76,9 @@ def _hormonas_keyring() -> tuple[str, dict[str, bytes]]:
     return "legacy", {"legacy": legacy}
 
 
-def _sign_state(body: dict[str, Any]) -> dict[str, Any] | None:
-    """HMAC envelope for a state body, or None when no key is configured.
+def _sign_state(body: dict[str, Any]) -> dict[str, Any]:
+    """Create an HMAC envelope; refuse persistence when no valid key exists."""
 
-    No key configured is NOT an error at write time: the state is written
-    unsigned (legacy format) and readers accept it once, then re-sign it
-    on the next save after a key is configured. Readers fail closed only
-    for corrupt JSON or for a PRESENT but invalid signature.
-    """
     active_key_id, keys = _hormonas_keyring()
     canonical = json.dumps(
         body, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
