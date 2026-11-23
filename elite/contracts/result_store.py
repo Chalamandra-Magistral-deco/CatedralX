@@ -313,6 +313,7 @@ def _read_envelopes(stream) -> tuple[list[dict[str, Any]], int]:
         record, integrity = envelope["record"], envelope["store_integrity"]
         if not isinstance(record, dict) or not isinstance(integrity, dict):
             raise ValueError(f"Envoltura inválida en línea {line_number}")
+        _validate_result(record)
         required = {"sequence", "previous_record_hash", "record_hash", "kind", "result_id", "content_hash"}
         if set(integrity) != required:
             raise ValueError(f"Metadatos de integridad incompletos en línea {line_number}")
