@@ -1,3 +1,20 @@
+[project]
+name = "catedralx"
+version = "4.2.0"
+description = "Motor financiero experimental de análisis determinista de CatedralX."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "cryptography>=50.0.2,<51",
+    "numpy>=2.0,<3",
+    "psutil>=5.9,<8",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+]
+
 [tool.pytest.ini_options]
 pythonpath = ["elite"]
 testpaths = ["tests"]
