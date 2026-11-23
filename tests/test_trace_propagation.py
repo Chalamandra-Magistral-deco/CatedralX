@@ -29,7 +29,7 @@ def make_state():
 def fake_energy_receipt(cycle_id):
     receipt = SimpleNamespace(transaction_id=f"cycle:{cycle_id}", reservoir="operational", amount=1.0, balance=9999.0)
     snapshot = {"state_of_charge": 0.999, "adaptive": SimpleNamespace(charge=2000.0)}
-    return receipt, snapshot
+    return receipt, snapshot, {"sequence": 1, "record_hash": "b" * 64}
 
 def test_execute_cycle_propagates_explicit_trace_id_and_provenance(monkeypatch, sensory):
     observed = {}
@@ -51,6 +51,8 @@ def test_execute_cycle_propagates_explicit_trace_id_and_provenance(monkeypatch, 
     assert all(len(record["input_hash"]) == 64 for record in result.cognicion["provenance"])
     assert result.cognicion["resource_budget"]["status"] == "authorized"
     assert result.cognicion["resource_budget"]["unit"] == "virtual_compute_credit"
+    assert result.cognicion["resource_budget"]["durability"] == "msx_hash_chained_jsonl"
+    assert result.cognicion["resource_budget"]["ledger_sequence"] == 1
 
 
 def test_execute_cycle_generates_trace_and_cycle_provenance(monkeypatch, sensory):
