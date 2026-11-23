@@ -26,6 +26,7 @@ def main() -> int:
     parser.add_argument("--event", choices=EVENTS, help="Etapa que se registrará")
     parser.add_argument("--payload", help="Objeto JSON con los datos de la etapa")
     parser.add_argument("--cycle-id", help="ID devuelto por la primera etapa measure")
+    parser.add_argument("--trace-id", help="W3C trace-id de 32 caracteres hexadecimales para correlación distribuida")
     parser.add_argument("--path", help="Ruta opcional del ledger JSONL")
     parser.add_argument(
         "--report", action="store_true", help="Mostrar resumen de solo lectura"
@@ -48,12 +49,14 @@ def main() -> int:
             except json.JSONDecodeError as exc:
                 raise ValueError("--payload no contiene JSON válido.") from exc
             cycle_id = registrar_evento(
-                args.event, payload, args.path, cycle_id=args.cycle_id
+                args.event, payload, args.path, cycle_id=args.cycle_id,
+                trace_id=args.trace_id,
             )
             result = {
                 "status": "EVENT_RECORDED_NOT_EXECUTED",
                 "event_type": args.event,
                 "cycle_id": cycle_id,
+                **({"trace_id": args.trace_id} if args.trace_id else {}),
                 "ledger_path": str(Path(args.path).expanduser())
                 if args.path
                 else str(ledger_path()),
