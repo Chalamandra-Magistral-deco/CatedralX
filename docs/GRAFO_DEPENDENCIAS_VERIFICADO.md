@@ -276,3 +276,105 @@ La guía NIST SP 800-228 (API Protection for Cloud-Native Systems) recomienda au
 - https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-228-upd1.pdf
 
 **Estado de evidencia:** código de API/contratos/worker y pruebas de integración aisladas identificados; runtime entre repositorios no verificado en esta actualización.
+
+
+## 9. Protocolo transversal de auditoría: evidencia, capas y permisos
+
+**Propósito:** convertir el ranking de inspección en un procedimiento reproducible. La auditoría debe descubrir qué puede demostrar cada capa y qué puede ocultar de las capas inferiores. Una capa superior saludable no acredita automáticamente la salud de sus dependencias.
+
+### 9.1 Reglas de evidencia
+
+- Registrar para cada observación: repositorio, rama, commit SHA, fecha/hora, entorno, comando exacto, resultado/artefacto y alcance.
+- Distinguir **existencia**, **configuración**, **invocación**, **resultado de prueba** y **actividad real en runtime**. Ninguna sustituye a las demás.
+- Comparar cambios contra una línea base previa, identificada por SHA y medición. Si no existe línea base previa, declararlo y establecer una nueva antes de optimizar; no reconstruirla retrospectivamente.
+- No optimizar aquello que no se ha medido. Un test verde no cuantifica latencia, consumo, fiabilidad ni mejora.
+- La observabilidad es parcial: declarar estados no instrumentados, rutas opcionales, efectos externos y sesgos de muestreo.
+- La disponibilidad de una herramienta no determina la importancia de la capa. Evitar el **sesgo de la mano**: inspeccionar una capa con más detalle solo porque allí existen mejores herramientas no debe convertirla en la capa de mayor prioridad.
+- Una medición puede alterar el sistema observado. Inspección estática, lectura de telemetría existente y experimentos activos deben etiquetarse por separado.
+
+### 9.2 Orden de inspección por capas
+
+El orden es un procedimiento de reducción de incertidumbre, no un ranking de valor ni una afirmación de que una capa sea más importante que otra.
+
+| Orden | Capa / pregunta | Evidencia y comandos de lectura | Criterio de aceptación | Señal de alerta |
+|---|---|---|---|---|
+| 1 | Identidad del artefacto: ¿qué código y configuración se están evaluando? | `git status --porcelain`; `git log -1 --format='%H %cI %s'`; `git branch --show-current`; `git diff --stat`; inventario de archivos y manifiestos | SHA, rama, cambios locales y entorno identificados; evidencia ligada a un artefacto inmutable | SHA desconocido, árbol sucio no declarado, artefactos mezclados o evidencia de otro commit |
+| 2 | Perímetro y transporte: ¿qué entradas y salidas están expuestas? | Inspección de rutas, proxy, configuración TLS, límites de cuerpo, redirects y dependencias de red; lectura de manifiestos y configuración | Superficies expuestas enumeradas; límites y destinos explícitos; ninguna ruta sensible inferida solo por documentación | Rutas no inventariadas, redirects inesperados, exposición administrativa o límites ausentes |
+| 3 | Identidad, autenticación y autorización: ¿quién puede hacer qué? | Inspección de middleware, validadores JWT/firma, scopes, audiencias, subjects, políticas y pruebas negativas | Mínimo privilegio; identidad, acción y recurso comprobados; rechazo por defecto ante credenciales/scope inválidos | Token aceptado fuera de audiencia, scope excesivo, autorización solo en cliente o identidad ambigua |
+| 4 | Contratos y datos: ¿qué se acepta, transforma y devuelve? | Esquemas, validadores, serialización canónica, hashes, versionado, validación request/response y fixtures | Contratos versionados y validación en ambas direcciones; invariantes y compatibilidad demostradas con pruebas | Campos obligatorios omitidos, coerciones silenciosas, hash sobre serialización no canónica o deriva entre productores y consumidores |
+| 5 | Orquestación y colas: ¿qué tarea se programa y qué estado alcanza? | Lectura de estados, leases, heartbeats, reintentos, idempotencia, timeouts, dead-letter y límites de concurrencia | Transiciones explícitas, idempotencia y recuperación acotada; estados no colapsados | Reintentos infinitos, leases huérfanos, doble despacho o aceptación inferida de un HTTP 202 |
+| 6 | Ejecución y dependencias: ¿qué proceso ejecuta realmente el trabajo? | Entry points, subprocess/HTTP calls, versiones, imágenes, digest, permisos del proceso y pruebas de integración | Ejecutable y dependencias fijados; llamadas y efectos secundarios delimitados; evidencia de prueba atribuida al SHA correcto | Importación confundida con invocación, dependencia flotante o proceso externo no inventariado |
+| 7 | Estado y persistencia: ¿quién escribe, quién lee y cómo se recupera? | Inventario de stores, rutas, locks, WAL, fsync, retención, migraciones, backups y lectores/escritores | Propietario, esquema, concurrencia, integridad y recuperación documentados; registros separados por propósito | Escritores múltiples sin coordinación, truncamiento no detectado, migración destructiva o ledger confundido con otro |
+| 8 | Runtime y observabilidad: ¿qué ocurrió efectivamente? | Solo telemetría/logs/trazas ya disponibles, health/readiness y métricas existentes; correlación por trace_id y ventana temporal | Evento correlacionado con entorno, versión, timestamp y resultado; huecos de telemetría declarados | Métricas sin procedencia, trazas parciales, reloj desalineado o salud inferida desde un test aislado |
+| 9 | Resultado de negocio y aceptación independiente: ¿qué se entregó y quién lo aceptó? | Registros de candidato, verificador, dictamen firmado, entrega, feedback y conciliación de resultados | Separación verificable entre despacho, ejecución, publicación, aceptación y entrega; aceptación ligada al artefacto exacto | Éxito técnico tratado como valor de negocio o aceptación derivada de quien produjo el candidato |
+
+**Regla de lectura:** una capa superior puede ocultar fallos de una inferior (por ejemplo, una API saludable con worker detenido, o un worker sano con un contrato incompatible). Por eso, cada capa debe tener evidencia propia y sus dependencias deben verificarse hacia abajo; no basta con que el primer health check responda.
+
+### 9.3 Permisos: identidad, alcance, tiempo y volumen
+
+Cada permiso de ejecución o integración debe evaluarse en cuatro dimensiones independientes:
+
+1. **Quién:** identidad autenticada del usuario, servicio o workload.
+2. **Qué y sobre qué:** acción/scope y recurso, tenant, objeto o conjunto de datos permitido.
+3. **Cuándo:** vigencia, TTL, ventana temporal, expiración y condiciones de renovación.
+4. **Cuánto:** cuota acumulada por periodo, rate limit por intervalo corto, concurrencia máxima y límites de tamaño/coste.
+
+No intercambiar conceptos:
+- **TTL** limita la vigencia de una credencial o autorización.
+- **Rate limit** limita la frecuencia de solicitudes en una ventana corta para proteger capacidad y equidad.
+- **Cuota** limita el consumo acumulado durante un periodo más largo o un presupuesto.
+- **Concurrencia** limita el trabajo simultáneo; no queda resuelta por limitar solicitudes por minuto.
+
+Criterio de aceptación: los límites están asociados a identidad y recurso, se aplican en el servidor y producen rechazo/telemetría verificables. Señales de alerta: límites solo en frontend, tokens sin audiencia/expiración adecuada, cuota global que permite abuso por caller o reintentos que eluden el rate limit.
+
+### 9.4 Comandos de inspección y límites de lectura
+
+Los comandos deben adaptarse al stack y ejecutarse desde el repositorio/entorno declarado. Ejemplos de inspección local:
+
+```bash
+# Identidad Git y cambios locales
+git status --porcelain
+git log -1 --format='%H %cI %s'
+git branch --show-current
+git diff --stat
+
+# Inventario estructural y tamaño de archivos
+find . -maxdepth 3 -type f -not -path './.git/*' -print | sort
+wc -l $(git ls-files '*.py' '*.ts' '*.js' '*.go' '*.rs' 2>/dev/null)
+
+# Búsqueda estática de secretos potenciales (requiere revisión manual de falsos positivos)
+grep -RInE '(api[_-]?key|secret|password|token)[[:space:]]*[:=]' \
+  --exclude-dir=.git --exclude-dir=.venv .
+
+# Dependencias, CI y contenedores: leer archivos versionados, no reconstruir ni ejecutar
+git ls-files '*lock*' 'pyproject.toml' 'requirements*.txt' 'Dockerfile*' '.github/workflows/*'
+```
+
+- **Qué miden:** identidad del código, cambios no confirmados, estructura, tamaño, patrones sospechosos y manifiestos de dependencias/CI.
+- **Aceptación:** salida guardada o resumida junto al SHA y sin secretos expuestos en el informe.
+- **Alerta:** árbol sucio no explicado, dependencias sin fijar, secretos confirmados o archivos de configuración fuera del inventario.
+- **Límites:** `grep` no certifica ausencia de secretos; `wc` no mide complejidad; inspección de Dockerfile no prueba que la imagen construya; `git status` no detecta efectos externos ni estado de runtime.
+- **Lectura pura:** estos ejemplos no escriben deliberadamente en el repositorio. Algunos comandos de diagnóstico pueden crear cachés o archivos temporales; no incluirlos en una auditoría estrictamente no invasiva sin verificar su comportamiento. No usar `compileall`, instalaciones, builds, migraciones, tests que muten estado, profiling ni benchmarks como si fueran lectura pura.
+- **Privilegios:** no usar `sudo` por defecto. Si una fuente requiere privilegios, marcarlo y justificarlo; no elevar permisos solo para completar el checklist.
+
+### 9.5 Validación cuantitativa y efecto del observador
+
+Las pruebas funcionales, los benchmarks y el profiling son actividades distintas de la inspección estática. Requieren autorización y condiciones controladas cuando pueden consumir recursos, generar tráfico, escribir estado o afectar usuarios.
+
+Para una comparación cuantitativa:
+- Definir hipótesis, métrica, unidad, ventana, carga, entorno y criterio de reversión antes de ejecutar.
+- Usar la misma carga y configuración para línea base y candidato; registrar SHA, hardware, versión, warm-up y número de repeticiones.
+- Informar distribución (por ejemplo, p50/p95/p99), tamaño de muestra y variabilidad; no seleccionar solo la corrida favorable.
+- Separar coste de instrumentación del coste del sistema y declarar la perturbación potencial.
+- Si no existe línea base comparable, no afirmar mejora o regresión cuantificada.
+
+### 9.6 Referencias externas de diseño
+
+Estas fuentes sustentan criterios generales; no prueban que los controles estén implementados o activos en este repositorio:
+
+- NIST SP 800-228, *Guidelines for API Protection for Cloud-Native Systems*: controles de autenticación/autorización, validación, límites de consumo y protección de APIs. https://csrc.nist.gov/pubs/sp/800/228/upd1/final
+- RFC 9700, *Best Current Practice for OAuth 2.0 Security*: mínimo privilegio y restricción de tokens por audiencia, recurso y alcance. https://www.rfc-editor.org/rfc/rfc9700
+- NIST SP 800-92, *Guide to Computer Security Log Management*: gestión y análisis de registros de seguridad. https://csrc.nist.gov/pubs/sp/800/92/final
+- *Observer Effect and Measurement Bias in Performance Analysis*: la instrumentación y el contexto experimental pueden perturbar y sesgar mediciones. https://sape.inf.usi.ch/sites/default/files/publication/CU-CS-1042-08.pdf
+
+**Estado:** protocolo metodológico documentado. No es una auditoría ejecutada de todas las capas, no establece una línea base de rendimiento y no certifica el estado productivo. Toda conclusión posterior debe aportar evidencia propia por capa y por commit.
