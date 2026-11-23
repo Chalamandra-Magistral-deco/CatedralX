@@ -1,30 +1,32 @@
+"""System power and conversion efficiency — useful output vs resources consumed.
+Pure function — observes, does not adjust or optimize. Read-only metric.
+Mapa MCX/OPTIMIZE: Mide rendimiento y desperdicio de recursos.
+Analogía: Vatímetro. Mide entrada vs trabajo útil. No cambia la instalación.
 """
-Operational fatigue proxy based on cycle count and risk pressure.
-Chalamandra Magistral DecoX · CatedralX
-
-Estima el desgaste operativo del sistema a lo largo del tiempo.
-"""
-from __future__ import annotations
 
 
-def estado_mental(ciclos: int, cortisol: float) -> dict:
+def rendimiento_potencia(
+    potencia_entrada: float,
+    potencia_util: float,
+) -> float:
     """
-    Calcula fatiga y energía restante del sistema.
-    
-    Fatiga aumenta con:
-      - Número de ciclos operados
-      - Nivel de cortisol / presión de riesgo
-    
-    Devuelve: fatiga [0,1], energía restante [0,1] y marca de métrica aproximada.
+    Calculate conversion efficiency: useful output / total resources used.
+
+    Arguments:
+        potencia_entrada:     Recursos totales consumidos
+        potencia_util:        Trabajo que realmente avanza el sistema
+
+    Returns:
+        rendimiento:          [0.0, 1.0] — 1.0 = sin desperdicio
     """
-    if ciclos < 0:
-        raise ValueError("ciclos must be non-negative")
-    
-    cortisol = min(1.0, max(0.0, float(cortisol)))
-    fatigue = min(1.0, ciclos / 1000.0 * 0.5 + cortisol * 0.5)
-    
-    return {
-        "fatiga": round(fatigue, 6),
-        "energia": round(1.0 - fatigue, 6),
-        "is_proxy_metric": True,
-    }
+    if potencia_entrada <= 0:
+        return 0.0
+    if potencia_util < 0:
+        raise ValueError("potencia_util no puede ser negativo")
+    if potencia_util > potencia_entrada:
+        raise ValueError(
+            f"potencia_util no puede exceder potencia_entrada: "
+            f"{potencia_util} > {potencia_entrada}"
+        )
+
+    return max(0.0, min(1.0, potencia_util / potencia_entrada))
