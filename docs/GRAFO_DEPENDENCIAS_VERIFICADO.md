@@ -147,7 +147,7 @@ Estos módulos no deben dibujarse como si todos fueran invocados en cada ciclo o
 
 ## 5. Catálogo de pruebas inspeccionado
 
-El árbol del commit contiene **37 archivos Python bajo `tests/**:
+El árbol del commit contiene **37 archivos Python bajo `tests/`**:
 
 - `test_acceptance_contract.py`
 - `test_action_contract.py`
