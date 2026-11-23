@@ -410,7 +410,7 @@ def test_result_store_integrity_detects_record_tampering(tmp_path):
     append_result(result, path)
     envelope = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
     envelope["record"]["decision"] = "sell"
-    path.write_text(json.dumps(envelope, sort_keys=True, separators=(",", ":")) + "\\n", encoding="utf-8")
+    path.write_text(json.dumps(envelope, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match="contenido alterado|Hash de cadena"):
         verify_result_store(path)
@@ -425,7 +425,7 @@ def test_result_store_integrity_detects_checkpoint_rewrite(tmp_path):
     checkpoint = path.with_name(path.name + ".head")
     value = json.loads(checkpoint.read_text(encoding="utf-8"))
     value["head_hash"] = "f" * 64
-    checkpoint.write_text(json.dumps(value, sort_keys=True, separators=(",", ":")) + "\\n", encoding="utf-8")
+    checkpoint.write_text(json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match="Checkpoint no coincide"):
         verify_result_store(path)
