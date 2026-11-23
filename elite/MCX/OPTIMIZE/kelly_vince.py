@@ -1,60 +1,41 @@
+"""Kelly-Vince criterion — optimal position sizing based on edge and risk.
+Pure function: calculates fraction, does NOT execute trades.
+Mapa MCX/OPTIMIZE: Tamaño de posición óptimo con límite conservador.
 """
-Kelly clásico y Optimal-f de Ralph Vince para gestión de capital.
-Chalamandra Magistral DecoX · CatedralX
-
-Kelly clásico → fracción óptima con probabilidad conocida
-Optimal-f Vince → estima el crecimiento máximo desde historial de resultados
-"""
-import numpy as np
 
 
-def kelly_clasico(
-    prob_ganancia: float,
-    ganancia_porcentaje: float,
-    perdida_porcentaje: float,
+def fraccion_kelly(
+    tasa_exito: float,
+    ganancia: float,
+    perdida: float,
+    fraccion_conservadora: float = 0.5,
 ) -> float:
     """
-    Return the capped Kelly fraction for a single payoff distribution.
-    
-    Devuelve cuánto capital comprometer: 0.0 a 0.5 (nunca más del 50%)
-    """
-    if perdida_porcentaje <= 0.0 or ganancia_porcentaje <= 0.0:
-        return 0.0
+    Calculate Kelly Criterion and apply conservative fraction.
 
-    b = ganancia_porcentaje / perdida_porcentaje
-    p = max(0.0, min(1.0, prob_ganancia))
+    Arguments:
+        tasa_exito:             probabilidad de ganar [0.0, 1.0]
+        ganancia:              múltiplo si gana (> 0)
+        perdida:               pérdida por unidad si pierde (> 0, sin límite superior)
+        fraccion_conservadora: factor de reducción, típicamente 0.5
+
+    Returns:
+        fraccion_capital: qué porcentaje usar [0.0, 1.0]
+    """
+    if not (0.0 <= tasa_exito <= 1.0):
+        raise ValueError(f"tasa_exito fuera de rango [0,1]: {tasa_exito}")
+    if ganancia <= 0:
+        raise ValueError(f"ganancia debe ser > 0: {ganancia}")
+    if perdida <= 0:
+        raise ValueError(f"perdida debe ser > 0: {perdida}")
+    if not (0.0 < fraccion_conservadora <= 1.0):
+        raise ValueError(
+            f"fraccion_conservadora fuera de rango (0,1]: {fraccion_conservadora}"
+        )
+
+    p = tasa_exito
     q = 1.0 - p
-    fraction = (b * p - q) / b
-    return float(max(0.0, min(0.5, fraction)))
-
-
-def optimal_f_vince(returns: list[float]) -> float:
-    """
-    Estimate Vince's Optimal-f by maximizing mean log growth.
-    
-    Busca la fracción f que maximiza el crecimiento compuesto
-    basándose en el historial real de rendimientos.
-    """
-    if len(returns) < 10:
-        return 0.02
-
-    values = np.asarray(returns, dtype=float)
-    minimum = np.min(values)
-    max_loss = abs(minimum) if minimum < 0.0 else 0.01
-    if max_loss == 0.0:
-        return 0.02
-
-    f_values = np.linspace(0.01, 0.3, 15)
-    best_f = 0.02
-    best_growth = -np.inf
-    for fraction in f_values:
-        factors = 1.0 + fraction * values / max_loss
-        if np.any(factors <= 0.0):
-            continue
-        growth = float(np.mean(np.log(factors)))
-        if growth > best_growth:
-            best_growth = growth
-            best_f = fraction
-    return round(float(best_f), 4)
-g
-
+    b = ganancia / perdida
+    kelly_crudo = p - (q / b)
+    fraccion = max(0.0, kelly_crudo * fraccion_conservadora)
+    return min(1.0, fraccion)
