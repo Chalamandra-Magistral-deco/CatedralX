@@ -1,4 +1,4 @@
-"""Shared standard-library HTTPS transport with redirects disabled."""
+"""Shared standard-library HTTP transport with redirects disabled."""
 from __future__ import annotations
 
 import math
@@ -14,7 +14,7 @@ class _NoRedirectHandler(HTTPRedirectHandler):
 
 
 def open_no_redirect_request(request: Request, *, timeout: float = 10.0):
-    """Open one HTTPS request without following redirects."""
+    """Open one HTTP(S) request without following redirects."""
     if not isinstance(request, Request):
         raise TypeError("request must be urllib.request.Request")
     try:
@@ -23,7 +23,7 @@ def open_no_redirect_request(request: Request, *, timeout: float = 10.0):
         raise ValueError("timeout must be a positive finite number") from exc
     if isinstance(timeout, bool) or not math.isfinite(timeout_value) or timeout_value <= 0:
         raise ValueError("timeout must be a positive finite number")
-    if urlsplit(request.full_url).scheme.lower() != "https":
-        raise ValueError("only HTTPS destinations are allowed")
+    if urlsplit(request.full_url).scheme.lower() not in {"http", "https"}:
+        raise ValueError("only HTTP(S) destinations are allowed")
     opener = build_opener(_NoRedirectHandler)
     return opener.open(request, timeout=timeout_value)
