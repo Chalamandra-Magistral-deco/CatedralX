@@ -122,3 +122,16 @@ def test_build_provenance_rejects_non_finite_input():
             "v1",
             {"value": float("nan")},
         )
+
+def test_provenance_ids_distinguish_different_names_with_same_inputs_and_time():
+    inputs = {"same": True}
+    first = build_provenance(
+        "source_a", "module", "v1", inputs, timestamp=1_800_000_000
+    )
+    second = build_provenance(
+        "source_b", "module", "v1", inputs, timestamp=1_800_000_000
+    )
+
+    assert first["id"] != second["id"]
+    assert verify_provenance(first, inputs)
+    assert verify_provenance(second, inputs)
