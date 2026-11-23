@@ -18,3 +18,7 @@ test = [
 [tool.pytest.ini_options]
 pythonpath = ["elite"]
 testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["elite*"]
+exclude = ["tests*", "deploy*", "BIN*"]
