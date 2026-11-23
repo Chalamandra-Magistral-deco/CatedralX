@@ -399,3 +399,33 @@ def test_result_store_integrity_rejects_duplicate_id_across_types(tmp_path):
     append_result(decision, path)
     with pytest.raises(ValueError, match="duplicado"):
         append_result(_economic_integrity_fixture(shared_id), path)
+
+
+def test_result_store_integrity_detects_record_tampering(tmp_path):
+    import json
+    from elite.contracts.result_store import verify_result_store
+
+    path = tmp_path / "results.jsonl"
+    result = build_decision_result(_make_state(), _make_cognitive())
+    append_result(result, path)
+    envelope = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+    envelope["record"]["decision"] = "sell"
+    path.write_text(json.dumps(envelope, sort_keys=True, separators=(",", ":")) + "\\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="contenido alterado|Hash de cadena"):
+        verify_result_store(path)
+
+
+def test_result_store_integrity_detects_checkpoint_rewrite(tmp_path):
+    import json
+    from elite.contracts.result_store import verify_result_store
+
+    path = tmp_path / "results.jsonl"
+    append_result(build_decision_result(_make_state(), _make_cognitive()), path)
+    checkpoint = path.with_name(path.name + ".head")
+    value = json.loads(checkpoint.read_text(encoding="utf-8"))
+    value["head_hash"] = "f" * 64
+    checkpoint.write_text(json.dumps(value, sort_keys=True, separators=(",", ":")) + "\\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Checkpoint no coincide"):
+        verify_result_store(path)
