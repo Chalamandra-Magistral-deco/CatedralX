@@ -209,7 +209,7 @@ def test_reason_output_includes_prediction_id_and_observed_reference(
             "decision_subsistema_original": "hold",
         },
     )
-    monkeypatch.setattr(razon, "execute_cycle", lambda _sensory: state)
+    monkeypatch.setattr(razon, "execute_cycle", lambda _sensory, *, trace_id=None: state)
 
     assert razon.main() == 0
     output = json.loads(capsys.readouterr().out)
