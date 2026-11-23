@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -102,6 +103,38 @@ def test_economic_ledger_write_is_real_and_keeps_governance_separate_from_trace(
     assert {row["trace_id"] for row in rows} == {trace_id}
     assert all(row["controls"]["money_moved"] is False for row in rows)
 
+
+
+def test_impact_cycle_cli_persists_and_inherits_explicit_trace_id(tmp_path):
+    ledger = tmp_path / "impact_cycle.jsonl"
+    trace_id = "9" * 32
+    measure_payload = {
+        "metric": "qualified_leads", "source": "synthetic_probe", "period": "test",
+        "unit": "count", "formula": "count", "value": 1,
+        "observed_at": datetime.now(UTC).isoformat(),
+    }
+    command = [
+        sys.executable, str(BIN / "impact_cycle.py"),
+        "--event", "measure", "--payload", json.dumps(measure_payload),
+        "--trace-id", trace_id, "--path", str(ledger),
+    ]
+    measured = subprocess.run(command, capture_output=True, text=True, check=False)
+    assert measured.returncode == 0, measured.stderr + measured.stdout
+    cycle_id = json.loads(measured.stdout)["cycle_id"]
+
+    evaluated = subprocess.run(
+        [
+            sys.executable, str(BIN / "impact_cycle.py"),
+            "--event", "evaluate",
+            "--payload", json.dumps({"assessment": "measured", "evidence": "synthetic"}),
+            "--cycle-id", cycle_id, "--path", str(ledger),
+        ],
+        capture_output=True, text=True, check=False,
+    )
+    assert evaluated.returncode == 0, evaluated.stderr + evaluated.stdout
+    rows = [json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines()]
+    assert [row["event_type"] for row in rows] == ["measure", "evaluate"]
+    assert {row["trace_id"] for row in rows} == {trace_id}
 
 
 def test_economic_ledger_rejects_trace_id_changes_within_cycle(tmp_path):
