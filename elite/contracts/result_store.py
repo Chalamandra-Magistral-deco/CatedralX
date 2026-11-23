@@ -372,7 +372,7 @@ def _verify_checkpoint(target: Path, entries: list[dict[str, Any]], file_size: i
             raise ValueError("Checkpoint existe para un ResultStore vacío")
         return {"valid": True, "record_count": 0, "head_hash": "0" * 64, "legacy_unverified": False}
     if checkpoint is None:
-        raise ValueError("ResultStore sin checkpoint externo; historial legado o escritura incompleta")
+        raise ValueError("ResultStore sin checkpoint lateral local; historial legado o escritura incompleta")
     head = entries[-1]["store_integrity"]["record_hash"]
     if (
         checkpoint.get("sequence") != len(entries)
@@ -471,7 +471,7 @@ def append_result(record: dict[str, Any], path: str | Path | None = None) -> str
 
 
 def verify_result_store(path: str | Path | None = None) -> dict[str, Any]:
-    """Verify all records against the chain and its external head checkpoint."""
+    """Verify all records against the chain and its local sidecar checkpoint."""
     target = Path(path) if path else default_result_store_path()
     if not target.exists():
         return {"valid": True, "record_count": 0, "head_hash": "0" * 64, "legacy_unverified": False}
