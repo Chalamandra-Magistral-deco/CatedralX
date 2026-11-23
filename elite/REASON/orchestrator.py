@@ -8,6 +8,7 @@ import uuid
 from typing import Any
 
 import numpy as np
+from ENERGY.resource_governor import consume_cycle_budget
 from AEX.ejecutor import preparar_intencion
 from DSX.DEFENSE import defense
 from DSX.DEFENSE.guards import (
@@ -470,6 +471,9 @@ def execute_cycle(
         or trace_identifier == "0" * 32
     ):
         raise ValueError("trace_id debe ser un W3C trace ID hexadecimal de 32 caracteres")
+    # DSX resource gate: a cycle cannot start without operational budget.
+    # Credits are virtual compute quotas, not physical/electrical energy.
+    energy_receipt, energy_snapshot = consume_cycle_budget(identifier)
     state = think(
         sensory_data, sensory_data.precio_historico, identifier,
         trace_id=trace_identifier,
@@ -480,6 +484,26 @@ def execute_cycle(
     # same DecisionResult consumed by the append-only result store.
     from MSX.provenance import aggregate_cycle, build_provenance
 
+    energy_record = build_provenance(
+        "resource_budget_authorization",
+        "DSX",
+        "1",
+        {
+            "cycle_id": identifier,
+            "trace_id": trace_identifier,
+            "transaction_id": energy_receipt.transaction_id,
+            "reservoir": energy_receipt.reservoir,
+            "credits_spent": energy_receipt.amount,
+        },
+        output={
+            "authorized": True,
+            "operational_balance": energy_receipt.balance,
+            "state_of_charge": energy_snapshot["state_of_charge"],
+            "adaptive_balance": energy_snapshot["adaptive"].charge,
+        },
+        vector="DSX",
+        status="authorized",
+    )
     sensory_record = build_provenance(
         "sensory_observation",
         "PERCEIVE",
@@ -542,7 +566,17 @@ def execute_cycle(
         parent=reasoning_record["id"],
         status="regulated",
     )
-    records = [sensory_record, reasoning_record, dsx_record]
+    records = [energy_record, sensory_record, reasoning_record, dsx_record]
+    cognitive["resource_budget"] = {
+        "status": "authorized",
+        "transaction_id": energy_receipt.transaction_id,
+        "credits_spent": energy_receipt.amount,
+        "operational_balance": energy_receipt.balance,
+        "adaptive_balance": energy_snapshot["adaptive"].charge,
+        "state_of_charge": energy_snapshot["state_of_charge"],
+        "unit": "virtual_compute_credit",
+        "durability": "process_local",
+    }
     cognitive["provenance"] = records
     cognitive["cycle_trace"] = aggregate_cycle(identifier, records)
     state.cognicion = cognitive
