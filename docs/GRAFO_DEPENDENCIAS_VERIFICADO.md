@@ -147,7 +147,7 @@ Estos módulos no deben dibujarse como si todos fueran invocados en cada ciclo o
 
 ## 5. Catálogo de pruebas inspeccionado
 
-El árbol del commit contiene **36 archivos Python bajo `tests/`**:
+El árbol del commit contiene **37 archivos Python bajo `tests/**:
 
 - `test_acceptance_contract.py`
 - `test_action_contract.py`
@@ -187,7 +187,7 @@ El árbol del commit contiene **36 archivos Python bajo `tests/`**:
 - `test_user_feedback.py`
 - `test_virtual_vanadium_battery.py`
 
-Nota de conteo: el listado contiene 37 nombres. El inventario debe usar el recuento real del árbol, no el recuento preliminar de 36. En este commit, el número correcto es **37 archivos de pruebas**.
+
 
 ## 6. Hallazgos y riesgos de frontera
 
