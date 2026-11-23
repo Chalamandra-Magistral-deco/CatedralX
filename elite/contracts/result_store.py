@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import fcntl
 import hashlib
+import hmac
 import json
 import math
 import os
@@ -512,7 +513,7 @@ def verify_result_record(
                     continue
                 integrity = envelope["store_integrity"]
                 expected_hash = _content_hash(expected_record)
-                if not hashlib.compare_digest(integrity["content_hash"], expected_hash):
+                if not hmac.compare_digest(integrity["content_hash"], expected_hash):
                     raise ValueError("DecisionResult recibido no coincide con el registro persistido")
                 return {
                     "valid": True,
