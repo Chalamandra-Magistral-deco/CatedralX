@@ -7,8 +7,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+ELITE_DIR = ROOT / "elite"
+if str(ELITE_DIR) not in sys.path:
+    sys.path.insert(0, str(ELITE_DIR))
 
 from contracts.result_store import verify_result_record
 
