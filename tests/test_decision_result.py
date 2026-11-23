@@ -463,3 +463,35 @@ def test_result_store_rejects_missing_persisted_record(tmp_path):
     result = build_decision_result(_make_state(), _make_cognitive())
     with pytest.raises(ValueError, match="ausente"):
         verify_result_record(result["result_id"], result, path)
+
+def test_result_store_cli_verifies_persisted_decision_result(tmp_path, monkeypatch):
+    import json
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    store = tmp_path / "results.jsonl"
+    result = build_decision_result(_make_state(), _make_cognitive())
+    append_result(result, store)
+    expected = tmp_path / "expected.json"
+    expected.write_text(json.dumps(result), encoding="utf-8")
+    monkeypatch.setenv("CATEDRALX_RESULT_STORE_PATH", str(store))
+    repo_root = Path(__file__).resolve().parents[1]
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(repo_root / "elite" / "bin" / "verify_result_store.py"),
+            "--result-id", result["result_id"],
+            "--expected-file", str(expected),
+        ],
+        cwd=repo_root,
+        env={**__import__("os").environ, "PYTHONPATH": str(repo_root / "elite")},
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr + completed.stdout
+    report = json.loads(completed.stdout)
+    assert report["valid"] is True
+    assert report["result_id"] == result["result_id"]
