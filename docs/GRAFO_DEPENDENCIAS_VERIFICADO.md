@@ -312,6 +312,27 @@ El orden es un procedimiento de reducción de incertidumbre, no un ranking de va
 
 ### 9.3 Permisos: identidad, alcance, tiempo y volumen
 
+#### 9.3.1 Doble identidad en la Membrana API
+
+La autorización de una llamada debe distinguir, cuando ambas identidades existan:
+
+- **Principal consumidor:** usuario, organización o producto en cuyo nombre se solicita la operación.
+- **Principal de servicio/workload:** aplicación o servicio que transporta y ejecuta técnicamente la llamada.
+
+La Membrana debe autenticar el principal de servicio y, cuando el flujo represente a un usuario o producto, conservar y validar también el principal consumidor. La identidad del servicio no sustituye ni amplía los permisos del consumidor.
+
+La decisión de autorización debe vincular explícitamente:
+`principal_consumidor` (si aplica), `principal_servicio`, `audience`, `scope/action`, `resource/tenant`, vigencia y límites de consumo. Debe rechazarse por defecto una combinación no autorizada. No confiar en identidad, tenant, scope o claims enviados únicamente en cabeceras o payloads sin validación criptográfica y de política en el servidor.
+
+Para llamadas servicio-a-servicio sin usuario final, declarar explícitamente ese contexto y autorizar el workload por audiencia, acción y recurso; no inventar un principal de usuario. Para operaciones delegadas, registrar quién delega, a quién, para qué recurso y durante qué vigencia.
+
+**Criterio de aceptación:** pruebas positivas y negativas demuestran que (a) un servicio autenticado no puede actuar fuera de sus scopes/recursos; (b) un consumidor no puede elevar privilegios mediante un servicio intermediario; (c) tokens con audiencia incorrecta, expirados o con scope/recurso no permitido se rechazan; y (d) la decisión queda correlacionada con `trace_id` y el identificador de negocio correspondiente, sin confundirlos.
+
+**Señales de alerta:** identidad del consumidor perdida en el salto API→worker; autorización basada solo en el subject del servicio; token aceptado para otra audiencia; tenant tomado del payload sin vinculación al principal; o credenciales internas reutilizadas como autorización general para productos.
+
+**Aplicación al diseño Chalamandra:** Agents puede autenticarse como workload frente a la Membrana, pero esa identidad no concede acceso irrestricto a CatedralX. Cada producto consumidor conserva su frontera de autorización; CatedralX recibe únicamente solicitudes admitidas por el contrato de la Membrana.
+
+
 Cada permiso de ejecución o integración debe evaluarse en cuatro dimensiones independientes:
 
 1. **Quién:** identidad autenticada del usuario, servicio o workload.
