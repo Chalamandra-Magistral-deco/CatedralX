@@ -9,7 +9,7 @@ def make_battery(**overrides):
         "adaptive_capacity": 400,
         "operational_initial": 500,
         "adaptive_initial": 300,
-        "max_discharge_per_cycle": 150,
+        "max_discharge_per_cycle": 300,
         "operational_reserve": 100,
         "adaptive_reserve": 50,
     }
@@ -32,7 +32,7 @@ def test_discharge_respects_reserve_and_power_limit():
     receipt = battery.discharge("operational", 150, transaction_id="cycle-1")
     assert receipt.balance == 350
     with pytest.raises(ValueError, match="potencia máxima"):
-        battery.discharge("operational", 151)
+        battery.discharge("operational", 301)
     with pytest.raises(ValueError, match="Reserva insuficiente"):
         battery.discharge("operational", 251)
 
