@@ -355,6 +355,13 @@ def _read_checkpoint(target: Path) -> dict[str, Any] | None:
 
 
 def _verify_checkpoint(target: Path, entries: list[dict[str, Any]], file_size: int) -> dict[str, Any]:
+    """Compare the JSONL head with a local sidecar.
+
+    This detects accidental/partial suffix truncation and interrupted writes.
+    The sidecar is not a cryptographic trust anchor: an actor able to rewrite
+    both files can recompute them. Strong tamper resistance needs an external
+    signed or immutable checkpoint.
+    """
     checkpoint = _read_checkpoint(target)
     if not entries:
         if checkpoint is not None:
