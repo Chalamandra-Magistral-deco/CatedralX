@@ -1,125 +1,122 @@
 # Referencia canónica de integración: CatedralX ↔ Agents
 
-> **Estado:** documentación de arquitectura contrastada mediante lectura estática de GitHub. No certifica runtime, despliegue ni producción.  
-> **Fecha:** 2026-11-23.  
-> **HEAD inspeccionado:** `main` (snapshot de referencia de esta revisión).  
-> **Alcance del cambio:** documentación únicamente; no se modificó lógica funcional.
+> **Estado:** lectura estática de repositorios; no certifica runtime ni producción. Fecha: 2026-11-23.  
+> **Alcance:** documentación solamente. No se modificó lógica funcional ni se ejecutaron tests, CI o despliegues.
 
-## 1. Identidad y alcance de CatedralX
+## 1. Identidad y alcance
 
-CatedralX es, en su implementación documentada actual, un motor experimental de razonamiento y análisis financiero. Transforma observaciones de mercado y contexto computable en resultados estructurados, reproducibles y verificables.
+CatedralX es actualmente un motor experimental de razonamiento y análisis financiero. Valida observaciones, calcula métricas y produce resultados estructurados con evidencia dentro de ese dominio. No debe describirse como motor universal de inteligencia empresarial ni como sistema de trading de producción. Las etiquetas `buy`, `sell`, `hold` son analíticas: no crean órdenes ni autorizan ejecución.
 
-Su README establece límites explícitos:
-- valida series cronológicas y calcula métricas financieras;
-- clasifica escenarios mediante reglas deterministas con etiquetas analíticas `buy`, `sell` o `hold`;
-- aplica condiciones de protección;
-- conserva estado, resultados y evidencia de evaluación;
-- no crea precios sintéticos para completar datos ausentes;
-- no crea ni ejecuta órdenes;
-- no está validado como sistema de trading de producción.
+Agents coordina la admisión, persistencia, invocación, candidate store, verificación independiente y distribución condicionada.
 
-Por tanto, no presentar la implementación actual como motor universal de inteligencia empresarial, agente autónomo de ejecución ni sistema listo para operar capital real.
+## 2. Responsabilidades
 
-## 2. Responsabilidad en el ecosistema
-
-CatedralX es responsable de su razonamiento y de la producción de su resultado canónico. Agents es responsable de la coordinación operacional que lo invoca y transporta.
-
-| Responsabilidad | Dueño |
+| Responsabilidad | Componente |
 |---|---|
-| Interpretación analítica dentro del dominio de CatedralX | CatedralX |
-| Construcción y validación del contrato `DecisionResult` | CatedralX |
-| Persistencia canónica de resultados y evidencia propia | CatedralX |
-| Admisión HTTP, autenticación y contrato de solicitud | Agents API |
-| Persistencia y coordinación de tareas | Agents TaskBus |
-| Invocación del CLI y adaptación de la respuesta | Agents worker |
-| Persistencia del candidato operacional | Agents Candidate Store |
-| Verificación independiente del candidato | Agents verifier |
-| Registro de aceptación y distribución condicionada | Agents stores/API |
-| Producción de dimensiones empresariales de gobernanza | Producto/analytics propietario; no Agents |
+| Evaluación financiera y `DecisionResult` | CatedralX |
+| API, autenticación, permisos y contrato de solicitud | Agents API |
+| Persistencia/coordinación de tareas | Agents TaskBus |
+| Invocación de CLI y transporte de entradas/salidas | Agents worker |
+| Persistencia del candidato | Candidate Store |
+| Verificación independiente | Agents verifier |
+| Registro de aceptación/distribución | Agents stores/API |
+| Producción de métricas empresariales de gobernanza | Productor upstream aún no identificado |
 
-La frontera contractual se implementa mediante controles distribuidos en API, contratos, TaskBus, worker, stores y verificador. No se presupone un microservicio separado llamado Membrana.
+La Membrana es un patrón de controles distribuido entre estos componentes, no un microservicio independiente.
 
-## 3. Rutas de integración que deben permanecer diferenciadas
+## 3. Contrato de gobernanza: dos objetos separados
 
-Agents documenta más de una ruta relacionada con CatedralX. No son intercambiables:
+### `central_dimensions_bp`
 
-1. `catedralx_reasoning`: herramienta de análisis de precios disponible para enrutamiento especializado; no es la evaluación económica gobernada.
-2. `catedralx_economic_evaluation`: solicitud explícita a través de `POST /v1/request`, TaskBus y worker, que invoca el adaptador canónico de CatedralX.
-3. `catedralx_opportunity_evaluation`: evaluación de oportunidad mediante CLI `BIN/catedral economic-opportunity`.
+Cinco puntuaciones explícitas, enteras entre 0 y 10000:
+- `viability_bp`
+- `human_value_bp`
+- `distribution_bp`
+- `resilience_bp`
+- `evidence_bp`
+
+CatedralX consume `viability_bp` como entrada explícita. No se debe afirmar que lo deriva automáticamente de `buy`, `sell` o `hold`.
+
+### `dynamic_constraints`
+
+Métricas dinámicas como:
+- `reinvestment_surplus`
+- `entropy_rate`
+- `entropy_time_scale`
+- `loop_gain`
+- `signal_count`, `optimal_signal_count`
+- `exposure`, `max_exposure`
+- `resilience`, `minimum_resilience`
+
+`reinvestment_surplus` pertenece a `dynamic_constraints`, no a `central_dimensions_bp`. CatedralX evalúa restricciones dinámicas; Agents transporta las entradas y no las calcula.
+
+## 4. Regla multicriterio
+
+`elite/REASON/multicriteria.py` define:
+- Score: `(3500 * viability_bp + 2500 * resilience_bp + 2000 * human_value_bp + 2000 * distribution_bp) / 10000`.
+- Umbral del score: 7000 puntos básicos.
+- Gate de evidencia: 8500 puntos básicos.
+- Gate de reinversión: entrada Decimal válida y reglas de déficit del evaluador.
+
+Los gates duros prevalecen sobre el score. El hash de evaluación cubre la política y el veredicto canónico, no los precios de entrada; no usarlo como sustituto de procedencia de datos de origen.
+
+## 5. Procedencia y frontera de confianza
+
+La atestación criptográfica de la observación de mercado no acredita el origen de las cinco puntuaciones de gobernanza. La validación de estructura/rango no prueba fuente, método, periodo/grano, frescura ni calidad semántica.
+
+El contrato de Agents inspeccionado no impone un sobre de procedencia por puntuación. Se requiere un contrato versionado con propietario, fuente, grano, fórmula/versión, timestamp, frescura, unidad/escala, referencia de evidencia y digest verificable.
+
+## 6. Rutas diferenciadas
+
+1. `catedralx_reasoning`: herramienta de razonamiento/análisis; no equivale a evaluación económica gobernada.
+2. `catedralx_economic_evaluation`: `POST /v1/request` → TaskBus → worker → snapshot → CatedralX → `DecisionResult`.
+3. `catedralx_opportunity_evaluation`: evaluación de oportunidades vía CLI `BIN/catedral economic-opportunity`.
 4. `catedralx_economic_proposal_review`: ruta reservada al ingreso autenticado desde CatedralX.
 
-Cada ruta debe mantener su propio esquema, autenticación, procedencia, semántica de estados y criterios de aceptación.
+No intercambiar payloads ni garantías entre estas rutas.
 
-## 4. Contrato de resultado y trazabilidad
+## 7. Estados, identificadores y autoridad
 
-`DecisionResult` es el resultado estructurado de CatedralX. No debe confundirse con el candidato de Agents ni con el registro de aceptación independiente.
+- `trace_id` / `traceparent`: correlación de ejecución.
+- `evaluation_hash`: identidad/integridad del resultado de evaluación.
+- `candidate_id`: candidato en Agents.
+- `decision_id`: identificador usado por el contrato de aceptación de Agents.
+- `execution_id`: ejecución/despacho si ocurre.
 
-Distinguir:
-- `trace_id`: correlación de la ejecución.
-- `catedralx_trace_id`: correlación específica de CatedralX, cuando el contrato de esa ruta lo incluya.
-- `evaluation_hash`: referencia de integridad/identidad de la evaluación.
-- `candidate_id`: identidad del candidato operacional en Agents.
-- `acceptance_id`: identidad del registro de aceptación.
-- `execution_id`: identidad de una ejecución/despacho, si ocurre.
+No usar `acceptance_id` como clave canónica de aceptación: el contrato inspeccionado utiliza `decision_id`.
 
-La presencia de estos campos en código o pruebas no demuestra propagación universal. Cada ruta requiere pruebas de contrato y trazabilidad específicas.
+HMAC-SHA256 de Candidate Store y Ed25519 de aceptación tienen propósitos distintos. La validez criptográfica no demuestra corrección semántica ni conveniencia económica.
 
-## 5. Autoridad, seguridad y estados
+Una evaluación `ACCEPTED` de CatedralX no equivale a aceptación independiente en Agents. Autorización humana, aceptación independiente, despacho y ejecución son etapas distintas.
 
-- CatedralX produce evaluación y evidencia; no otorga por sí mismo autorización externa.
-- Agents coordina y ejecuta solo las acciones admitidas por contratos y permisos aplicables.
-- HMAC-SHA256 de Candidate Store y firma Ed25519 del mecanismo de aceptación tienen propósitos distintos.
-- La validez criptográfica no demuestra corrección semántica ni rentabilidad.
-- `DecisionResult.status = ACCEPTED` no equivale a aceptación independiente del candidato en Agents.
-- La autorización humana, la aceptación independiente, el despacho y la ejecución son etapas distintas.
-- Un resultado rechazado, incierto o incompleto debe permanecer fail-closed.
-
-## 6. Correspondencia estática y límites de evidencia
+## 8. Evidencia estática y brechas
 
 | Elemento | Evidencia localizada | Conclusión permitida |
 |---|---|---|
-| Pipeline cognitivo | Grafo de dependencias en `docs/GRAFO_DEPENDENCIAS_VERIFICADO.md` | Relaciones estáticas identificadas |
-| `DecisionResult` | `elite/contracts/builder.py`, result store y README | Contrato presente en el repositorio |
-| Persistencia de resultados | `elite/contracts/result_store.py` y rutas documentadas | Escritura/lectura implementada en código |
-| Evaluación/gobernanza económica | `elite/FEX/GOVERNANCE/economic_cycle.py` y CLI asociada | Flujo y ledger localizables |
-| Despacho hacia Agents | `elite/bin/dispatch_agents.py` y scanner asociado | Adaptador de salida localizado; tests con HTTP simulado no prueban servicio remoto |
-| Invocación desde Agents | Agents `api/worker_loop.py` y adaptador canónico | Ruta de invocación presente en código de Agents |
-| Integración E2E vigente | No ejecutada durante esta revisión | No demostrada |
+| Pipeline CatedralX | `elite/`, CLI y grafo | Relaciones estáticas identificadas |
+| `DecisionResult` | Contratos y result store | Contrato presente |
+| Invocación desde Agents | `api/worker_loop.py` y adaptador | Ruta presente en código |
+| `central_dimensions_bp` | Validación, transporte, consumo y fixtures | Productor conectado no localizado |
+| `dynamic_constraints` | Evaluador en CatedralX y transporte en Agents | Productor upstream real no demostrado |
+| Procedencia de puntuaciones | No exigida por contrato estructural actual | Requiere contrato versionado |
+| E2E con datos reales | No ejecutada en esta revisión | No demostrada |
 | Runtime/producción | No inspeccionado | No demostrado |
 
-El grafo de dependencias es un inventario estático. Distingue importación, invocación, lectura/escritura, protección por pruebas y actividad en runtime; no inferir runtime a partir del código o de tests aislados.
+## 9. Próximos criterios de cierre
 
-## 7. Brechas compartidas
+1. Identificar productor y propietario de las cinco puntuaciones.
+2. Identificar productor y fuentes de las métricas dinámicas.
+3. Definir procedencia/frescura por campo y contrato versionado.
+4. Ejecutar E2E reproducible API → TaskBus → worker → CatedralX → `DecisionResult`.
+5. Verificar aceptación independiente con `decision_id`, firma, autorización y distribución condicionada.
 
-1. **Productor de gobernanza:** falta demostrar el productor de producto/analytics que genera `central_dimensions_bp` con datos reales, frescura y procedencia.
-2. **E2E con gobernanza real:** falta una ejecución vigente y reproducible con esas entradas.
-3. **Trazabilidad extremo a extremo:** verificar por cada ruta la conservación de `trace_id`, `traceparent`, `evaluation_hash` y referencias específicas.
-4. **Estados canónicos:** separar evaluación CatedralX, autorización, candidato, aceptación independiente, despacho y ejecución.
-5. **Pruebas de distribución:** verificar que no se entrega un candidato sin aceptación y permisos válidos.
-6. **Evidencia de operación:** aportar entorno, commit, fecha, configuración no secreta, trazas y resultado observable antes de afirmar producción.
+Esta revisión fue estática; no ejecutó código, tests, CI, contenedores ni servicios, ni inspeccionó secretos, bases de datos operativas o telemetría.
 
-## 8. Criterios de madurez
-
-No colapsar estas categorías:
-1. **Existe:** artefacto localizado.
-2. **Invocado:** llamada estática identificada.
-3. **Protegido:** prueba localizada.
-4. **Integrado:** prueba entre componentes ejecutada y registrada.
-5. **Operativo:** runtime observado con evidencia reproducible.
-6. **Aceptado:** verificación independiente y registro de aceptación.
-
-Esta revisión no ejecutó código, tests, CI, contenedores ni servicios. Tampoco inspeccionó claves, secretos, bases de datos operativas o telemetría de producción.
-
-## 9. Fuentes y documento coordinador
+## 10. Fuentes
 
 - [README de CatedralX](../README.md)
-- [Grafo de dependencias de CatedralX](./GRAFO_DEPENDENCIAS_VERIFICADO.md)
-- [README de Agents](https://github.com/Chalamandra-Magistral-deco/chalamandra-agent-engine/blob/main/README.md)
-- [Integración de gobernanza en Agents](https://github.com/Chalamandra-Magistral-deco/chalamandra-agent-engine/blob/docs/canonical-architecture-20261123/docs/INTEGRACION_GOVERNANCE.md)
-- [Especificación canónica compartida en Agents](https://github.com/Chalamandra-Magistral-deco/chalamandra-agent-engine/blob/docs/canonical-architecture-20261123/docs/ARQUITECTURA_CANONICA_CATEDRALX_AGENTS.md)
-
-## 10. Regla de cambio
-
-OBSERVAR → INTERPRETAR → RECOMENDAR → AUTORIZAR → EJECUTAR → VERIFICAR → DOCUMENTAR.
-
-Esta referencia no autoriza cambios de lógica, contratos funcionales, secretos, despliegues ni operaciones externas. Las modificaciones funcionales requieren autorización específica.
+- [Grafo de dependencias](./GRAFO_DEPENDENCIAS_VERIFICADO.md)
+- [Cálculo multicriterio](./REASON/multicriteria.py)
+- [Percepción y validación](./PERCEIVE/percepcion.py)
+- [Agents task_contracts.py](https://github.com/Chalamandra-Magistral-deco/chalamandra-agent-engine/blob/main/api/task_contracts.py)
+- [Agents worker_loop.py](https://github.com/Chalamandra-Magistral-deco/chalamandra-agent-engine/blob/main/api/worker_loop.py)
