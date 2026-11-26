@@ -1,158 +1,135 @@
 # Reconciliación RSX–SCX: percepción, contrato y entrada al razonamiento
 
-> **Estado:** auditoría estática de la rama `docs/canonical-architecture-20261123`. Se inspeccionaron archivos versionados y pruebas; no se ejecutó el sistema ni CI. Este documento registra hallazgos y correcciones propuestas. No cambia comportamiento.
+> **Revisión 2 — impacto de consumidores.** Auditoría estática de la rama `docs/canonical-architecture-20261123`. Se ampliaron las búsquedas de llamadas y se inspeccionaron los consumidores productivos y pruebas identificables. No se ejecutaron módulos, tareas, tests ni CI. No se modificó código funcional.
 
-## 1. Alcance y fuentes inspeccionadas
+## 1. Alcance y método
 
-Código:
-- `elite/PERCEIVE/stream_altar.py`
-- `elite/PERCEIVE/sensors.py`
-- `elite/PERCEIVE/data_feeder.py`
-- `elite/PERCEIVE/snapshot_signing.py`
-- `elite/PERCEIVE/api_pulse.py`
-- `elite/PERCEIVE/percepcion.py`
-- `elite/PERCEIVE/bunker.py`
-- `elite/REASON/schemas.py`
-- `elite/REASON/razon.py`
-- `elite/REASON/orchestrator.py`
+Se inspeccionaron:
+- `elite/PERCEIVE/stream_altar.py`, `sensors.py`, `data_feeder.py`, `snapshot_signing.py`, `api_pulse.py`, `percepcion.py`, `bunker.py`.
+- `elite/REASON/schemas.py`, `razon.py`, `orchestrator.py`.
+- `elite/bin/feed_once.py`, `elite/bin/feedback_label.py`.
+- Pruebas `test_snapshot_signature.py`, `test_snapshot_freshness.py`, `test_trace_propagation.py`, `test_dynamic_constraints.py`, `test_acceptance_contract.py`, además de búsquedas de referencias para `write_observation`, `from_snapshot`, `construir_sensory_input`, `SensoryInput` y `execute_cycle`.
 
-Pruebas/documentación:
-- `tests/test_acceptance_contract.py`
-- `tests/test_snapshot_freshness.py`
-- `tests/test_trace_propagation.py`
-- `docs/MAPA_SAGRADO.md`
-- `docs/CONTRATO_ARQUITECTONICO.md`
-- `docs/GRAFO_DEPENDENCIAS_VERIFICADO.md`
+La búsqueda de código de GitHub y la lectura de archivos son evidencia estática de la rama. No prueban qué proceso está activo en un host, qué configuración está cargada ni qué volumen de observaciones circula en producción.
 
-La inspección es estática sobre el contenido de GitHub de la rama indicada. No demuestra runtime, CI reciente, configuración de secretos, conexión al proveedor ni actividad de Bunker.
+## 2. Mapa de consumidores encontrado
 
-## 2. Flujo observado
+| Entrada / contrato | Consumidores localizados | Validación antes de razonar |
+|---|---|---|
+| `write_observation` | `feed_once.main`; `stream_altar.run_once` y `accept_observation` a través de callback; pruebas de firma | El fetcher canónico Binance produce source y observed_at. Los adaptadores genéricos aceptan payloads del caller y delegan al writer |
+| `validate_snapshot_payload` | `razon.main`, `BunkerDaemon._ciclo`, `Orchestrator.bucle_infinito`, `feedback_label.main` | Sí, explícita en las cuatro rutas identificadas |
+| `from_snapshot` | `razon.main`, `BunkerDaemon._construir_entrada`; pruebas | En los dos entrypoints productivos identificados se llama después de validar el snapshot |
+| `construir_sensory_input` | `from_snapshot`; pruebas y utilidades de construcción | Normaliza el payload, pero no verifica firma ni frescura |
+| `Orchestrator._construir_sensory_input` | `Orchestrator.bucle_infinito`; pruebas | El bucle valida el snapshot antes de invocar el constructor |
+| `SensoryInput` | Constructor de percepción, constructor alternativo del orquestador y llamadas directas de pruebas | Es un dataclass de datos de razonamiento; no incorpora por sí solo procedencia autenticada |
+| `execute_cycle` | `razon.main`, Bunker, bucle infinito del orquestador y pruebas | Valida el formato de trace_id y genera uno si no se suministra; no deduplica observaciones |
 
-```text
-Proveedor / caller
-    |
-    v
-stream_altar.run_once / accept_observation
-    |
-    v
-sensors.normalize_market_payload
-    |
-    v
-data_feeder.write_observation
-    |  envelope PERCEIVE + HMAC cuando firma requerida
-    v
-snapshot JSON
-    |
-    +--> REASON.razon.main
-    |       api_pulse.validate_snapshot_payload
-    |       percepcion.from_snapshot
-    |       SensoryInput
-    |       trace_id
-    |       orchestrator.execute_cycle
-    |       DecisionResult + result store
-    |
-    +--> PERCEIVE.bunker.BunkerDaemon
-            api_pulse.validate_snapshot_payload
-            percepcion.from_snapshot
-            SensoryInput
-            orchestrator.execute_cycle
-            resultado resumido en memoria/log
-```
+No se encontró en las búsquedas de código otro consumidor productivo directo de `write_observation` o `from_snapshot` dentro de esta rama. La búsqueda indexada no sustituye una búsqueda exhaustiva en clones, extensiones externas o repositorios distintos.
 
-El grafo es una representación de rutas estáticas identificadas; no significa que ambas entradas estén activas simultáneamente.
+## 3. Hechos observados y matices corregidos
 
-## 3. Hechos observados
+### 3.1 Productor y writer RSX
 
-### RSX — adquisición y normalización
+1. `stream_altar.build_observation_from_klines` genera explícitamente `source` y `observed_at` a partir de velas cerradas de un minuto. Verifica orden, unicidad, continuidad, precios positivos/finito, al menos 30 velas y antigüedad máxima de 120 segundos.
+2. `feed_once.main` utiliza ese fetcher Binance y entrega la observación a `write_observation`.
+3. `stream_altar.run_once` y `accept_observation` permiten inyectar fetcher/writer; no restringen el payload a la salida del fetcher Binance.
+4. `sensors.normalize_market_payload`, usado por `write_observation`, permite que `observed_at` falte y sustituye source ausente por `"unspecified"`. Si observed_at está presente, valida que sea texto no vacío, pero no exige allí formato ISO ni zona horaria.
+5. `write_observation` firma el envelope si la configuración exige firma y lo persiste mediante archivo temporal, fsync y replace atómico. No aplica antes de escribir la allowlist de source ni la regla de frescura del consumidor.
+6. El lector `validate_snapshot_payload` sí exige observed_at con zona horaria y frescura máxima de 120 s. Cuando la firma es requerida, exige source permitido y HMAC válido.
+7. Por tanto, el hallazgo RSX-01 se precisa: **el adaptador canónico Binance produce los campos requeridos; la brecha está en el contrato genérico del writer/adaptadores**. Un caller genérico puede escribir un snapshot firmado que luego el lector rechaza por timestamp ausente/inválido o source no permitido. No es correcto afirmar que el camino normal `feed_once → Binance` omite esos campos.
 
-1. `stream_altar.build_observation_from_klines` acepta velas cerradas de un minuto, comprueba orden, unicidad, continuidad, precios positivos y finitos, mínimo de 30 velas y antigüedad máxima de 120 segundos. Construye `source` y `observed_at`.
-2. `stream_altar.run_once` y `accept_observation` delegan la escritura al writer; no añaden por sí mismos un identificador de evento o una clave de idempotencia.
-3. `sensors.normalize_market_payload` valida historial, precio, gap/inercia, source y el tipo de `observed_at` si está presente. Sin embargo, permite que `observed_at` esté ausente y asigna `source="unspecified"` si falta.
-4. `data_feeder.write_observation` normaliza, envuelve el resultado bajo `PERCEIVE`, firma si la configuración exige firma y escribe mediante archivo temporal, fsync y replace atómico.
-5. La firma de snapshot es HMAC-SHA256 sobre el JSON canónico de la sección `PERCEIVE`. No es una firma asimétrica ni prueba que el proveedor haya sido honesto; la allowlist de source y la clave son parte del límite de confianza.
+### 3.2 Frontera de validación y conversión
 
-### Validación del snapshot
+8. `from_snapshot` valida la forma del envelope y campos de gobernanza, y construye `SensoryInput`; no ejecuta por sí misma validación de HMAC, allowlist o frescura.
+9. En los dos consumidores productivos directos identificados, `razon.main` y `BunkerDaemon._ciclo`, `validate_snapshot_payload` se ejecuta antes de `from_snapshot`.
+10. Existe una tercera ruta de ciclo continuo: `Orchestrator.bucle_infinito` valida primero con `validate_snapshot_payload` y luego utiliza su constructor propio `_construir_sensory_input`, no `from_snapshot`.
+11. `feedback_label.main` también valida el snapshot antes de registrar el outcome de feedback.
+12. Por tanto, RSX-02 es **un riesgo de encapsulación/API y de futuros consumidores**, no evidencia de un bypass en los entrypoints productivos actuales inspeccionados. La secuencia de validación está repetida en varios entrypoints; el constructor público no expresa en su tipo que requiere un snapshot previamente validado.
 
-6. `api_pulse.validate_snapshot_payload` exige objeto raíz, sección `PERCEIVE`, al menos 30 precios positivos y finitos, precio actual igual al último histórico, timestamp ISO-8601 con zona horaria, frescura (por defecto 120 s), tolerancia de reloj futuro de 5 s y gap/inercia dentro de [-1, 1].
-7. Con firma requerida, valida source contra allowlist y verifica HMAC. Con firma no requerida, el resultado declara `signature="not_required"`; esta ruta debe mantenerse limitada a pruebas aisladas.
-8. `percepcion.from_snapshot` valida forma de los campos de gobernanza y normaliza la sección `PERCEIVE` a `SensoryInput`. No ejecuta por sí misma la verificación de firma ni frescura; esa responsabilidad está en los entrypoints inspeccionados.
-9. `SensoryInput` contiene precios, gap, inercia, free_energy_prev y campos de gobernanza. No transporta explícitamente `source`, `observed_at`, identificador de observación ni hash del snapshot al contrato tipado de SCX.
+### 3.3 Procedencia en SCX/MSX
 
-### SCX — razonamiento y trazabilidad
+13. `SensoryInput` transporta precios, gap, inercia, free_energy_prev y campos de gobernanza; no tiene campos tipados para `source`, `observed_at`, `observation_id`, hash del snapshot ni resultado de verificación.
+14. `razon.main` conserva `observed_at` y `market_source` en su resultado de salida. Eso no significa que estos campos viajen por el contrato `SensoryInput` ni que todas las rutas de ciclo tengan la misma evidencia.
+15. El orquestador agrega procedencia de ciclo RSX/SCX/DSX y trace/cycle IDs; el registro de procedencia inspeccionado no demuestra que el hash de snapshot y el source/time originales estén ligados de forma uniforme al resultado de cada entrypoint.
 
-10. `REASON.razon.main` comprueba el marcador de pánico, lee el snapshot, valida con `validate_snapshot_payload`, convierte mediante `from_snapshot`, obtiene `CATEDRALX_TRACE_ID` o genera UUID hexadecimal y llama a `execute_cycle`.
-11. La ruta one-shot incluye `trace_id` en el resultado y en `DecisionResult`, y persiste el resultado mediante `append_result`.
-12. `orchestrator.execute_cycle` valida o genera un trace ID W3C de 32 caracteres hexadecimales, propaga la traza a `think` y a la procedencia RSX/SCX/DSX. Las pruebas existentes verifican traza explícita, generación y rechazo de IDs inválidos.
-13. `PERCEIVE.bunker.BunkerDaemon` realiza validación y conversión equivalentes, pero llama a `execute_cycle(sensory)` sin pasar explícitamente `trace_id`. El orquestador genera uno nuevo para ese ciclo. Bunker agrega un resumen REASON al objeto snapshot en memoria y escribe logs, pero el código inspeccionado no persiste ese objeto modificado ni usa el mismo flujo one-shot de `DecisionResult`.
-14. Las pruebas inspeccionadas verifican rechazo de snapshots caducados en ambos entrypoints y propagación de traza en el orquestador. No se identificó en el conjunto revisado una prueba que exija paridad de trazabilidad y contrato de salida entre `razon.main` y Bunker.
+### 3.4 Trazabilidad e idempotencia
+
+16. `razon.main` toma `CATEDRALX_TRACE_ID` o crea un UUID hexadecimal, lo pasa a `execute_cycle` y lo incorpora al resultado y `DecisionResult`.
+17. `execute_cycle` genera un trace ID si no se proporciona, valida 32 caracteres hexadecimales minúsculos distintos de cero y agrega trace/cycle a procedencia MSX.
+18. Bunker llama `execute_cycle(sensory)` sin trace explícito; recibe un trace generado por el orquestador en el estado, pero el resumen `REASON` que construye no incluye `trace_id`. El resumen se añade a una copia en memoria y el código inspeccionado no persiste ese snapshot modificado.
+19. `Orchestrator.bucle_infinito` también llama `execute_cycle(entrada)` sin trace explícito y solo imprime decisión y Hurst; no emite un identificador de traza en ese mensaje.
+20. Bunker consulta cada 15 segundos y el bucle del orquestador cada 3 segundos. Ambos pueden volver a procesar el mismo snapshot mientras siga fresco. El writer no asigna `observation_id`; las rutas no consultan un registro durable de observaciones ya procesadas.
+21. El trace ID identifica/correlaciona una ejecución; no es una clave idempotente para una observación. Un mismo snapshot puede generar varios cycle IDs, trace IDs, consumos de presupuesto y resultados.
 
 ## 4. Discrepancias y correcciones propuestas
 
-| ID | Severidad | Hecho | Riesgo | Corrección propuesta |
+| ID | Prioridad | Hallazgo preciso | Riesgo | Corrección propuesta |
 |---|---|---|---|---|
-| RSX-01 | Alta | Normalizador permite `observed_at=None` y `source="unspecified"`; validador posterior los rechaza en el flujo firmado/canónico | El productor puede escribir y firmar un snapshot que el consumidor no puede aceptar | Hacer obligatorios `observed_at` con zona horaria y `source` permitido en el contrato de producción del writer; conservar bypass sintético solo en fixtures aislados |
-| RSX-02 | Alta | `from_snapshot` confía en que el caller ya validó firma/frescura | Un consumidor nuevo puede invocar conversión y razonamiento saltándose la validación del snapshot | Consolidar una única función pública de entrada validada o hacer explícito un tipo/objeto validado no construible desde payload crudo; mantener validación en todos los entrypoints |
-| RSX-03 | Media | `SensoryInput` pierde source, observed_at e identidad/hash de observación | SCX y MSX no reciben directamente la procedencia original a través del contrato tipado | Extender el contrato con metadatos de observación inmutables (source, observed_at, observation_id/snapshot_hash y versión del contrato) o enlazar un registro RSX inmutable por ID |
-| SCX-01 | Media | Bunker no pasa trace_id upstream; genera uno nuevo y no devuelve/persiste DecisionResult como el one-shot | Trazabilidad y evidencia de salida distintas según entrypoint | Definir política única: aceptar contexto trace entrante validado o generar uno; ambos entrypoints deben emitir el mismo contrato mínimo de ciclo y evidencia, sin mutar snapshot original |
-| SCX-02 | Media | No se observa clave de idempotencia/event_id en el writer/entrypoints del snapshot | Relectura o reintento puede repetir el ciclo y consumir presupuesto/registrar nuevas salidas | Definir `observation_id` estable y política explícita de replay; deduplicación durable y atómica para efectos persistentes antes de prometer idempotencia |
-| SCX-03 | Baja | `api_pulse` devuelve un dict de estado, mientras `from_snapshot` recibe dict crudo | La frontera entre payload sin validar y payload validado depende de disciplina del caller | Introducir contrato tipado `ValidatedSnapshot` o equivalente, manteniendo compatibilidad controlada y pruebas negativas |
+| RSX-01 | Alta | El writer genérico acepta timestamp ausente y source por defecto `unspecified`; el fetcher Binance canónico sí proporciona ambos | Writer puede persistir datos que luego rechaza el lector; error diferido y contrato asimétrico | Validar en el writer de producción timestamp con zona horaria y source permitido; aislar explícitamente fixtures/synthetic test |
+| RSX-02 | Media | `from_snapshot` no verifica firma/frescura, aunque los entrypoints productivos directos identificados sí validan antes | Un nuevo caller puede saltarse el control por uso incorrecto de una API que acepta payload crudo | Separar tipo/constructor de snapshot crudo y snapshot validado; exponer una única frontera validada sin duplicar verificaciones |
+| RSX-03 | Media | `SensoryInput` no transporta source, observed_at, observation_id ni hash/verificación del snapshot | Se pierde procedencia de la observación en el contrato común de razonamiento | Agregar metadatos inmutables tipados o una referencia a registro RSX inmutable, y enlazarla al resultado MSX |
+| SCX-01 | Media | One-shot, Bunker y bucle continuo no emiten la misma evidencia de traza en su salida | Correlación operativa desigual entre entrypoints aunque el motor genere trace ID | Definir contrato común de salida con trace_id, cycle_id y referencia de observación; mantener IDs distintos por ejecución |
+| SCX-02 | Alta | No hay observation_id ni deduplicación durable; Bunker/bucle pueden volver a consumir el mismo snapshot | Reprocesamiento y gasto repetido mientras el snapshot siga fresco; resultados duplicados | Definir identidad estable de observación y política de replay/deduplicación durable antes de afirmar idempotencia |
+| SCX-03 | Baja | La validación está distribuida entre varios entrypoints y constructores con distintas responsabilidades | Deriva futura de reglas y cobertura de pruebas desigual | Centralizar el boundary de validación y exigir que solo un valor validado alcance el constructor de SCX |
 
-### Orden recomendado
+## 5. Pruebas existentes y brechas
 
-1. **RSX-01 primero:** impedir que el writer canónico persista snapshots estructuralmente incompletos que el lector rechazará.
-2. **RSX-02 y RSX-03:** sellar la frontera de confianza y conservar procedencia hasta SCX/MSX.
-3. **SCX-01:** unificar traza y evidencia de salida entre one-shot y Bunker.
-4. **SCX-02:** definir replay/idempotencia sin usar `trace_id` como clave de deduplicación. Una traza correlaciona; no identifica necesariamente una operación lógica única.
+### Ya identificadas en el repositorio
 
-## 5. Contrato mínimo propuesto RSX → SCX
+- `test_snapshot_signature.py`: firma válida, firma ausente, manipulación de precio/source, source no permitido, clave incorrecta/no conocida, envelope malformado, unsigned mode y escritura con permisos restringidos.
+- `test_snapshot_freshness.py`: timestamp ausente, sin zona horaria, futuro, antiguo; entrypoints one-shot y Bunker rechazan snapshots caducados; Bunker no sobrescribe el snapshot original.
+- `test_trace_propagation.py`: trace explícito, trace generado, rechazo de IDs inválidos y procedencia/ciclo.
+- `test_acceptance_contract.py`: validación sintética, rechazo de datos caducados y prueba de entrypoints.
+- `test_dynamic_constraints.py`: transporte de campos de gobernanza a `SensoryInput` y rechazo de claves no canónicas.
 
-El contrato lógico recomendado para la frontera es:
+### No se encontró cobertura específica para
 
-- `observation_id`: identidad estable de la observación, no derivada del intento de entrega.
-- `source`: proveedor/fuente permitido y explícito.
-- `observed_at`: timestamp ISO-8601 con zona horaria.
-- `received_at`: instante de recepción local, distinto del tiempo observado.
-- `snapshot_hash`: hash del envelope canónico verificado, además del estado de firma.
-- `schema_version`: versión explícita del contrato de entrada.
-- `payload`: precios y features normalizados con unidades/semántica documentadas.
-- `trace_id`: contexto de correlación de la ejecución, separado de `observation_id`.
-- `validation_status`: solo un estado validado puede cruzar a razonamiento.
-- `validation_evidence`: versión del validador, política de frescura y resultado de firma/procedencia.
+1. Writer genérico → lector: timestamp ausente, timestamp sin zona horaria, source ausente/no permitido; comprobar que el productor rechaza antes de persistir, no que el lector lo rechaza después.
+2. Paridad de contrato de salida entre one-shot, Bunker y bucle continuo, incluyendo trace ID y referencia de observación.
+3. Correlación del hash/HMAC y source/time originales hasta la procedencia de resultado común de MSX.
+4. Reprocesamiento del mismo observation_id: segundo intento, concurrencia, crash-window y recuperación.
+5. Política de retención de claves de deduplicación y tratamiento explícito de replay autorizado.
 
-Los campos anteriores son propuesta de contrato; no se afirma que todos existan hoy.
+La ausencia se refiere al conjunto de pruebas inspeccionado, no a toda prueba posible en ramas o repositorios no consultados.
 
-## 6. Pruebas que deben añadirse antes de cerrar la frontera
+## 6. Contrato mínimo propuesto (no implementado)
 
-1. Writer rechaza timestamp ausente, timestamp sin zona horaria y source fuera de allowlist en modo producción.
-2. Writer → lector: todo snapshot escrito por el productor canónico pasa validación si no ha expirado y no fue alterado.
-3. Firma ausente, firma incorrecta, clave desconocida, source no permitido, precio NaN/Infinity, booleano, historia insuficiente, timestamp obsoleto y timestamp futuro: todos bloquean antes de llamar a SCX.
-4. Llamar a conversión/entrada pública con payload crudo o no validado no permite alcanzar `execute_cycle`.
-5. Procedencia source/time/hash/observation_id permanece asociada al resultado y a los registros MSX.
-6. One-shot y Bunker propagan un trace ID válido y producen un contrato de salida consistente; los spans hijos conservan relación causal.
-7. Replay del mismo `observation_id` no duplica consumo de presupuesto ni resultados persistidos; concurrencia y crash-window se prueban con almacenamiento durable.
-8. Cambio de schema_version o política de frescura exige pruebas de compatibilidad y revisión de consumidores.
+Para la frontera RSX → SCX se recomienda versionar un envelope con:
 
-No se deben prometer “exactly once” en un sistema distribuido. La meta verificable es procesamiento efectivamente único mediante identidad estable, deduplicación durable, atomicidad donde sea posible y reconciliación de efectos externos.
+- `schema_version`: versión explícita.
+- `observation_id`: identidad estable de la observación lógica, estable ante reintentos.
+- `source`: productor permitido.
+- `observed_at`: tiempo de mercado con zona horaria.
+- `received_at`: tiempo de recepción local, separado del tiempo observado.
+- `snapshot_hash`: hash del envelope canónico; mantener separado del estado de verificación de firma.
+- `signature_status`: resultado de verificación, no un booleano aportado por el caller.
+- `payload`: precios/features validados y sus semánticas.
+- `trace_id`: contexto de correlación de ejecución, distinto de observation_id.
+- `cycle_id`: identidad del ciclo de razonamiento, distinta de ambas.
+- `validation_policy_version`: política de frescura, allowlist y validador aplicado.
 
-## 7. Hipótesis y datos ausentes
+Estos campos son una propuesta; no se afirma que ya existan en código. El hash por sí solo no autentica el productor; la firma HMAC actual es una verificación con secreto compartido y la allowlist limita las fuentes admitidas.
 
-- **Hipótesis:** el camino Bunker se utiliza como alternativa de ciclo continuo. No se afirma que esté desplegado o activo.
-- **Hipótesis:** el flujo de snapshot es el único contrato RSX→SCX para todas las modalidades. La inspección se centró en el camino de observación de mercado y no prueba todos los adaptadores.
-- **Ausente:** telemetría de runtime, conteos, latencias, fallos y volumen de snapshots.
-- **Ausente:** configuración efectiva de claves HMAC, allowlist, variables de entorno y ruta de snapshot en una instalación.
-- **Ausente:** ejecución CI del SHA de esta rama para los archivos revisados.
-- **Ausente:** evidencia de conexión real a Binance o de ejecución reciente del proveedor.
-- **Ausente:** integración runtime con Agents; queda fuera de este tramo RSX–SCX.
+## 7. Hipótesis, datos ausentes y aspectos por validar
 
-## 8. Fuentes técnicas externas
+**Hechos observados:** existen tres rutas de ciclo (one-shot, Bunker y bucle continuo); las tres rutas identificadas validan el snapshot antes de razonar. El writer genérico es menos estricto que el lector. No hay observation_id en el envelope inspeccionado.
 
-- OpenTelemetry, [Context propagation](https://opentelemetry.io/docs/concepts/context-propagation/): el contexto de traza correlaciona operaciones a través de procesos; Trace ID y Span ID tienen funciones diferentes. La propagación debe validarse y tratarse con cautela cuando el emisor es externo.
-- W3C Trace Context, [Recommendation](https://www.w3.org/TR/trace-context/): formato y reglas interoperables para `traceparent` y `tracestate`.
-- Microsoft Azure Architecture Center, [Idempotent Consumer](https://learn.microsoft.com/en-us/azure/architecture/patterns/idempotent-consumer): usar identidad estable de mensaje, deduplicación durable y atomicidad; no confundir correlation ID con clave idempotente.
-- Li et al., [Refining Perception Contracts](https://arxiv.org/abs/2311.08652): los contratos de percepción deben relacionar condiciones de entrada, incertidumbre y requisitos verificables del sistema consumidor.
+**Hipótesis:** Bunker y/o el bucle continuo pueden estar activos en alguna instalación. El repositorio no demuestra que estén desplegados ni ejecutándose.
+
+**Datos ausentes:** telemetría runtime, frecuencia real de cada entrypoint, número de relecturas, configuración efectiva de firma/allowlist, estado de procesos, volúmenes y coste de ciclos repetidos.
+
+**Por validar:** qué entrypoint es el único autorizado en cada entorno; si se pretende permitir replay manual; requisitos de retención/deduplicación; compatibilidad con consumidores fuera de este repositorio; y cómo versionar el envelope sin invalidar snapshots existentes.
+
+## 8. Referencias externas de ingeniería (Exa)
+
+- OpenTelemetry, [Context propagation](https://opentelemetry.io/docs/concepts/context-propagation/): Trace ID y Span ID correlacionan operaciones a través de límites de proceso; la documentación advierte validar/sanitizar contexto recibido de fuentes no confiables.
+- W3C, [Trace Context](https://www.w3.org/TR/trace-context/): estándar para propagar contexto mediante `traceparent`/`tracestate`.
+- JSON Schema, [Object / Required Properties](https://json-schema.org/understanding-json-schema/reference/object): los campos no son obligatorios por defecto; la obligación debe declararse explícitamente.
+- JSON Schema, [Type-specific Keywords / Format](https://json-schema.org/understanding-json-schema/reference/type): `format: date-time` es una anotación salvo que el validador active la aserción; la semántica temporal debe validarse también en la implementación.
+- Microsoft Azure Architecture Center, [Idempotent Consumer](https://learn.microsoft.com/en-us/azure/architecture/patterns/idempotent-consumer): la deduplicación requiere un identificador estable de mensaje, persistencia durable y atomicidad/concurrencia; no debe usarse un correlation ID como clave idempotente.
 
 ## 9. Decisión de esta revisión
 
-**No se modificó código funcional.** La evidencia estática es suficiente para identificar discrepancias y proponer un orden de corrección, pero no para decidir detalles de compatibilidad, migración de snapshots o semántica de replay sin revisar todos los consumidores y sus pruebas.
+**No se modificó código funcional, pruebas, configuración ni infraestructura.** La revisión de consumidores refina los hallazgos anteriores: RSX-02 no evidencia un bypass en los entrypoints actuales, y RSX-01 afecta principalmente a la API genérica del writer, no al fetcher canónico Binance.
 
-**Siguiente acción única:** revisar todos los consumidores de `write_observation`, `from_snapshot` y `SensoryInput` (incluidos tests y adaptadores) para cerrar el impacto de RSX-01/02/03 antes de cambiar el contrato.
+**Siguiente acción única:** definir y aprobar el contrato versionado de observación RSX (schema_version + observation_id + procedencia + timestamps + estado de verificación) y su política de replay antes de tocar el código.
