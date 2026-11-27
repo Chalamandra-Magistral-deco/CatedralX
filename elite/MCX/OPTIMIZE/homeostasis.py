@@ -256,3 +256,29 @@ def estado_homeostatico(
         # El modo recomendado no es permiso de ejecución.
         "orders_allowed": False,
     }
+
+
+# ---------------------------------------------------------------------
+# Puntos de referencia internos (aporte del PR #56)
+# ---------------------------------------------------------------------
+# Los valores de referencia vivían como dataclass Setpoint en
+# homeostasis_lqr.py; el PR los mueve aquí como funciones simples, que es
+# lo que la nueva firma dict-based de lqr_correction espera como target.
+
+
+def setpoint() -> dict[str, float]:
+    """Estado de referencia al que el sistema tiende a volver."""
+    return {
+        "cortisol": 0.3,
+        "dopamina": 0.6,
+        "serotonina": 0.7,
+        "riesgo": 0.25,
+    }
+
+
+def desvio(
+    actual: dict[str, float], objetivo: dict[str, float] | None = None
+) -> dict[str, float]:
+    """Diferencia entre estado actual y el objetivo."""
+    t = objetivo or setpoint()
+    return {k: round(actual.get(k, 0.0) - t[k], 6) for k in t}
