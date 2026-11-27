@@ -164,13 +164,13 @@ def regime_context(history: Iterable[str], alpha: float = 1.0, max_history: int 
     if not _finite(alpha) or alpha <= 0 or not isinstance(max_history, int) or max_history < 2:
         raise ValueError("alpha debe ser positivo y max_history >= 2")
     labels = [x for x in history if isinstance(x, str) and x.strip()][-max_history:]
-    regimes = sorted(set(labels))
-    if len(labels) < 2 or not regimes:
-        return {"fase_actual": labels[-1] if labels else None, "fase_anterior": labels[-2] if len(labels) > 1 else None,
-                "transicion": f"{labels[-2]}→{labels[-1]}" if len(labels) > 1 else None,
-                "tiempo_en_regimen": None, "P_salida": None, "entropia_contexto_nats": None,
-                "historial_fases": labels, "transition_counts": {}, "transition_probabilities": {},
+    if len(labels) < 2:
+        return {"fase_actual": labels[-1] if labels else None, "fase_anterior": None,
+                "transicion": None, "tiempo_en_regimen": None, "P_salida": None,
+                "entropia_contexto_nats": None, "historial_fases": labels,
+                "transition_counts": {}, "transition_probabilities": {},
                 "evidence_status": "insufficient_regime_history"}
+    regimes = sorted(set(labels))
     counts = {a: dict.fromkeys(regimes, 0) for a in regimes}
     for a, b in zip(labels, labels[1:]):
         counts[a][b] += 1
@@ -191,9 +191,3 @@ def regime_context(history: Iterable[str], alpha: float = 1.0, max_history: int 
             "entropia_contexto_nats": round(entropy, 8), "historial_fases": labels,
             "transition_counts": counts, "transition_probabilities": probs,
             "evidence_status": "computed_from_observed_labels"}
-
-
-
-
-
-

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Daemon RSX: reads perceived data and records the reasoning state."""
+from __future__ import annotations
 
 import asyncio
 import json
@@ -30,6 +31,8 @@ class BunkerDaemon:
     """Continuously process validated snapshots through the shared engine."""
 
     def __init__(self, ritmo: int = RITMO_SEGUNDOS) -> None:
+        if isinstance(ritmo, bool) or not isinstance(ritmo, int) or ritmo <= 0:
+            raise ValueError("ritmo must be a positive integer number of seconds")
         self.ritmo = ritmo
 
     async def heartbeat(self) -> None:
@@ -39,16 +42,15 @@ class BunkerDaemon:
                 logger.warning("Resources constrained; pausing for 30 seconds")
                 await asyncio.sleep(30)
                 continue
-
             try:
                 self._ciclo()
+            except asyncio.CancelledError:
+                raise
             except Exception:
                 logger.exception("Error in RSX cycle")
             await asyncio.sleep(self.ritmo)
 
     def _ciclo(self) -> dict[str, Any] | None:
-        # An emergency marker blocks new reasoning cycles before snapshot I/O.
-        # This is an analysis gate; it does not place or cancel financial orders.
         panic_path = Path(defense.PATH_PANIC).expanduser()
         if panic_path.exists():
             logger.error("Emergency panic marker active; CatedralX cycle skipped: %s", panic_path)
@@ -58,16 +60,12 @@ class BunkerDaemon:
         if not snapshot:
             logger.debug("No PERCEIVE snapshot available")
             return None
-
         freshness = validate_snapshot_payload(snapshot)
         if not freshness["healthy"]:
             raise ValueError("Snapshot rechazado: " + str(freshness["reason"]))
 
         sensory = self._construir_entrada(snapshot)
         state = execute_cycle(sensory)
-
-        # The returned value may include diagnostics, but the source snapshot
-        # remains read-only. The shared engine owns canonical state persistence.
         snapshot["REASON"] = {
             "cycle_id": state.percepcion_espacial.get("cycle_id"),
             "decision": state.decision,
@@ -82,17 +80,15 @@ class BunkerDaemon:
             "energia_cognitiva": state.energia_cognitiva,
             "giroscopio": state.giroscopio,
             "razon_anarmonica": state.razon_anarmonica,
-            "analisis_financiero": state.percepcion_espacial.get(
-                "analisis_financiero", {}
-            ),
+            "analisis_financiero": state.percepcion_espacial.get("analisis_financiero", {}),
             "trading_enabled": False,
             "orders_created": False,
             "orders_executed": False,
         }
+        source = snapshot.get("PERCEIVE", {}).get("source", "unknown")
         logger.info(
-            "BTC: %,.2f | decision: %s | hurst: %.3f",
-            sensory.precio_actual,
-            state.decision,
+            "%s | price: %,.8g | decision: %s | hurst: %.3f",
+            source, sensory.precio_actual, state.decision,
             state.percepcion_espacial.get("hurst", 0.5),
         )
         return snapshot
@@ -100,13 +96,13 @@ class BunkerDaemon:
     @staticmethod
     def _leer_snapshot() -> dict[str, Any]:
         try:
-            return json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
-        except (FileNotFoundError, json.JSONDecodeError):
+            payload = json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
+        except (FileNotFoundError, OSError, json.JSONDecodeError):
             return {}
+        return payload if isinstance(payload, dict) else {}
 
     @staticmethod
     def _construir_entrada(snapshot: dict[str, Any]) -> SensoryInput:
-        # No fallback prices: missing or insufficient observations fail closed.
         return from_snapshot(snapshot)
 
 

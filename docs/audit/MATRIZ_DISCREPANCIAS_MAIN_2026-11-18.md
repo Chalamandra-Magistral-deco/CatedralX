@@ -1,0 +1,92 @@
+# Matriz de discrepancias de CatedralX — main
+
+- **Repositorio:** `Chalamandra-Magistral-deco/CatedralX`
+- **Rama revisada:** `main`
+- **Referencia de la inspección:** commit `25df7705437ba3d997db4b8905933d9024fd5153` (17-nov-2026; SHA consultado el 18-nov-2026).
+- **Método:** lectura estática de archivos versionados. No se ejecutó la suite, no se probaron servicios desplegados y no se verificó una integración en vivo con Agents.
+- **Cambios realizados por esta revisión:** ninguno en código, configuración, contratos o despliegues. Este documento registra hallazgos y pruebas requeridas; no autoriza su corrección.
+
+## Criterios
+
+- **Alta:** puede debilitar integridad, aceptación, autorización o interpretación de un resultado.
+- **Media:** puede causar inconsistencias, falsa confianza, pérdida de trazabilidad o fallos operativos.
+- **Baja / documental:** afecta claridad, mantenimiento o reproducibilidad, sin demostrar por sí sola un fallo de ejecución.
+- **Observado:** comportamiento visible en el código leído.
+- **Por verificar:** necesita prueba dinámica, revisión del consumidor o contraste con Agents antes de concluir que afecta un flujo real.
+
+## Matriz principal
+
+| ID | Severidad | Área / archivos | Discrepancia observada | Impacto posible | Verificación necesaria |
+|---|---|---|---|---|---|
+| DX-01 | Alta | Estado hormonal: `elite/REASON/procesador.py` | La ruta de guardado puede persistir estado sin HMAC cuando falta la clave o falla su configuración; el lector acepta como legado un archivo sin bloque `integrity`. | Quitar el sobre de integridad de un estado firmado puede degradarlo a estado heredado aceptable. El código no distingue inequívocamente legado legítimo de firma retirada. | Prueba negativa: firmar estado, retirar solo `integrity`, cargarlo y comprobar que se rechaza. Definir migración explícita para legado y fallo cerrado ante ausencia inesperada de clave. |
+| DX-02 | Media — integración por verificar | Aceptación: `elite/contracts/builder.py`, `elite/REASON/orchestrator.py`, `elite/DSX/DEFENSE/guards.py` | `DecisionResult` conserva el veredicto central; el orquestador mantiene un gate DSX separado. La inspección no demuestra que el resultado central se use como autorización de publicación o despacho. | Riesgo de interpretación incorrecta si un consumidor de Agents confunde `ACCEPTED` central con aceptación independiente o permiso de ejecución. El README ya advierte que no son equivalentes. | Verificar en Agents el consumidor real y trazar un caso centralmente aceptado pero bloqueado por DSX. Mantener separados veredicto, gate, aceptación independiente y autorización de ejecución. |
+| DX-03 | Alta | Contrato de orquestación: `docs/contracts/README.md`, `docs/contracts/orchestration_flow.yaml`; Agents: `api/crypto_signer.py`, `api/acceptance_store.py` | El README de CatedralX describe Ed25519 en Base64, pero el YAML exige 128 caracteres hexadecimales. Agents verifica firmas con `bytes.fromhex()` y el verificador independiente las genera con `.hex()`: implementación y YAML coinciden; el README está desactualizado. Además, `AcceptanceDecision` exige `decided_at` pero no lo declara en `properties`, con `additionalProperties: false`. | El README puede inducir a productores a emitir Base64 incompatible. La omisión de `decided_at` en `properties` vuelve insatisfacible el esquema bajo validación JSON Schema estricta. | Corregir documentalmente el formato canónico a hexadecimal y declarar `decided_at` en `properties`; validar el esquema y ejecutar vectores compartidos de firma. No cambiar el código de Agents ni el contrato sin revisión coordinada. |
+| DX-04 | Alta | Distribución: `docs/contracts/README.md`, `docs/contracts/distribution_flow.yaml`; Agents: `api/server.py`, `api/webhook_dispatcher.py`, `api/distribution_store.py` | `reserve_dispatch()` distingue `already_dispatched` e `in_progress`. El dispatcher devuelve el `delivered_count` persistido para `already_dispatched` y 0 para `in_progress`. El endpoint traduce cualquier `delivered_count < 1` a HTTP 502; con entregas previas responde HTTP 202 y `status: dispatched`. Por tanto, `in_progress` no se expresa como 409 y la repetición idempotente no conserva un estado HTTP/negocio explícito `already_dispatched`. | El consumidor puede confundir una operación en curso con fallo de entrega y reintentar; la repetición idempotente queda indistinguible del despacho inicial en la respuesta pública. | Acordar una tabla única de estados HTTP y negocio para `dispatched`, `already_dispatched`, `in_progress` y conflicto; alinear README, YAML y handler y probar repetición/concurrencia con la misma clave. |
+| DX-05 | Media — configuración por verificar | Procedencia de snapshot: `elite/PERCEIVE/snapshot_signing.py`, `elite/PERCEIVE/api_pulse.py` | La lista de fuentes admitidas incluye `synthetic-smoke-test`. No se encontró una guardia explícita en el código inspeccionado que pruebe su restricción a pruebas; tampoco se demostró que producción la acepte. | Riesgo condicional de confundir un snapshot sintético con una observación real si la configuración operativa lo permite. No es una vulnerabilidad de producción demostrada. | Inspeccionar la configuración efectiva por entorno y probar que producción rechaza fuentes sintéticas, incluso con firma válida. |
+| DX-06 | Media | Feedback: `elite/FEX/FEEDBACK/feedback_loop.py` | La comprobación de duplicados y la escritura del ledger no están serializadas como una operación atómica con bloqueo. | Dos procesos concurrentes pueden registrar dos etiquetas para el mismo `prediction_id` y horizonte. | Prueba multiproceso concurrente; definir unicidad y bloqueo/transacción. Confirmar si el ledger está compartido entre workers. |
+| DX-07 | Media | Persistencia de resultados: `elite/contracts/result_store.py` | El lector omite líneas JSON corruptas y continúa; el ledger no tiene cadena de hashes ni comprobación de IDs duplicados. | La lectura puede ocultar corrupción parcial y devolver un historial incompleto sin fallo explícito. | Inyectar una línea corrupta intermedia y comprobar que la API informa corrupción; acordar política de recuperación y verificación de integridad. |
+| DX-08 | Media — alcance acotado | Bucle de percepción: `elite/PERCEIVE/bunker.py` | Bunker construye el snapshot enriquecido en memoria y no lo persiste desde ese bucle. Los comentarios atribuyen la persistencia canónica al motor compartido. | Si se evalúa Bunker aisladamente, puede parecer que el resultado no se conserva; esto no demuestra que el motor completo carezca de persistencia. | Trazar la entrega al motor compartido y verificar persistencia y recuperación tras reinicio. Documentar con precisión qué componente asume la persistencia. |
+| DX-09 | Media | Restricciones dinámicas: `elite/REASON/dynamic_constraints.py` | `dominant_signal_weight` y `minimum_confidence` aparecen en el modelo, pero no intervienen en las condiciones que determinan `growth_allowed`. | La recomendación de gobernanza puede parecer una restricción efectiva aunque no bloquee el crecimiento en esa función. | Pruebas de tabla variando ambos campos y comprobando el resultado. Documentar qué componente aplica realmente esas condiciones. |
+| DX-10 | Media | Predicción y resultado: `elite/REASON/razon.py` | La predicción se registra antes de construir y persistir el `DecisionResult`. | Un fallo posterior puede dejar una predicción sin resultado asociado. | Simular fallos entre ambas operaciones; definir reconciliación por `cycle_id`/trace y estado explícito de ciclo incompleto. |
+| DX-11 | Media | Estimación Hurst: `elite/REASON/hurst_analyzer.py`, `elite/REASON/gyroscope.py` | El parámetro `max_lag` se acepta, pero no controla el cálculo descrito; el estimador es simplificado y de ventana única. | Consumidores pueden atribuir robustez multiescala a un diagnóstico que no la implementa. | Prueba que demuestre el efecto esperado de `max_lag`; o retirar/documentar el parámetro y etiquetar la salida como heurística. |
+| DX-12 | Media | Imagen y CLI: `Dockerfile`, `.dockerignore`, `BIN/catedral` | La CLI expone `catedral test`, pero la imagen excluye `tests/`. | Ese comando no puede ejecutar la suite dentro de la imagen si las pruebas no están presentes. | Construir imagen y ejecutar el comando. Decidir si el comando debe fallar con mensaje explícito o si se incluye una imagen/target de pruebas separado. |
+| DX-13 | Baja — blueprint no operativo | Blueprint: `docs/BLUEPRINT_COMPOSE_FULL.yaml`, `docs/BLUEPRINT_COMPOSE.md` | El blueprint/propuesta configura `restart: unless-stopped` para una imagen cuyo comando predeterminado ejecuta `catedral status` y termina. No se ha demostrado que este blueprint esté desplegado. | Si se ejecuta literalmente, el contenedor podría reiniciarse repetidamente; no describe un servicio actualmente desplegado. | Antes de adoptar el blueprint, decidir si el contenedor es un job puntual o daemon y validar el ciclo de vida en entorno aislado. |
+| DX-14 | Media | CI: `.github/workflows/catedralx-tests.yml`, `docs/contracts/*.yaml` | La CI valida sintaxis YAML/JSON y ejecuta la suite de CatedralX; no demuestra conformidad semántica completa ni interoperabilidad con handlers de Agents. | Los contratos pueden ser sintácticamente válidos y las pruebas unitarias pasar, aun así existir incompatibilidades de campos, firmas o estados entre repositorios. | En una fase autorizada, añadir pruebas de contrato y vectores compartidos con Agents. No interpretar la CI de CatedralX como prueba de integración. |
+| DX-15 | Media — evidencia actualizada | Pruebas y estado reportado: `docs/ESTADO_PRODUCCION.md`, GitHub Actions | El documento reporta 372 pruebas para el commit histórico `f757a7c`; ese conteo no representa el HEAD actual. En el workflow run #232 asociado al commit del PR (`4da058a`), `unit-tests` terminó con 407 pruebas aprobadas; Gitleaks y el smoke test de imagen también finalizaron correctamente. | El conteo histórico de 372 puede confundirse con evidencia actual. Las 407 pruebas acreditan ese commit del PR, no runtime ni integración con Agents. | Mantener SHA y URL del run junto al conteo. Repetir validación si cambia el HEAD; no extrapolar el resultado a despliegues o integración. |
+| DX-16 | Media — parcialmente verificado | MCX: `elite/MCX/OPTIMIZE/kelly_vince.py`, `ganancias.py` | `kelly_vince.py` usa un fallback fijo de `0.02` con muestra corta; `ganancias.py` escribe en modo append sin bloqueo visible. No se ha demostrado el impacto en consumidores activos. | Una heurística puede confundirse con una estimación calibrada; la concurrencia podría afectar el registro, pendiente de reproducir. | Identificar consumidores activos y probar muestras insuficientes, entradas no finitas y escrituras concurrentes. No atribuir autoridad de señal o ejecución sin contrato explícito. |
+| DX-17 | Baja | Mapas históricos: `docs/archive/MAPA_MAESTRO_DECOX_v0.2...v0.7.md` | Numeración de archivo y versión interna no son consistentes; algunas versiones son snapshots acumulativos y otras una consolidación divergente. | Dificulta identificar el mapa vigente y comparar cambios; no prueba por sí solo un defecto de runtime. | Marcar cada snapshot como histórico y documentar relación/fecha/commit de origen en una futura revisión documental, sin borrar versiones. |
+| DX-18 | Baja | Manifiesto: `MAPA_SAGRADO.json` | El manifiesto declara anclaje a `b1841e1`, no al HEAD posterior; su conteo no coincide con el árbol consultado (217 frente a 218 entradas). | No debe utilizarse como inventario exacto del árbol actual. | Regenerar únicamente cuando se autorice una actualización de manifiesto y fijar SHA de origen reproducible. |
+| DX-19 | Baja | Documentación histórica: `docs/audit/*` | Varios inventarios y auditorías corresponden a clon, VM, hosting y comprobaciones del 24–25 de octubre. | Pueden confundirse con estado vigente de infraestructura o sincronización. | Conservar como evidencia histórica; anotar alcance, fecha y commit al consultarlos. No extrapolar al estado actual de VM, Vercel o Agents. |
+
+## Resultado de revisión y evidencia adicional (18-nov-2026)
+
+La revisión de DX-01 a DX-19 ajusta el grado de certeza: la matriz no representa 19 defectos de ejecución confirmados.
+
+- **Confirmados por inspección estática:** DX-01, DX-03, DX-04, DX-06, DX-07, DX-09, DX-10, DX-11 y DX-12.
+- **Confirmados con alcance o condición acotados:** DX-02 (riesgo de interpretación en integración, no autorización indebida demostrada), DX-05 (restricción de fuente sintética pendiente de verificar por entorno), DX-08 (Bunker no persiste por sí mismo; persistencia atribuida al motor compartido), DX-13 (solo blueprint), DX-14 (límite de cobertura de CI), DX-16 (parcialmente verificado).
+- **Históricos/documentales:** DX-17, DX-18 y DX-19; no deben presentarse como fallos funcionales actuales.
+
+**CI del commit del PR:** [workflow run #232](https://github.com/Chalamandra-Magistral-deco/CatedralX/actions/runs/44265110819), asociado al commit `4da058a52e8aa7787c59e5871aaab616a1b0b156`: `unit-tests` — 407 passed (2.37 s); escaneo Gitleaks — success; build y smoke test de imagen — success. El smoke test informó `trading_enabled: false`, `orders_created: false` y `orders_executed: false`. Esta evidencia no certifica runtime ni integración con Agents.
+
+## Revisión técnica focalizada de DX-01, DX-03 y DX-04 (18-nov-2026)
+
+Esta sección registra evidencia de lectura estática en CatedralX y Agents. No se modificó código ni configuración y no se ejecutaron pruebas dinámicas en esta revisión.
+
+### DX-01 — degradación de integridad HMAC
+
+En `elite/REASON/procesador.py`, `_sign_state()` puede devolver `None` cuando falta la clave HMAC o falla la configuración. La ruta de persistencia puede, por tanto, guardar un estado sin firma. Además, `_verify_state_integrity()` acepta como legado un archivo que no contiene el campo `integrity`. Un estado que previamente estaba firmado puede perder ese bloque y pasar por la ruta de compatibilidad heredada. La evidencia confirma un riesgo de downgrade; no demuestra por sí sola explotación en un despliegue. La prueba negativa prioritaria es firmar un estado, retirar únicamente `integrity` e intentar cargarlo: debe rechazarse, mientras que el legado genuino debe migrarse mediante una política explícita.
+
+### DX-03 — codificación de firma y esquema AcceptanceDecision
+
+- `docs/contracts/README.md` describe firmas Ed25519 codificadas en Base64.
+- `docs/contracts/orchestration_flow.yaml` exige una cadena hexadecimal de 128 caracteres.
+- En Agents, `api/crypto_signer.py` verifica con `bytes.fromhex()`; `api/acceptance_store.py` utiliza `verify_decision()`; el verificador independiente produce la firma con `.hex()`. La implementación de Agents coincide con el YAML, no con el README.
+- Hallazgo adicional del esquema: `AcceptanceDecision.required` incluye `decided_at`, pero `decided_at` no aparece en `properties` y el esquema establece `additionalProperties: false`. Con validación JSON Schema estricta, el objeto no puede incluir ese campo requerido sin violar la regla de propiedades adicionales. Agents sí lo incluye entre sus campos canónicos (`api/acceptance_store.py`, `_CANONICAL_FIELDS`).
+
+Conclusión: actualizar la descripción documental a hexadecimal y completar la propiedad `decided_at` en el esquema; validar ambos cambios de contrato antes de tocar productores o verificadores.
+
+### DX-04 — idempotencia y estados HTTP de Distribution
+
+- `api/distribution_store.py` distingue internamente `already_dispatched` e `in_progress` en `reserve_dispatch()`.
+- `api/webhook_dispatcher.py` devuelve el `delivered_count` persistido para `already_dispatched`, pero devuelve 0 para `in_progress`.
+- En `api/server.py`, el endpoint `/internal/v1/distributions` transforma `delivered_count < 1` en HTTP 502 (`no_distribution_delivery_succeeded`). Si existen entregas registradas, devuelve HTTP 202 con `status: dispatched`, incluso para el caso ya despachado.
+- La documentación README describe estados idempotentes/conflicto que el YAML no representa de forma completa; la respuesta HTTP efectiva tampoco expone `in_progress` como 409.
+
+Conclusión: README, YAML y handler no comparten una representación inequívoca para repetición idempotente y despacho en curso. Se requiere acordar primero el contrato canónico y cubrirlo con pruebas de repetición y concurrencia.
+
+## Orden recomendado de verificación
+
+1. **DX-01 y DX-02:** integridad del estado y separación entre veredicto y autorización.
+2. **DX-03, DX-04 y DX-05:** compatibilidad de contratos, firmas, estados y procedencia entre CatedralX y Agents.
+3. **DX-06, DX-07 y DX-10:** consistencia de ledgers e historial.
+4. **DX-08, DX-09 y DX-11:** correspondencia entre comportamiento y documentación de los módulos.
+5. **DX-12, DX-13, DX-14 y DX-15:** reproducibilidad de CI, contenedores y evidencia de pruebas.
+6. **DX-16 a DX-19:** alcance de utilidades y saneamiento documental futuro.
+
+## Límites de esta matriz
+
+- Los hallazgos describen el código y documentos inspeccionados en el SHA de referencia; no certifican el comportamiento de un despliegue.
+- Las discrepancias de integración requieren contrastar el repositorio Agents, su configuración de verificador y el consumidor real de Distribution.
+- No se han propuesto cambios de código ni se han convertido estos hallazgos en tareas de implementación.
+- Esta matriz no autoriza crear claves, rotarlas, cambiar políticas, ejecutar órdenes, modificar ramas, desplegar servicios ni cambiar contratos.
+- Antes de corregir cualquier punto: reproducirlo con una prueba, identificar al consumidor afectado, acordar el contrato canónico y delimitar el cambio mínimo.

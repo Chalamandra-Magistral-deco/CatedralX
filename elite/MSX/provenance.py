@@ -11,6 +11,23 @@ from typing import Any
 VALID_VECTORS = {"RSX", "SCX", "MCX", "AEX", "DSX", "MSX", "FEX"}
 
 
+def calcular_hash_conjunto(contenido: Any) -> str:
+    """Return SHA-256 over deterministic, strict JSON canonicalization.
+
+    Only JSON-compatible values are accepted. Rejecting NaN and implicit
+    stringification prevents different Python objects from silently sharing
+    an ambiguous serialized representation.
+    """
+    encoded = json.dumps(
+        contenido,
+        sort_keys=True,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def build_provenance(name: str, module: str, version: str, inputs: Any, *,
                      output: Any = None, confidence: float | None = None,
                      status: str = "computed", vector: str = "SCX",
@@ -26,13 +43,14 @@ def build_provenance(name: str, module: str, version: str, inputs: Any, *,
     encoded = json.dumps(inputs, sort_keys=True, ensure_ascii=False,
                          separators=(",", ":"), default=str, allow_nan=False).encode("utf-8")
     event_time = int(timestamp if timestamp is not None else time.time())
+    input_digest = hashlib.sha256(encoded).hexdigest()
     return {
-        "id": f"{vector}:{module}:{event_time}:{hashlib.sha256(encoded).hexdigest()[:16]}",
+        "id": f"{vector}:{module}:{event_time}:{input_digest[:16]}",
         "vector": vector, "modulo": module, "version": version,
         "timestamp": event_time,
-        "input_hash": hashlib.sha256(encoded).hexdigest(),
+        "input_hash": input_digest,
         # Compatibility alias for v4.2 draft consumers; canonical field is input_hash.
-        "input_hash_sha256": hashlib.sha256(encoded).hexdigest(),
+        "input_hash_sha256": input_digest,
         "output": output, "confidence": confidence, "parent": parent,
         "status": status,
         "confidence_status": "provided" if confidence is not None else "unavailable",

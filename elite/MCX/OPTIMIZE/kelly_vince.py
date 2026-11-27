@@ -1,6 +1,5 @@
 """Kelly clásico y Optimal-f de Ralph Vince para gestión de capital."""
 
-
 import numpy as np
 
 

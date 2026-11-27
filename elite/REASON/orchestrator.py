@@ -8,6 +8,7 @@ import uuid
 from typing import Any
 
 import numpy as np
+from ENERGY.resource_governor import consume_cycle_budget
 from AEX.ejecutor import preparar_intencion
 from DSX.DEFENSE import defense
 from DSX.DEFENSE.guards import (
@@ -455,11 +456,135 @@ class Orchestrator:
 
 
 def execute_cycle(
-    sensory_data: SensoryInput, cycle_id: str | None = None
+    sensory_data: SensoryInput,
+    cycle_id: str | None = None,
+    *,
+    trace_id: str | None = None,
 ) -> CathedralState:
-    """Run one analysis with a traceable ID shared by state and entry-point output."""
+    """Run one analysis with shared cycle and W3C trace identifiers."""
     identifier = cycle_id or str(uuid.uuid4())
-    return think(sensory_data, sensory_data.precio_historico, identifier)
+    trace_identifier = uuid.uuid4().hex if trace_id is None else trace_id
+    if (
+        not isinstance(trace_identifier, str)
+        or len(trace_identifier) != 32
+        or any(char not in "0123456789abcdef" for char in trace_identifier)
+        or trace_identifier == "0" * 32
+    ):
+        raise ValueError("trace_id debe ser un W3C trace ID hexadecimal de 32 caracteres")
+    # DSX resource gate: a cycle cannot start without operational budget.
+    # Credits are virtual compute quotas, not physical/electrical energy.
+    energy_receipt, energy_snapshot, energy_ledger_record = consume_cycle_budget(identifier)
+    state = think(
+        sensory_data, sensory_data.precio_historico, identifier,
+        trace_id=trace_identifier,
+    )
+    state.percepcion_espacial["trace_id"] = trace_identifier
+
+    # MSX cycle evidence: persistable provenance records are attached to the
+    # same DecisionResult consumed by the append-only result store.
+    from MSX.provenance import aggregate_cycle, build_provenance
+
+    energy_record = build_provenance(
+        "resource_budget_authorization",
+        "DSX",
+        "1",
+        {
+            "cycle_id": identifier,
+            "trace_id": trace_identifier,
+            "transaction_id": energy_receipt.transaction_id,
+            "reservoir": energy_receipt.reservoir,
+            "credits_spent": energy_receipt.amount,
+            "ledger_sequence": energy_ledger_record["sequence"],
+            "ledger_record_hash": energy_ledger_record["record_hash"],
+        },
+        output={
+            "authorized": True,
+            "operational_balance": energy_receipt.balance,
+            "state_of_charge": energy_snapshot["state_of_charge"],
+            "adaptive_balance": energy_snapshot["adaptive"].charge,
+        },
+        vector="DSX",
+        status="authorized",
+    )
+    sensory_record = build_provenance(
+        "sensory_observation",
+        "PERCEIVE",
+        "1",
+        {
+            "cycle_id": identifier,
+            "trace_id": trace_identifier,
+            "price_count": len(sensory_data.precio_historico),
+            "current_price": float(sensory_data.precio_actual),
+            "gap": float(sensory_data.gap),
+            "inertia": float(sensory_data.inercia),
+        },
+        output={"accepted_for_reasoning": True},
+        vector="RSX",
+        status="observed",
+    )
+    reasoning_record = build_provenance(
+        "reasoning_result",
+        "REASON",
+        "1",
+        {
+            "cycle_id": identifier,
+            "trace_id": trace_identifier,
+            "sensory_record_id": sensory_record["id"],
+        },
+        output={
+            "decision": state.decision,
+            "free_energy": float(state.free_energy),
+            "hamiltonian": float(state.hamiltoniano),
+            "signal_strength": float(state.confianza),
+            "regime": str(state.regimen),
+        },
+        vector="SCX",
+        parent=sensory_record["id"],
+        status="computed",
+    )
+    cognitive = state.cognicion if isinstance(state.cognicion, dict) else {}
+    policy = cognitive.get("operational_policy", {})
+    if not isinstance(policy, dict):
+        policy = {}
+    dsx_record = build_provenance(
+        "safety_regulation",
+        "DSX",
+        "1",
+        {
+            "cycle_id": identifier,
+            "trace_id": trace_identifier,
+            "reasoning_record_id": reasoning_record["id"],
+        },
+        output={
+            "hard_block": bool(policy.get("hard_block", True)),
+            "execution_handoff": policy.get("execution_handoff", {
+                "status": "UNVERIFIED",
+                "trading_enabled": False,
+                "orders_created": False,
+                "orders_executed": False,
+            }),
+        },
+        vector="DSX",
+        parent=reasoning_record["id"],
+        status="regulated",
+    )
+    records = [energy_record, sensory_record, reasoning_record, dsx_record]
+    cognitive["resource_budget"] = {
+        "status": "authorized",
+        "transaction_id": energy_receipt.transaction_id,
+        "credits_spent": energy_receipt.amount,
+        "operational_balance": energy_receipt.balance,
+        "adaptive_balance": energy_snapshot["adaptive"].charge,
+        "state_of_charge": energy_snapshot["state_of_charge"],
+        "unit": "virtual_compute_credit",
+        "durability": "msx_hash_chained_jsonl",
+        "ledger_sequence": energy_ledger_record["sequence"],
+        "ledger_record_hash": energy_ledger_record["record_hash"],
+    }
+    cognitive["provenance"] = records
+    cognitive["cycle_trace"] = aggregate_cycle(identifier, records)
+    state.cognicion = cognitive
+    return state
 
 class _LazyOrchestrator:
     """Defer shared state loading until a caller actually runs an orchestration cycle."""
@@ -491,6 +616,8 @@ def think(
     sensory_input: SensoryInput,
     historial_precios: list[float],
     ciclo_id: str,
+    *,
+    trace_id: str | None = None,
 ) -> CathedralState:
     """Run deterministic financial analysis plus optional geometry diagnostics."""
     raw_prices = list(historial_precios)
@@ -540,6 +667,8 @@ def think(
         state.percepcion_espacial["diagnostico_geometrico_error"] = geo_state["diagnostic_error"]
     state.percepcion_espacial["ciclo_id"] = ciclo_id
     state.percepcion_espacial["cycle_id"] = ciclo_id
+    if trace_id is not None:
+        state.percepcion_espacial["trace_id"] = trace_id
     state.percepcion_espacial["neurovector"] = neurovector
     # Preserve upstream governance inputs without deriving or recalibrating them.
     state.percepcion_espacial["central_dimensions_bp"] = dict(
