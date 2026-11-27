@@ -1,4 +1,5 @@
-"""Append-only prediction/outcome ledger and offline evaluation.
+"""
+Append-only prediction/outcome ledger and offline evaluation.
 
 Outcomes are labeled from observed prices at fixed horizons. This module
 computes reports only; it never retrains a model or submits orders.
