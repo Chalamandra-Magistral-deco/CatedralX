@@ -1,74 +1,78 @@
-# CatedralX — motor financiero de análisis
+# CatedralX
 
-> Navegación: [arquitectura objetivo](docs/ARQUITECTURA_OBJETIVO.md) · [contratos](docs/contracts/README.md) · [mapa estructural](MAPA_SAGRADO.json) · [estado de implementación](docs/ESTADO_PRODUCCION.md) · [revisión de seguridad](docs/SEGURIDAD_REPOSITORIO.md).
+**CatedralX es un motor de razonamiento y análisis financiero experimental del ecosistema Chalamandra Magistral.** Su función es transformar observaciones de mercado y contexto computable en resultados estructurados, reproducibles y verificables. No es un chatbot ni un ejecutor autónomo de operaciones.
 
-CatedralX es el motor financiero experimental del ecosistema Chalamandra Magistral. Esta versión ejecuta análisis determinista sobre precios observados y conserva los subsistemas de Hurst, geometría, energía libre y giro como diagnósticos complementarios. La etiqueta financiera final ya no depende de la decisión estocástica del subsistema antiguo.
+## ¿Qué hace?
 
-## Alcance actual
+En su implementación financiera actual, CatedralX:
 
-- Entrada: al menos 30 observaciones de precio, positivas y finitas, en orden cronológico. No se crean precios sintéticos cuando falta historial.
-- Señal: compara el impulso de las últimas 5 observaciones y el de las últimas 20. La señal `buy`/`sell` solo aparece cuando ambos impulsos normalizados apuntan en la misma dirección; en los demás casos devuelve `hold`.
-- Protección: si la volatilidad de las últimas 10 observaciones llega a al menos el doble de la volatilidad de referencia previa —o la volatilidad de referencia es prácticamente cero y la reciente aumenta—, se bloquea la señal direccional. El umbral hamiltoniano de protección también fuerza `hold` y revisión, nunca una orden de “cerrar todo”.
-- Métricas: rendimiento acumulado desde la primera observación, variación de la última observación, volatilidad por observación, expansión de volatilidad, drawdown máximo de la serie, medias móviles y puntuaciones de impulso.
-- Determinismo: con los mismos precios y los mismos parámetros, la clasificación y sus métricas financieras son reproducibles.
-- Persistencia: el estado se guarda en `~/.local/state/chalamandra/catedralx/hormonas.json` por defecto, fuera de este repositorio. Puede cambiarse mediante `CATEDRALX_STATE_PATH`, que no debe apuntar dentro del checkout.
+- recibe series cronológicas de precios observados y valida su integridad;
+- calcula métricas de rendimiento, volatilidad, drawdown, medias móviles e impulso;
+- clasifica escenarios mediante reglas deterministas y devuelve etiquetas analíticas `buy`, `sell` o `hold`;
+- aplica condiciones de protección que pueden bloquear una señal direccional;
+- conserva estado y registros de evaluación fuera del checkout del repositorio;
+- permite evaluar predicciones posteriormente mediante observaciones reales y métricas estadísticas.
 
-`signal_strength` está acotada entre 0 y 1 y es una **fuerza heurística, no una probabilidad de acierto**. `buy`, `sell` y `hold` son etiquetas de análisis, no órdenes ni recomendaciones para operar. El motor marca `trading_enabled=false`, `orders_created=false` y `orders_executed=false`.
+Los subsistemas de análisis complementarios —incluidos Hurst, geometría, energía libre y giro— forman parte del contexto analítico del proyecto. Su presencia no implica que cada uno determine por sí solo la clasificación financiera final.
 
-## EUR/USD y datos de mercado
+## Qué no hace
 
-La integración opcional de `agents` (`pipeline/fx_market_data.py`) consulta la API pública de Frankfurter para tipos de cambio de referencia diarios. La frecuencia se identifica como `daily_reference` y no debe confundirse con cotización intradía o datos tick-by-tick. El conector comprueba el par, la forma de la respuesta, valores válidos, cantidad mínima de observaciones y antigüedad del último dato.
+CatedralX no crea precios sintéticos para completar datos faltantes, no convierte una puntuación heurística en una probabilidad de acierto y no crea ni ejecuta órdenes.
 
-El puente se registra en `agents` como `catedralx_reasoning`. Configuración relevante: `CATEDRALX_PATH` apunta a este checkout y `CATEDRALX_STATE_PATH` a un archivo de estado externo. Ninguna de estas rutas habilita ejecución de órdenes.
+Las etiquetas `buy`, `sell` y `hold` son resultados de análisis, no recomendaciones de inversión. La implementación actual no está validada para trading real ni debe conectarse a una cuenta como sistema de producción.
 
-## Pruebas
+## Arquitectura del repositorio
 
-Desde el directorio raíz, instala el conjunto bloqueado de dependencias y ejecuta la prueba dirigida:
+El código ejecutable y los componentes del sistema se mantienen separados de la documentación:
+
+- `elite/`: subsistemas y lógica principal.
+- `elite/contracts/`: contratos y esquemas consumidos por el sistema.
+- `BIN/`: punto de entrada de línea de comandos.
+- `tests/`: pruebas automatizadas.
+- `.github/workflows/`: automatización de integración continua.
+- `docs/`: documentación técnica, arquitectura, decisiones y guías.
+- `Dockerfile`: definición de la imagen CLI.
+
+Los archivos de configuración y dependencias se encuentran en la raíz del repositorio.
+
+## Requisitos
+
+- Python 3.12 o superior.
+- Dependencias de runtime declaradas en `requirements.txt`.
+- Versiones exactas de dependencias registradas en los archivos lock del proyecto.
+
+## Inicio rápido
+
+Desde la raíz del repositorio:
 
 ```bash
-python -m pip install -r requirements.lock
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=elite python -m pytest -q -p no:cacheprovider tests/test_financial_engine.py
+python -m pip install -r requirements-lock.txt
+./BIN/catedral status
 ```
 
-La CI instala `requirements.lock`, ejecuta la suite completa y construye/prueba la imagen CLI. `requirements.txt` declara rangos de runtime; `requirements-runtime.lock` fija el runtime mínimo de la imagen; `requirements.lock` fija el entorno completo de CI y pruebas.
+Para ejecutar las pruebas:
 
-La suite cubre tendencias ascendentes y descendentes, mercado plano, bloqueo por expansión de volatilidad, entradas inválidas, reproducibilidad del ciclo público, persistencia fuera del código fuente y la prohibición de fabricar precios.
+```bash
+python -m pip install -e ".[test]"
+PYTHONDONTWRITEBYTECODE=1 python -m pytest -q
+```
 
-## Pendiente antes de cualquier uso operativo
+La imagen Docker está diseñada para ejecutar la CLI en modo puntual; no representa un servicio HTTP persistente.
 
-Esta versión **no está validada para trading real**. Todavía requiere backtesting histórico con fechas y costes reales, validación fuera de muestra, comparación contra benchmarks, pruebas de estabilidad, límites de pérdida y exposición definidos con contexto de cartera, comisiones/spread/deslizamiento, dimensionamiento de posiciones, gestión de fallos de datos y auditoría. No contiene un ejecutor de órdenes ni debe conectarse a una cuenta de trading como si fuera un sistema listo para producción.
+## Datos y persistencia
 
-## Retroalimentación estadística offline
+El estado operativo y los registros de retroalimentación se almacenan por defecto bajo:
 
-Cada ejecución válida de elite/REASON/razon.py registra una predicción con un prediction_id único, el precio de referencia y el timestamp de mercado observado. El ID aparece en la salida JSON y sirve para asociar los resultados posteriores.
+```text
+~/.local/state/chalamandra/catedralx/
+```
 
-Flujo manual y verificable:
+Las rutas pueden configurarse mediante variables de entorno específicas. Los datos de estado no deben guardarse dentro del checkout del repositorio.
 
-1. Obtener una observación fresca: python elite/bin/feed_once.py.
-2. Ejecutar un análisis de una sola vez: python elite/REASON/razon.py. Conserva el prediction_id de la salida JSON.
-3. Cuando venza el horizonte, obtener una observación nueva con python elite/bin/feed_once.py.
-4. Etiquetar el resultado observado, por ejemplo: python elite/bin/feedback_label.py ID_DE_PREDICCION --horizon 5m. Horizontes disponibles: 1m, 5m, 15m y 1h.
-5. Consultar las estadísticas: python elite/bin/feedback_report.py.
+## Estado y límites de validación
 
-El etiquetador usa el precio y timestamp del snapshot real, calcula el rendimiento desde el precio de referencia de la predicción y asigna una clase ex post: buy si el retorno alcanza o supera +0.05%, sell si cae hasta -0.05% o menos, y hold entre ambos umbrales. Este umbral es una convención de evaluación, no una recomendación de compra o venta; puede cambiarse mediante --neutral-threshold-pct. Se permite una etiqueta por predicción y horizonte. Las observaciones demasiado tempranas, demasiado tardías o caducadas se rechazan.
+El proyecto se encuentra en desarrollo. La reproducibilidad de las reglas y la existencia de pruebas automatizadas no equivalen a demostrar rentabilidad ni aptitud para operar capital real.
 
-El informe calcula predicciones identificadas y pendientes, exactitud por horizonte, matriz de confusión, precisión y recall por clase, y métricas por régimen. El retorno alineado excluye hold y no incluye comisiones, spread, deslizamiento, dimensionamiento de posición ni contexto de cartera: no representa P&L de una estrategia ni demuestra ventaja predictiva. signal_strength sigue siendo una fuerza heurística, no una probabilidad, por lo que no se calculan métricas de calibración probabilística.
+Antes de cualquier uso operativo se requiere, como mínimo, backtesting con datos históricos y costes realistas, validación fuera de muestra, comparación con benchmarks, análisis de estabilidad, límites de riesgo y auditoría independiente.
 
-El historial append-only se guarda por defecto en ~/.local/state/chalamandra/catedralx/feedback.jsonl; puede redirigirse mediante CATEDRALX_FEEDBACK_PATH. El reporte es de solo lectura. No hay reentrenamiento automático ni ejecución de órdenes. El etiquetado requiere una acción explícita tras observar cada horizonte; esta versión no incluye un programador o servicio de etiquetado continuo. Las predicciones históricas sin ID se contabilizan como registros heredados no vinculables y no se pueden puntuar retrospectivamente mediante este esquema.
-
-
-## Retroalimentación directa del usuario
-
-Además de la evaluación offline de predicciones y precios observados, CatedralX dispone de un ledger separado para comentarios sobre utilidad, claridad y corrección de un resultado. Registra un rating de 1 a 5, evaluación, motivo opcional, siguiente paso preferido y un vínculo a result_id o cycle_id. No captura identidad personal y no cambia automáticamente la política ni reentrena el motor.
-
-Para registrar:
-
-    ./BIN/catedral user-feedback --result-id RESULT_ID --rating 4 --assessment useful
-
-Para consultar el agregado de solo lectura:
-
-    ./BIN/catedral user-feedback --report
-
-La ruta por defecto es ~/.local/state/chalamandra/catedralx/user_feedback.jsonl. Se puede definir CATEDRALX_USER_FEEDBACK_PATH. No ingreses secretos ni datos personales en la corrección opcional. La integración del formulario/API externo debe implementarse y verificarse en el repositorio de Agents/producto.
-
-Diseño mecánico, depuración y retroalimentación: [arquitectura mecánica](docs/ARQUITECTURA_MECANICA_RETROALIMENTACION.md). Para el estado de implementación consulta [ESTADO_PRODUCCION.md](docs/ESTADO_PRODUCCION.md); para responsabilidades y límites consulta [ARQUITECTURA_OBJETIVO.md](docs/ARQUITECTURA_OBJETIVO.md); para los contratos consulta [docs/contracts/README.md](docs/contracts/README.md).
+Consulta `docs/` para la documentación técnica disponible y vigente.

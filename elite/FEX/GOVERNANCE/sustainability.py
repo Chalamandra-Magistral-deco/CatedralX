@@ -72,8 +72,6 @@ def _firma_evidencia(report: dict[str, Any]) -> str:
         payload["key_id"] = key_id
         key = _fex_evidence_key(key_id)
     else:
-        # Preserve validation of pre-keyring reports during the migration window.
-        # Keep the pre-H3 canonical payload byte-for-byte compatible.
         key = _fex_evidence_key()
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
     return hmac.new(key, canonical, hashlib.sha256).hexdigest()
@@ -94,8 +92,6 @@ def verificar_integridad_evidencia(report: Any) -> bool:
             expected_signature = _firma_evidencia(report)
             return hmac.compare_digest(signature, expected_signature)
 
-        # Legacy evidence predates key IDs. During the overlap window, accept
-        # its old canonical signature only if one configured trusted key matches.
         _, keys = _fex_evidence_keyring()
         canonical = json.dumps(
             {"evidence_hash": expected_hash},
@@ -210,7 +206,6 @@ def evaluar_restricciones_sostenibilidad(
         "crecimiento_permitido": not fallos,
         "ejecucion_financiera_autorizada": False,
         "mantenimiento_requerido": mantenimiento_requerido,
-        # Canonical normalized evidence consumed by DSX; not an execution grant.
         "metricas": {
             "reinvestment_surplus": b,
             "entropy_time_scale": t,
@@ -224,14 +219,12 @@ def evaluar_restricciones_sostenibilidad(
             "minimum_resilience": resilience_min,
         },
     }
-    # Mark the signing key so DSX can verify with an overlap key during rotation.
     try:
         active_key_id, _ = _fex_evidence_keyring()
         result["evidence_key_id"] = active_key_id
     except PermissionError:
         result["evidence_key_id"] = None
     result["evidence_hash"] = hash_evidencia_sostenibilidad(result)
-    # No valid key means no authenticated report; DSX will reject it.
     try:
         result["evidence_signature"] = _firma_evidencia(result)
     except PermissionError:
