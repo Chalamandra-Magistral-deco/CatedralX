@@ -57,8 +57,13 @@ def test_store_appends_and_verifies_hash_chain(tmp_path):
     report = verify_result_store(path)
     assert report["valid"] is True
     assert report["record_count"] == 2
-    assert get_result(first["result_id"], path)["store_integrity"]["sequence"] == 1
-    assert get_result(second["result_id"], path)["store_integrity"]["sequence"] == 2
+    # Formato resuelto (PR #40 vs main): envelope con cadena de hashes; la
+    # secuencia vive en store_integrity del envelope, no en el registro.
+    assert get_result(first["result_id"], path) == first
+    assert get_result(second["result_id"], path) == second
+    envelopes = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    assert envelopes[0]["store_integrity"]["sequence"] == 1
+    assert envelopes[1]["store_integrity"]["sequence"] == 2
 
 
 def test_store_detects_modified_contract_field(tmp_path):
@@ -66,7 +71,8 @@ def test_store_detects_modified_contract_field(tmp_path):
     record = _record()
     append_result(record, path)
     stored = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
-    stored["decision"] = "buy"
+    # El registro vive bajo "record" en el envelope resuelto.
+    stored["record"]["decision"] = "buy"
     path.write_text(json.dumps(stored) + "\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match="contract_hash"):
@@ -81,7 +87,7 @@ def test_store_detects_deleted_or_reordered_history(tmp_path):
     lines = path.read_text(encoding="utf-8").splitlines()
     path.write_text(lines[1] + "\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="discontinuo"):
+    with pytest.raises(ValueError, match="discontinua"):
         verify_result_store(path)
 
 
@@ -95,7 +101,7 @@ def test_store_does_not_silently_skip_malformed_json(tmp_path):
 def test_store_rejects_unmigrated_legacy_history(tmp_path):
     path = tmp_path / "results.jsonl"
     path.write_text(json.dumps({"result_id": "legacy"}) + "\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="historial legado"):
+    with pytest.raises(ValueError, match="legado/no migrado"):
         append_result(_record(), path)
 
 
@@ -106,5 +112,5 @@ def test_store_rejects_tampered_record_chain_hash(tmp_path):
     stored = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
     stored["store_integrity"]["record_hash"] = "0" * 64
     path.write_text(json.dumps(stored) + "\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="hash de cadena"):
+    with pytest.raises(ValueError, match="Hash de cadena"):
         verify_result_store(path)
