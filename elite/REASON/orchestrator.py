@@ -484,19 +484,20 @@ def execute_cycle(
     # same DecisionResult consumed by the append-only result store.
     from MSX.provenance import aggregate_cycle, build_provenance
 
+    energy_inputs = {
+        "cycle_id": identifier,
+        "trace_id": trace_identifier,
+        "transaction_id": energy_receipt.transaction_id,
+        "reservoir": energy_receipt.reservoir,
+        "credits_spent": energy_receipt.amount,
+        "ledger_sequence": energy_ledger_record["sequence"],
+        "ledger_record_hash": energy_ledger_record["record_hash"],
+    }
     energy_record = build_provenance(
         "resource_budget_authorization",
         "DSX",
         "1",
-        {
-            "cycle_id": identifier,
-            "trace_id": trace_identifier,
-            "transaction_id": energy_receipt.transaction_id,
-            "reservoir": energy_receipt.reservoir,
-            "credits_spent": energy_receipt.amount,
-            "ledger_sequence": energy_ledger_record["sequence"],
-            "ledger_record_hash": energy_ledger_record["record_hash"],
-        },
+        energy_inputs,
         output={
             "authorized": True,
             "operational_balance": energy_receipt.balance,
@@ -506,31 +507,33 @@ def execute_cycle(
         vector="DSX",
         status="authorized",
     )
+    sensory_inputs = {
+        "cycle_id": identifier,
+        "trace_id": trace_identifier,
+        "price_count": len(sensory_data.precio_historico),
+        "current_price": float(sensory_data.precio_actual),
+        "gap": float(sensory_data.gap),
+        "inertia": float(sensory_data.inercia),
+    }
     sensory_record = build_provenance(
         "sensory_observation",
         "PERCEIVE",
         "1",
-        {
-            "cycle_id": identifier,
-            "trace_id": trace_identifier,
-            "price_count": len(sensory_data.precio_historico),
-            "current_price": float(sensory_data.precio_actual),
-            "gap": float(sensory_data.gap),
-            "inertia": float(sensory_data.inercia),
-        },
+        sensory_inputs,
         output={"accepted_for_reasoning": True},
         vector="RSX",
         status="observed",
     )
+    reasoning_inputs = {
+        "cycle_id": identifier,
+        "trace_id": trace_identifier,
+        "sensory_record_id": sensory_record["id"],
+    }
     reasoning_record = build_provenance(
         "reasoning_result",
         "REASON",
         "1",
-        {
-            "cycle_id": identifier,
-            "trace_id": trace_identifier,
-            "sensory_record_id": sensory_record["id"],
-        },
+        reasoning_inputs,
         output={
             "decision": state.decision,
             "free_energy": float(state.free_energy),
@@ -546,15 +549,16 @@ def execute_cycle(
     policy = cognitive.get("operational_policy", {})
     if not isinstance(policy, dict):
         policy = {}
+    dsx_inputs = {
+        "cycle_id": identifier,
+        "trace_id": trace_identifier,
+        "reasoning_record_id": reasoning_record["id"],
+    }
     dsx_record = build_provenance(
         "safety_regulation",
         "DSX",
         "1",
-        {
-            "cycle_id": identifier,
-            "trace_id": trace_identifier,
-            "reasoning_record_id": reasoning_record["id"],
-        },
+        dsx_inputs,
         output={
             "hard_block": bool(policy.get("hard_block", True)),
             "execution_handoff": policy.get("execution_handoff", {
@@ -582,7 +586,16 @@ def execute_cycle(
         "ledger_record_hash": energy_ledger_record["record_hash"],
     }
     cognitive["provenance"] = records
-    cognitive["cycle_trace"] = aggregate_cycle(identifier, records)
+    cognitive["cycle_trace"] = aggregate_cycle(
+        identifier,
+        records,
+        original_inputs={
+            energy_record["id"]: energy_inputs,
+            sensory_record["id"]: sensory_inputs,
+            reasoning_record["id"]: reasoning_inputs,
+            dsx_record["id"]: dsx_inputs,
+        },
+    )
     state.cognicion = cognitive
     return state
 

@@ -33,7 +33,7 @@ def build_cognitive_report(
     error_slope: float | None = None,
     input_evidence: Any = None,
 ) -> dict[str, Any]:
-    """Compose evidence from distinct vectors without transferring their ownership."""
+    """Compose diagnostics and close a verifiable provenance manifest when cycle-bound."""
     signals = list(signals)
     coherence = pairwise_coherence(signals)
     counter = counterevidence(decision, signals)
@@ -46,27 +46,68 @@ def build_cognitive_report(
         error_slope=error_slope,
     )
     cycle_id = input_evidence.get("cycle_id") if isinstance(input_evidence, dict) else None
-    provenance = build_provenance(
-        "cognitive_report", "elite.REASON.cognitive_state", SCHEMA_VERSION,
-        input_evidence if input_evidence is not None else {"decision": decision, "signals": signals},
-        output={"coherence_status": coherence["evidence_status"]},
-        status="computed_with_gaps", vector="SCX", parent=cycle_id,
+    cognitive_inputs = (
+        input_evidence
+        if input_evidence is not None
+        else {"decision": decision, "signals": signals}
     )
+    provenance = build_provenance(
+        "cognitive_report",
+        "elite.REASON.cognitive_state",
+        SCHEMA_VERSION,
+        cognitive_inputs,
+        output={"coherence_status": coherence["evidence_status"]},
+        status="computed_with_gaps",
+        vector="SCX",
+        parent=cycle_id,
+    )
+
     source_records = {}
+    source_inputs_by_id: dict[str, Any] = {}
     for signal in signals:
         source_name = str(signal.get("name", "unknown"))
-        source_records[source_name] = build_provenance(
-            source_name, str(signal.get("module", "caller_supplied_signal")),
+        source_inputs = {
+            "direction": signal.get("direction"),
+            "confidence": signal.get("confidence"),
+            "confidence_kind": signal.get("confidence_kind"),
+        }
+        source_record = build_provenance(
+            source_name,
+            str(signal.get("module", "caller_supplied_signal")),
             str(signal.get("version", "unknown")),
-            {"direction": signal.get("direction"), "confidence": signal.get("confidence"),
-             "confidence_kind": signal.get("confidence_kind")},
-            output={"direction": signal.get("direction"), "confidence_kind": signal.get("confidence_kind")},
-            confidence=signal.get("confidence"), status="observed_heuristic_not_calibrated",
-            vector="RSX" if source_name.lower().startswith(("sensor", "perceiv", "market_data")) else "SCX",
+            source_inputs,
+            output={
+                "direction": signal.get("direction"),
+                "confidence_kind": signal.get("confidence_kind"),
+            },
+            confidence=signal.get("confidence"),
+            status="observed_heuristic_not_calibrated",
+            vector=(
+                "RSX"
+                if source_name.lower().startswith(("sensor", "perceiv", "market_data"))
+                else "SCX"
+            ),
             parent=cycle_id,
         )
+        source_records[source_name] = source_record
+        source_inputs_by_id[source_record["id"]] = source_inputs
+
     records = [provenance, *source_records.values()]
-    cycle_trace = aggregate_cycle(str(cycle_id), records) if cycle_id else None
+    cycle_trace = None
+    if cycle_id:
+        original_inputs = {
+            provenance["id"]: cognitive_inputs,
+            **{
+                record["id"]: source_inputs_by_id[record["id"]]
+                for record in source_records.values()
+            },
+        }
+        cycle_trace = aggregate_cycle(
+            str(cycle_id),
+            records,
+            original_inputs=original_inputs,
+        )
+
     return {
         "schema_version": SCHEMA_VERSION,
         "decision": decision,
@@ -75,9 +116,15 @@ def build_cognitive_report(
         "metacognicion": meta,
         "contexto": regime_context(regime_history),
         "memoria": resumir_memoria_decisiones(list(decision_history)),
-        "provenance": {"cognitive_report": provenance, "sources": source_records, "cycle_trace": cycle_trace},
+        "provenance": {
+            "cognitive_report": provenance,
+            "sources": source_records,
+            "cycle_trace": cycle_trace,
+        },
         "operational_policy": {
-            "trading_enabled": False, "orders_created": False, "orders_executed": False,
+            "trading_enabled": False,
+            "orders_created": False,
+            "orders_executed": False,
             "status": "analysis_only",
         },
     }
