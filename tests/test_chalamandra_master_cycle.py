@@ -89,7 +89,7 @@ def test_explicit_observed_at_makes_core_and_msx_trace_reproducible():
     assert first["diagnostics"]["trace"] == second["diagnostics"]["trace"]
     assert first["diagnostics"]["trace"]["record_count"] == 4
     assert any(
-        item["module"] == "REASON.core_contract.build_cycle"
+        item["modulo"] == "REASON.core_contract.build_cycle"
         for item in first["diagnostics"]["trace"]["records"]
     )
 
