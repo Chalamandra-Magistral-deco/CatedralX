@@ -180,7 +180,7 @@ class Orchestrator:
             realidad_gap=abs(gap),
             inercia_observada=inertia,
             retorno_actual=retorno,
-            coherencia_previa=max(0.0, 1.0 - self.ultimo_fe / 20.0),
+            coherencia_previa=free_energy.coherencia_desde_energia_previa(self.ultimo_fe),
         )
         self.ultimo_fe = fe
 
