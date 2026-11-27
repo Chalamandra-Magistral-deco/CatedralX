@@ -10,11 +10,12 @@ from .snapshot_signing import gap_inertia_in_range
 
 def validate_price_history(values: Any, minimum: int = 30) -> list[float]:
     """Return observed prices as finite positive floats; never synthesize history."""
+    if isinstance(minimum, bool) or not isinstance(minimum, int) or minimum < 1:
+        raise ValueError("minimum must be a positive integer")
     if not isinstance(values, (list, tuple)):
         raise ValueError("price history must be a list or tuple of observed prices")
     if len(values) < minimum:
-        raise ValueError(f"at least {minimum} observed prices are required")
-
+        raise ValueError(f"at least {minimum} observed prices are required; received {len(values)}")
     result: list[float] = []
     for index, value in enumerate(values):
         if isinstance(value, bool):
@@ -98,7 +99,7 @@ def normalize_market_payload(payload: dict[str, Any]) -> dict[str, Any]:
         if not math.isfinite(current) or current <= 0:
             raise ValueError("precio must be positive and finite")
 
-    if prices[-1] != current:
+    if not math.isclose(prices[-1], current, rel_tol=1e-12, abs_tol=0.0):
         prices.append(current)
 
     observed_at = _validate_observed_at(
