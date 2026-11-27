@@ -2,8 +2,8 @@
 
 > Inventario estático de llamadas, estado persistente y protección por pruebas.  
 > Repositorio: `Chalamandra-Magistral-deco/CatedralX`  
-> Rama inspeccionada: `fix/perceive-contract-hardening-20261122`  
-> Commit base inspeccionado: `e2faa3d16b1e0c6489480d55d348e387e8a8685e`  
+> Rama documental actualizada: `work` (CatedralX).  
+> Snapshot de referencia del inventario: `62c0214d63f24cc1f5d3670e703baa70c64f2315` (main, 2026-11-23).  
 > Alcance: código Python bajo `elite/`, entrypoints `elite/bin/` y pruebas bajo `tests/`.  
 > Naturaleza de la evidencia: lectura estática de fuentes y tests; no equivale a telemetría de runtime ni a ejecución de CI.
 
@@ -221,3 +221,181 @@ El árbol del commit contiene **37 archivos Python bajo `tests/`**:
 - Pruebas: `tests/` en el mismo commit.
 - Contrato de arquitectura: [CONTRATO_ARQUITECTONICO.md](./CONTRATO_ARQUITECTONICO.md).
 - Mapa sagrado: [MAPA_SAGRADO.md](./MAPA_SAGRADO.md).
+
+
+## 7. Membrana API empresarial: frontera CatedralX ↔ Agents
+
+**Definición arquitectónica:** la Membrana API no es un octavo subsistema de CatedralX ni un repositorio comercial separado. Es la frontera contractual de integración expuesta por la API de Agents. CatedralX conserva la autoridad de razonamiento y producción de resultados; Agents aloja la entrada HTTP, la cola/worker, la coordinación y los mecanismos de publicación y aceptación.
+
+### 7.1 Topología comprobada en código
+
+```mermaid
+flowchart TD
+  CLIENTE["Producto / consumidor autorizado"] -->|"HTTPS/HTTP API + JWT y scope"| API["Agents · api/server.py<br/>Membrana API"]
+  API -->|"contrato validado + trace_id"| BUS["Agents · TaskBus SQLite/WAL"]
+  BUS -->|"lease + heartbeat"| WORKER["Agents · api/worker_loop.py"]
+  WORKER -->|"subproceso BIN/catedral<br/>CATEDRALX_PATH"| CX["CatedralX · BIN/catedral"]
+  CX -->|"DecisionResult / evaluación + evidencia"| WORKER
+  WORKER --> CAND["Candidate Store + outbox"]
+  CAND --> VERIFY["Verificador independiente"]
+  VERIFY -->|"dictamen firmado Ed25519"| ACCEPT["Acceptance Store"]
+  ACCEPT -->|"solo tras aceptación"| CONSUMER["GET resultado / distribución autorizada"]
+```
+
+### 7.2 Responsabilidades y controles
+
+| Frontera | Implementación identificada | Garantía / límite |
+|---|---|---|
+| Entrada HTTP | `api/server.py` | Rutas explícitas; límite de cuerpo 64 KiB; sin shell arbitraria ni CORS; JWT Bearer y scopes por operación. |
+| Contrato de tarea | `api/task_contracts.py` | Valida tipos de tarea y payloads; evaluación de oportunidad exige evidencia, referencias, escenarios y `trace_id`; datos de mercado requieren attestation verificable. |
+| Cola | `api/task_bus.py` | TaskBus persistente SQLite/WAL con leases y estados; no es un bus universal de eventos distribuido. |
+| Worker | `api/worker_loop.py` | Consume tareas con lease/heartbeat y ejecuta CatedralX como subproceso usando `BIN/catedral`; conserva y valida traza, snapshot y hash de evaluación. |
+| Resultado candidato | `api/candidate_store.py` y stores relacionados | Persistencia append-only e integridad HMAC del candidato; publicar candidato no equivale a aceptación independiente. |
+| Aceptación | `api/acceptance_store.py` y verificador independiente | La aceptación requiere dictamen separado y firma Ed25519; no se infiere del despacho ni de la publicación. |
+| Retorno | rutas de resultados de `api/server.py` | El resultado no se entrega como aceptado hasta completar el estado de aceptación correspondiente. |
+
+### 7.3 Tres flujos empresariales
+
+1. **Normal:** producto/usuario autorizado → Membrana API de Agents → TaskBus → worker → CatedralX → resultado candidato y evidencia.
+2. **Inverso:** candidato publicado → verificador independiente → aceptación firmada → consulta/entrega o distribución autorizada.
+3. **Invertido:** condición o evento autorizado → despachador de CatedralX → Membrana API de Agents → TaskBus/worker → CatedralX → evidencia y verificación. El adaptador de despacho es opt-in; el flujo no se presume activo por existir el código.
+
+### 7.4 Invariantes que no deben colapsarse
+
+- `dispatch_accepted` ≠ `execution_completed` ≠ `candidate_published` ≠ `independent_acceptance`.
+- `trace_id` identifica la traza; `cycle_id` es identificador de negocio y no la sustituye.
+- El JWT de servicio autentica el despacho; la firma Ed25519 autentica el dictamen de aceptación. Son mecanismos y propósitos distintos.
+- La Membrana puede autenticar, autorizar, validar contratos, limitar y enrutar; no reemplaza el razonamiento de CatedralX ni sus invariantes de dominio.
+- Los productos consumen capacidades a través de Agents/Membrana API; no reciben acceso directo al motor interno de CatedralX.
+- No se debe presentar esta topología de código como runtime activo. La evidencia inspeccionada es estática y de pruebas aisladas; no se hizo una llamada real entre servicios en esta actualización.
+
+### 7.5 Criterio externo de diseño
+
+La guía NIST SP 800-228 (API Protection for Cloud-Native Systems) recomienda autorización granular por identidad de servicio/usuario, validación de solicitudes y respuestas contra esquema, y orden de autenticación → autorización → validación de negocio. Se usa como criterio de revisión, no como prueba de que cada control esté desplegado:
+- https://csrc.nist.gov/pubs/sp/800/228/upd1/final
+- https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-228-upd1.pdf
+
+**Estado de evidencia:** código de API/contratos/worker y pruebas de integración aisladas identificados; runtime entre repositorios no verificado en esta actualización.
+
+
+## 9. Protocolo transversal de auditoría: evidencia, capas y permisos
+
+**Propósito:** convertir el ranking de inspección en un procedimiento reproducible. La auditoría debe descubrir qué puede demostrar cada capa y qué puede ocultar de las capas inferiores. Una capa superior saludable no acredita automáticamente la salud de sus dependencias.
+
+### 9.1 Reglas de evidencia
+
+- Registrar para cada observación: repositorio, rama, commit SHA, fecha/hora, entorno, comando exacto, resultado/artefacto y alcance.
+- Distinguir **existencia**, **configuración**, **invocación**, **resultado de prueba** y **actividad real en runtime**. Ninguna sustituye a las demás.
+- Comparar cambios contra una línea base previa, identificada por SHA y medición. Si no existe línea base previa, declararlo y establecer una nueva antes de optimizar; no reconstruirla retrospectivamente.
+- No optimizar aquello que no se ha medido. Un test verde no cuantifica latencia, consumo, fiabilidad ni mejora.
+- La observabilidad es parcial: declarar estados no instrumentados, rutas opcionales, efectos externos y sesgos de muestreo.
+- La disponibilidad de una herramienta no determina la importancia de la capa. Evitar el **sesgo de la mano**: inspeccionar una capa con más detalle solo porque allí existen mejores herramientas no debe convertirla en la capa de mayor prioridad.
+- Una medición puede alterar el sistema observado. Inspección estática, lectura de telemetría existente y experimentos activos deben etiquetarse por separado.
+
+### 9.2 Orden de inspección por capas
+
+El orden es un procedimiento de reducción de incertidumbre, no un ranking de valor ni una afirmación de que una capa sea más importante que otra.
+
+| Orden | Capa / pregunta | Evidencia y comandos de lectura | Criterio de aceptación | Señal de alerta |
+|---|---|---|---|---|
+| 1 | Identidad del artefacto: ¿qué código y configuración se están evaluando? | `git status --porcelain`; `git log -1 --format='%H %cI %s'`; `git branch --show-current`; `git diff --stat`; inventario de archivos y manifiestos | SHA, rama, cambios locales y entorno identificados; evidencia ligada a un artefacto inmutable | SHA desconocido, árbol sucio no declarado, artefactos mezclados o evidencia de otro commit |
+| 2 | Perímetro y transporte: ¿qué entradas y salidas están expuestas? | Inspección de rutas, proxy, configuración TLS, límites de cuerpo, redirects y dependencias de red; lectura de manifiestos y configuración | Superficies expuestas enumeradas; límites y destinos explícitos; ninguna ruta sensible inferida solo por documentación | Rutas no inventariadas, redirects inesperados, exposición administrativa o límites ausentes |
+| 3 | Identidad, autenticación y autorización: ¿quién puede hacer qué? | Inspección de middleware, validadores JWT/firma, scopes, audiencias, subjects, políticas y pruebas negativas | Mínimo privilegio; identidad, acción y recurso comprobados; rechazo por defecto ante credenciales/scope inválidos | Token aceptado fuera de audiencia, scope excesivo, autorización solo en cliente o identidad ambigua |
+| 4 | Contratos y datos: ¿qué se acepta, transforma y devuelve? | Esquemas, validadores, serialización canónica, hashes, versionado, validación request/response y fixtures | Contratos versionados y validación en ambas direcciones; invariantes y compatibilidad demostradas con pruebas | Campos obligatorios omitidos, coerciones silenciosas, hash sobre serialización no canónica o deriva entre productores y consumidores |
+| 5 | Orquestación y colas: ¿qué tarea se programa y qué estado alcanza? | Lectura de estados, leases, heartbeats, reintentos, idempotencia, timeouts, dead-letter y límites de concurrencia | Transiciones explícitas, idempotencia y recuperación acotada; estados no colapsados | Reintentos infinitos, leases huérfanos, doble despacho o aceptación inferida de un HTTP 202 |
+| 6 | Ejecución y dependencias: ¿qué proceso ejecuta realmente el trabajo? | Entry points, subprocess/HTTP calls, versiones, imágenes, digest, permisos del proceso y pruebas de integración | Ejecutable y dependencias fijados; llamadas y efectos secundarios delimitados; evidencia de prueba atribuida al SHA correcto | Importación confundida con invocación, dependencia flotante o proceso externo no inventariado |
+| 7 | Estado y persistencia: ¿quién escribe, quién lee y cómo se recupera? | Inventario de stores, rutas, locks, WAL, fsync, retención, migraciones, backups y lectores/escritores | Propietario, esquema, concurrencia, integridad y recuperación documentados; registros separados por propósito | Escritores múltiples sin coordinación, truncamiento no detectado, migración destructiva o ledger confundido con otro |
+| 8 | Runtime y observabilidad: ¿qué ocurrió efectivamente? | Solo telemetría/logs/trazas ya disponibles, health/readiness y métricas existentes; correlación por trace_id y ventana temporal | Evento correlacionado con entorno, versión, timestamp y resultado; huecos de telemetría declarados | Métricas sin procedencia, trazas parciales, reloj desalineado o salud inferida desde un test aislado |
+| 9 | Resultado de negocio y aceptación independiente: ¿qué se entregó y quién lo aceptó? | Registros de candidato, verificador, dictamen firmado, entrega, feedback y conciliación de resultados | Separación verificable entre despacho, ejecución, publicación, aceptación y entrega; aceptación ligada al artefacto exacto | Éxito técnico tratado como valor de negocio o aceptación derivada de quien produjo el candidato |
+
+**Regla de lectura:** una capa superior puede ocultar fallos de una inferior (por ejemplo, una API saludable con worker detenido, o un worker sano con un contrato incompatible). Por eso, cada capa debe tener evidencia propia y sus dependencias deben verificarse hacia abajo; no basta con que el primer health check responda.
+
+### 9.3 Permisos: identidad, alcance, tiempo y volumen
+
+#### 9.3.1 Doble identidad en la Membrana API
+
+La autorización de una llamada debe distinguir, cuando ambas identidades existan:
+
+- **Principal consumidor:** usuario, organización o producto en cuyo nombre se solicita la operación.
+- **Principal de servicio/workload:** aplicación o servicio que transporta y ejecuta técnicamente la llamada.
+
+La Membrana debe autenticar el principal de servicio y, cuando el flujo represente a un usuario o producto, conservar y validar también el principal consumidor. La identidad del servicio no sustituye ni amplía los permisos del consumidor.
+
+La decisión de autorización debe vincular explícitamente:
+`principal_consumidor` (si aplica), `principal_servicio`, `audience`, `scope/action`, `resource/tenant`, vigencia y límites de consumo. Debe rechazarse por defecto una combinación no autorizada. No confiar en identidad, tenant, scope o claims enviados únicamente en cabeceras o payloads sin validación criptográfica y de política en el servidor.
+
+Para llamadas servicio-a-servicio sin usuario final, declarar explícitamente ese contexto y autorizar el workload por audiencia, acción y recurso; no inventar un principal de usuario. Para operaciones delegadas, registrar quién delega, a quién, para qué recurso y durante qué vigencia.
+
+**Criterio de aceptación:** pruebas positivas y negativas demuestran que (a) un servicio autenticado no puede actuar fuera de sus scopes/recursos; (b) un consumidor no puede elevar privilegios mediante un servicio intermediario; (c) tokens con audiencia incorrecta, expirados o con scope/recurso no permitido se rechazan; y (d) la decisión queda correlacionada con `trace_id` y el identificador de negocio correspondiente, sin confundirlos.
+
+**Señales de alerta:** identidad del consumidor perdida en el salto API→worker; autorización basada solo en el subject del servicio; token aceptado para otra audiencia; tenant tomado del payload sin vinculación al principal; o credenciales internas reutilizadas como autorización general para productos.
+
+**Aplicación al diseño Chalamandra:** Agents puede autenticarse como workload frente a la Membrana, pero esa identidad no concede acceso irrestricto a CatedralX. Cada producto consumidor conserva su frontera de autorización; CatedralX recibe únicamente solicitudes admitidas por el contrato de la Membrana.
+
+
+Cada permiso de ejecución o integración debe evaluarse en cuatro dimensiones independientes:
+
+1. **Quién:** identidad autenticada del usuario, servicio o workload.
+2. **Qué y sobre qué:** acción/scope y recurso, tenant, objeto o conjunto de datos permitido.
+3. **Cuándo:** vigencia, TTL, ventana temporal, expiración y condiciones de renovación.
+4. **Cuánto:** cuota acumulada por periodo, rate limit por intervalo corto, concurrencia máxima y límites de tamaño/coste.
+
+No intercambiar conceptos:
+- **TTL** limita la vigencia de una credencial o autorización.
+- **Rate limit** limita la frecuencia de solicitudes en una ventana corta para proteger capacidad y equidad.
+- **Cuota** limita el consumo acumulado durante un periodo más largo o un presupuesto.
+- **Concurrencia** limita el trabajo simultáneo; no queda resuelta por limitar solicitudes por minuto.
+
+Criterio de aceptación: los límites están asociados a identidad y recurso, se aplican en el servidor y producen rechazo/telemetría verificables. Señales de alerta: límites solo en frontend, tokens sin audiencia/expiración adecuada, cuota global que permite abuso por caller o reintentos que eluden el rate limit.
+
+### 9.4 Comandos de inspección y límites de lectura
+
+Los comandos deben adaptarse al stack y ejecutarse desde el repositorio/entorno declarado. Ejemplos de inspección local:
+
+```bash
+# Identidad Git y cambios locales
+git status --porcelain
+git log -1 --format='%H %cI %s'
+git branch --show-current
+git diff --stat
+
+# Inventario estructural y tamaño de archivos
+find . -maxdepth 3 -type f -not -path './.git/*' -print | sort
+wc -l $(git ls-files '*.py' '*.ts' '*.js' '*.go' '*.rs' 2>/dev/null)
+
+# Búsqueda estática de secretos potenciales (requiere revisión manual de falsos positivos)
+grep -RInE '(api[_-]?key|secret|password|token)[[:space:]]*[:=]' \
+  --exclude-dir=.git --exclude-dir=.venv .
+
+# Dependencias, CI y contenedores: leer archivos versionados, no reconstruir ni ejecutar
+git ls-files '*lock*' 'pyproject.toml' 'requirements*.txt' 'Dockerfile*' '.github/workflows/*'
+```
+
+- **Qué miden:** identidad del código, cambios no confirmados, estructura, tamaño, patrones sospechosos y manifiestos de dependencias/CI.
+- **Aceptación:** salida guardada o resumida junto al SHA y sin secretos expuestos en el informe.
+- **Alerta:** árbol sucio no explicado, dependencias sin fijar, secretos confirmados o archivos de configuración fuera del inventario.
+- **Límites:** `grep` no certifica ausencia de secretos; `wc` no mide complejidad; inspección de Dockerfile no prueba que la imagen construya; `git status` no detecta efectos externos ni estado de runtime.
+- **Lectura pura:** estos ejemplos no escriben deliberadamente en el repositorio. Algunos comandos de diagnóstico pueden crear cachés o archivos temporales; no incluirlos en una auditoría estrictamente no invasiva sin verificar su comportamiento. No usar `compileall`, instalaciones, builds, migraciones, tests que muten estado, profiling ni benchmarks como si fueran lectura pura.
+- **Privilegios:** no usar `sudo` por defecto. Si una fuente requiere privilegios, marcarlo y justificarlo; no elevar permisos solo para completar el checklist.
+
+### 9.5 Validación cuantitativa y efecto del observador
+
+Las pruebas funcionales, los benchmarks y el profiling son actividades distintas de la inspección estática. Requieren autorización y condiciones controladas cuando pueden consumir recursos, generar tráfico, escribir estado o afectar usuarios.
+
+Para una comparación cuantitativa:
+- Definir hipótesis, métrica, unidad, ventana, carga, entorno y criterio de reversión antes de ejecutar.
+- Usar la misma carga y configuración para línea base y candidato; registrar SHA, hardware, versión, warm-up y número de repeticiones.
+- Informar distribución (por ejemplo, p50/p95/p99), tamaño de muestra y variabilidad; no seleccionar solo la corrida favorable.
+- Separar coste de instrumentación del coste del sistema y declarar la perturbación potencial.
+- Si no existe línea base comparable, no afirmar mejora o regresión cuantificada.
+
+### 9.6 Referencias externas de diseño
+
+Estas fuentes sustentan criterios generales; no prueban que los controles estén implementados o activos en este repositorio:
+
+- NIST SP 800-228, *Guidelines for API Protection for Cloud-Native Systems*: controles de autenticación/autorización, validación, límites de consumo y protección de APIs. https://csrc.nist.gov/pubs/sp/800/228/upd1/final
+- RFC 9700, *Best Current Practice for OAuth 2.0 Security*: mínimo privilegio y restricción de tokens por audiencia, recurso y alcance. https://www.rfc-editor.org/rfc/rfc9700
+- NIST SP 800-92, *Guide to Computer Security Log Management*: gestión y análisis de registros de seguridad. https://csrc.nist.gov/pubs/sp/800/92/final
+- *Observer Effect and Measurement Bias in Performance Analysis*: la instrumentación y el contexto experimental pueden perturbar y sesgar mediciones. https://sape.inf.usi.ch/sites/default/files/publication/CU-CS-1042-08.pdf
+
+**Estado:** protocolo metodológico documentado. No es una auditoría ejecutada de todas las capas, no establece una línea base de rendimiento y no certifica el estado productivo. Toda conclusión posterior debe aportar evidencia propia por capa y por commit.
