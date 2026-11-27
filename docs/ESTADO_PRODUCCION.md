@@ -7,7 +7,7 @@
 > **Fuente canónica del código:** rama main de Chalamandra-Magistral-deco/CatedralX  
 > **Commit inspeccionado para el corte técnico:** f757a7cfa4e622a4bd6fc242d00408e1751c7e33
 
-> **Vigencia:** esta edición reorganiza y amplía la documentación disponible. No representa una nueva auditoría del repositorio ni una nueva ejecución de pruebas. Los resultados técnicos que siguen corresponden al commit inspeccionado y no deben atribuirse automáticamente al HEAD actual. Para arquitectura, contratos y estructura, consultar docs/ARQUITECTURA_OBJETIVO.md, docs/contracts/README.md y MAPA_SAGRADO.json. El índice documental mencionado en registros anteriores ya no existe en main y no se considera una referencia vigente.
+> **Vigencia:** esta edición reorganiza y amplía la documentación disponible. No representa una nueva auditoría del repositorio ni una nueva ejecución de pruebas. Los resultados técnicos que siguen corresponden al commit inspeccionado y no deben atribuirse automáticamente al HEAD actual. Para arquitectura y límites, consultar docs/CONTRATO_ARQUITECTONICO.md y docs/VALIDACION_DINAMICA_FRONTERAS.md; para dependencias y estructura, consultar docs/GRAFO_DEPENDENCIAS_VERIFICADO.md, docs/MAPA_SAGRADO.md y MAPA_SAGRADO.json. El contrato DecisionResult ↔ Acceptance se documenta en docs/CONTRATO_DECISION_RESULT_ACCEPTANCE.md. El índice documental mencionado en registros anteriores ya no existe en main y no se considera una referencia vigente.
 
 ---
 
@@ -640,11 +640,12 @@ No deben utilizarse para confirmar operación actual.
 
 | Documento | Responsabilidad |
 |---|---|
-| DOCUMENTACION/IDENTIDAD-CANONICA.md | Identidad y pertenencia oficial de CatedralX |
-| docs/ARQUITECTURA_OBJETIVO.md | Arquitectura y responsabilidades objetivo |
-| docs/contracts/README.md | Índice de contratos |
+| docs/CONTRATO_ARQUITECTONICO.md | Arquitectura y responsabilidades objetivo |
+| docs/GRAFO_DEPENDENCIAS_VERIFICADO.md | Dependencias y relaciones verificadas |
+| docs/MAPA_SAGRADO.md | Guía del inventario estructural |
+| docs/VALIDACION_DINAMICA_FRONTERAS.md | Validación de límites y fronteras |
 | MAPA_SAGRADO.json | Snapshot del inventario estructural |
-| docs/SEGURIDAD_REPOSITORIO.md | Revisión y controles de seguridad |
+| docs/CONTRATO_DECISION_RESULT_ACCEPTANCE.md | Contrato entre DecisionResult y Acceptance |
 | docs/ESTADO_PRODUCCION.md | Estado técnico, validación e integración |
 
 MAPA_SAGRADO.json está anclado a su commit de origen. No debe interpretarse como representación automática del HEAD, de una instalación local o de un despliegue operativo.
