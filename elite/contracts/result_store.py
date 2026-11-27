@@ -416,6 +416,7 @@ def _atomic_checkpoint_write(target: Path, entries: list[dict[str, Any]], file_s
         try:
             temporary.unlink()
         except FileNotFoundError:
+            # El temporal ya no existe si os.replace lo movió a su destino.
             pass
 
 

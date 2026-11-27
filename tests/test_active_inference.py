@@ -1,6 +1,5 @@
 import math
 
-import numpy as np
 import pytest
 
 from REASON.active_inference import ActiveInferenceEngine, MIN_SIGMA
