@@ -10,6 +10,7 @@ import argparse
 import fcntl
 import json
 import os
+import secrets
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -106,6 +107,11 @@ def scan_and_dispatch(
                 attempt_at = datetime.now(UTC).isoformat()
                 try:
                     payload = load_authorized_proposal(ledger, cycle_id)
+                    trace_id = payload.get("trace_id")
+                    traceparent = (
+                        f"00-{trace_id}-{secrets.token_hex(8)}-01"
+                        if trace_id is not None else None
+                    )
                     response = dispatch_task(
                         "catedralx_economic_proposal_review",
                         payload,
@@ -113,6 +119,7 @@ def scan_and_dispatch(
                         secret,
                         timeout=timeout,
                         idempotency_key=idempotency_key,
+                        traceparent=traceparent,
                     )
                     if not isinstance(response, dict) or not response.get("task_id") or not response.get("run_id"):
                         raise RuntimeError("La API no devolvió task_id y run_id válidos")
