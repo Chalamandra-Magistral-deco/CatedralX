@@ -101,4 +101,12 @@ def test_economic_result_jsonl_is_valid_json_and_retrievable_without_bulk_load(t
 
     lines = path.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 1
-    assert json.loads(lines[0])["result_id"] == result["result_id"]
+    # Formato resuelto (PR #32 vs work): envelope con cadena de hashes, no
+    # registro plano. El test del PR asumía el formato viejo; se actualiza
+    # al envelope manteniendo su intención: una línea JSON válida por
+    # registro y recuperación por ID sin cargar todo el archivo.
+    envelope = json.loads(lines[0])
+    assert set(envelope) == {"record", "store_integrity"}
+    assert envelope["record"]["result_id"] == result["result_id"]
+    assert envelope["record"] == result
+    assert get_result(result["result_id"], path=path) == result

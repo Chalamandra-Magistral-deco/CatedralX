@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import fcntl
 import hashlib
+import hmac
 import json
 import math
 import os
 import re
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -38,7 +40,7 @@ def _validate_decision_result(record: dict[str, Any]) -> None:
         "evidence", "assumptions", "risks", "provenance", "trace_id", "analysis_only",
         "orders_created", "orders_executed",
     }
-    optional = {"tests", "next_action", "missing_inputs", "blocking_reasons", "evaluation_reason"}
+    optional = {"tests", "next_action", "missing_inputs", "blocking_reasons", "evaluation_reason", "evaluation"}
     allowed = required | optional
     missing = sorted(required - set(record))
     if missing:
@@ -86,6 +88,8 @@ def _validate_decision_result(record: dict[str, Any]) -> None:
         raise TypeError("DecisionResult.next_action debe ser texto")
     if "evaluation_reason" in record and record["evaluation_reason"] is not None and not isinstance(record["evaluation_reason"], str):
         raise TypeError("DecisionResult.evaluation_reason debe ser texto o null")
+    if "evaluation" in record and not isinstance(record["evaluation"], dict):
+        raise TypeError("DecisionResult.evaluation debe ser un objeto")
     if any(not isinstance(item, dict) for item in record["evidence"]):
         raise TypeError("DecisionResult.evidence debe contener objetos")
     if record["status"] == "ACCEPTED":
@@ -256,12 +260,168 @@ def _validate_result(record: dict[str, Any]) -> None:
         _validate_decision_result(record)
 
 
-def append_result(record: dict[str, Any], path: str | Path | None = None) -> str:
-    """Validate and append a DecisionResult or EconomicOpportunityResult.
 
-    Writes JSONL with an exclusive POSIX lock, fsync and 0600 permissions.
-    The ID is checked for uniqueness while holding the same lock.
+
+def _canonical_json(value: Any) -> bytes:
+    return json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+    ).encode("utf-8")
+
+
+def _result_kind(record: dict[str, Any]) -> str:
+    return "EconomicOpportunityResult" if record.get("evaluation_domain") == "business_opportunity" else "DecisionResult"
+
+
+def _content_hash(record: dict[str, Any]) -> str:
+    if _result_kind(record) == "EconomicOpportunityResult":
+        return str(record["evaluation_hash"])
+    return hashlib.sha256(_canonical_json(record)).hexdigest()
+
+
+def _record_hash(sequence: int, previous_hash: str, kind: str, result_id: str, content_hash: str) -> str:
+    return hashlib.sha256(_canonical_json({
+        "sequence": sequence,
+        "previous_record_hash": previous_hash,
+        "kind": kind,
+        "result_id": result_id,
+        "content_hash": content_hash,
+    })).hexdigest()
+
+
+def _checkpoint_path(target: Path) -> Path:
+    return target.with_name(target.name + ".head")
+
+
+def _lock_path(target: Path) -> Path:
+    return target.with_name(target.name + ".lock")
+
+
+def _read_envelopes(stream) -> tuple[list[dict[str, Any]], int]:
+    stream.seek(0)
+    entries: list[dict[str, Any]] = []
+    previous_hash = "0" * 64
+    expected_sequence = 1
+    seen_result_ids: set[str] = set()
+    for line_number, raw_line in enumerate(stream, start=1):
+        if not raw_line.strip():
+            continue
+        try:
+            envelope = json.loads(raw_line)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"ResultStore corrupto: JSON inválido en línea {line_number}") from exc
+        if not isinstance(envelope, dict) or set(envelope) != {"record", "store_integrity"}:
+            raise ValueError(
+                f"Historial legado/no migrado en línea {line_number}; "
+                "se requiere migración explícita antes de verificar o anexar"
+            )
+        record, integrity = envelope["record"], envelope["store_integrity"]
+        if not isinstance(record, dict) or not isinstance(integrity, dict):
+            raise ValueError(f"Envoltura inválida en línea {line_number}")
+        _validate_result(record)
+        required = {"sequence", "previous_record_hash", "record_hash", "kind", "result_id", "content_hash"}
+        if set(integrity) != required:
+            raise ValueError(f"Metadatos de integridad incompletos en línea {line_number}")
+        sequence = integrity["sequence"]
+        kind = _result_kind(record)
+        result_id = record.get("result_id")
+        content_hash = _content_hash(record)
+        if isinstance(result_id, str) and result_id in seen_result_ids:
+            raise ValueError(f"result_id duplicado en línea {line_number}")
+        if (
+            type(sequence) is not int or sequence != expected_sequence
+            or integrity["previous_record_hash"] != previous_hash
+            or integrity["kind"] != kind
+            or integrity["result_id"] != result_id
+            or integrity["content_hash"] != content_hash
+            or not isinstance(result_id, str) or not result_id.strip()
+        ):
+            raise ValueError(f"Cadena discontinua o contenido alterado en línea {line_number}")
+        expected_hash = _record_hash(sequence, previous_hash, kind, result_id, content_hash)
+        if integrity["record_hash"] != expected_hash:
+            raise ValueError(f"Hash de cadena inválido en línea {line_number}")
+        entries.append(envelope)
+        seen_result_ids.add(result_id)
+        previous_hash = expected_hash
+        expected_sequence += 1
+    return entries, os.fstat(stream.fileno()).st_size
+
+
+def _read_checkpoint(target: Path) -> dict[str, Any] | None:
+    checkpoint = _checkpoint_path(target)
+    if not checkpoint.exists():
+        return None
+    try:
+        value = json.loads(checkpoint.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("Checkpoint de ResultStore ausente o corrupto") from exc
+    if not isinstance(value, dict) or value.get("format") != "catedralx.result-store-head/1":
+        raise ValueError("Formato de checkpoint de ResultStore inválido")
+    return value
+
+
+def _verify_checkpoint(target: Path, entries: list[dict[str, Any]], file_size: int) -> dict[str, Any]:
+    """Compare the JSONL head with a local sidecar.
+
+    This detects accidental/partial suffix truncation and interrupted writes.
+    The sidecar is not a cryptographic trust anchor: an actor able to rewrite
+    both files can recompute them. Strong tamper resistance needs an external
+    signed or immutable checkpoint.
     """
+    checkpoint = _read_checkpoint(target)
+    if not entries:
+        if checkpoint is not None:
+            raise ValueError("Checkpoint existe para un ResultStore vacío")
+        return {"valid": True, "record_count": 0, "head_hash": "0" * 64, "legacy_unverified": False}
+    if checkpoint is None:
+        raise ValueError("ResultStore sin checkpoint lateral local; historial legado o escritura incompleta")
+    head = entries[-1]["store_integrity"]["record_hash"]
+    if (
+        checkpoint.get("sequence") != len(entries)
+        or checkpoint.get("head_hash") != head
+        or checkpoint.get("file_size") != file_size
+    ):
+        raise ValueError("Checkpoint no coincide con la cabeza del ResultStore; posible truncación o escritura incompleta")
+    return {
+        "valid": True,
+        "record_count": len(entries),
+        "head_hash": head,
+        "legacy_unverified": False,
+    }
+
+
+def _atomic_checkpoint_write(target: Path, entries: list[dict[str, Any]], file_size: int) -> None:
+    checkpoint = _checkpoint_path(target)
+    head = entries[-1]["store_integrity"]["record_hash"]
+    payload = json.dumps({
+        "format": "catedralx.result-store-head/1",
+        "sequence": len(entries),
+        "head_hash": head,
+        "file_size": file_size,
+    }, sort_keys=True, separators=(",", ":")) + "\n"
+    temporary_fd, temporary_name = tempfile.mkstemp(prefix=f".{checkpoint.name}.", dir=checkpoint.parent)
+    temporary = Path(temporary_name)
+    try:
+        fd = temporary_fd
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, checkpoint)
+        directory_fd = os.open(target.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        try:
+            temporary.unlink()
+        except FileNotFoundError:
+            # El temporal ya no existe si os.replace lo movió a su destino.
+            pass
+
+
+def append_result(record: dict[str, Any], path: str | Path | None = None) -> str:
+    """Validate and append a typed result in a hash-chained JSONL envelope."""
     if not isinstance(record, dict):
         raise TypeError("El resultado debe ser un objeto")
     _validate_result(record)
@@ -270,53 +430,122 @@ def append_result(record: dict[str, Any], path: str | Path | None = None) -> str
         raise ValueError("El resultado debe tener un result_id válido")
     target = Path(path) if path else default_result_store_path()
     target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    line = json.dumps(record, ensure_ascii=False, allow_nan=False, sort_keys=True) + "\n"
-    fd = os.open(str(target), os.O_CREAT | os.O_RDWR | os.O_APPEND, 0o600)
-    try:
-        with os.fdopen(fd, "r+", encoding="utf-8") as stream:
-            fcntl.flock(stream, fcntl.LOCK_EX)
-            try:
-                stream.seek(0)
-                for existing_line in stream:
-                    if not existing_line.strip():
-                        continue
-                    try:
-                        existing = json.loads(existing_line)
-                    except json.JSONDecodeError as exc:
-                        raise ValueError("ResultStore contiene una línea JSON inválida; append bloqueado") from exc
-                    if isinstance(existing, dict) and existing.get("result_id") == result_id:
-                        raise ValueError(f"result_id duplicado: {result_id}")
+    lock_path = _lock_path(target)
+    with lock_path.open("a+b") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            if not target.exists():
+                fd = os.open(str(target), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                os.close(fd)
+            with target.open("r+", encoding="utf-8") as stream:
+                entries, _ = _read_envelopes(stream)
+                file_size = target.stat().st_size
+                if entries or _checkpoint_path(target).exists():
+                    _verify_checkpoint(target, entries, file_size)
+                elif file_size:
+                    raise ValueError("ResultStore no vacío sin registros verificables; migración explícita requerida")
+                if any(item["record"].get("result_id") == result_id for item in entries):
+                    raise ValueError(f"result_id duplicado: {result_id}")
+                previous_hash = entries[-1]["store_integrity"]["record_hash"] if entries else "0" * 64
+                sequence = len(entries) + 1
+                kind = _result_kind(record)
+                content_hash = _content_hash(record)
+                integrity = {
+                    "sequence": sequence,
+                    "previous_record_hash": previous_hash,
+                    "kind": kind,
+                    "result_id": result_id,
+                    "content_hash": content_hash,
+                    "record_hash": _record_hash(sequence, previous_hash, kind, result_id, content_hash),
+                }
+                envelope = {"record": record, "store_integrity": integrity}
+                line = _canonical_json(envelope) + b"\n"
                 stream.seek(0, os.SEEK_END)
-                stream.write(line)
+                stream.write(line.decode("utf-8"))
                 stream.flush()
                 os.fsync(stream.fileno())
                 os.chmod(target, 0o600)
-            finally:
-                fcntl.flock(stream, fcntl.LOCK_UN)
-    except BaseException:
-        try:
-            os.close(fd)
-        except OSError:
-            pass
-        raise
+                entries.append(envelope)
+                _atomic_checkpoint_write(target, entries, target.stat().st_size)
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
     return result_id
 
 
+def verify_result_store(path: str | Path | None = None) -> dict[str, Any]:
+    """Verify all records against the chain and its local sidecar checkpoint."""
+    target = Path(path) if path else default_result_store_path()
+    if not target.exists():
+        return {"valid": True, "record_count": 0, "head_hash": "0" * 64, "legacy_unverified": False}
+    with _lock_path(target).open("a+b") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_SH)
+        try:
+            with target.open("r", encoding="utf-8") as stream:
+                entries, _ = _read_envelopes(stream)
+            return _verify_checkpoint(target, entries, target.stat().st_size)
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def verify_result_record(
+    result_id: str,
+    expected_record: dict[str, Any],
+    path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Verify the full store chain and bind one persisted DecisionResult to its caller copy."""
+    if not isinstance(result_id, str) or not result_id.strip():
+        raise ValueError("result_id requerido")
+    if not isinstance(expected_record, dict) or expected_record.get("result_id") != result_id:
+        raise ValueError("El registro esperado no coincide con result_id")
+    if _result_kind(expected_record) != "DecisionResult":
+        raise ValueError("Esta verificación de frontera solo admite DecisionResult")
+    target = Path(path) if path else default_result_store_path()
+    if not target.exists():
+        raise ValueError("DecisionResult ausente del ResultStore")
+    with _lock_path(target).open("a+b") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_SH)
+        try:
+            with target.open("r", encoding="utf-8") as stream:
+                entries, _ = _read_envelopes(stream)
+            checkpoint = _verify_checkpoint(target, entries, target.stat().st_size)
+            for envelope in entries:
+                record = envelope["record"]
+                if record.get("result_id") != result_id:
+                    continue
+                integrity = envelope["store_integrity"]
+                expected_hash = _content_hash(expected_record)
+                if not hmac.compare_digest(integrity["content_hash"], expected_hash):
+                    raise ValueError("DecisionResult recibido no coincide con el registro persistido")
+                return {
+                    "valid": True,
+                    "result_id": result_id,
+                    "sequence": integrity["sequence"],
+                    "content_hash": integrity["content_hash"],
+                    "record_hash": integrity["record_hash"],
+                    "head_hash": checkpoint["head_hash"],
+                    "record_count": checkpoint["record_count"],
+                }
+            raise ValueError("DecisionResult ausente del ResultStore")
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
 def get_result(result_id: str, path: str | Path | None = None) -> dict[str, Any] | None:
-    """Stream the JSONL file and return one result by ID without loading it all."""
+    """Return a result only after verifying the full chain and external checkpoint."""
     if not isinstance(result_id, str) or not result_id.strip():
         raise ValueError("result_id requerido")
     target = Path(path) if path else default_result_store_path()
     if not target.exists():
         return None
-    with target.open("r", encoding="utf-8") as stream:
-        for line in stream:
-            if not line.strip():
-                continue
-            try:
-                record = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(record, dict) and record.get("result_id") == result_id:
-                return record
-    return None
+    with _lock_path(target).open("a+b") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_SH)
+        try:
+            with target.open("r", encoding="utf-8") as stream:
+                entries, _ = _read_envelopes(stream)
+            _verify_checkpoint(target, entries, target.stat().st_size)
+            for envelope in entries:
+                if envelope["record"].get("result_id") == result_id:
+                    return envelope["record"]
+            return None
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)

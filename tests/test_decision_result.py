@@ -199,7 +199,8 @@ def test_result_store_append_is_0600_and_does_not_change_record_shape(tmp_path):
     assert (os.stat(path).st_mode & 0o777) == 0o600
     assert (os.stat(path.parent).st_mode & 0o777) == 0o700
     stored = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
-    assert stored == result
+    assert stored["record"] == result
+    assert stored["store_integrity"]["sequence"] == 1
 
 
 def test_result_store_concurrent_appends_keep_all_lines_valid(tmp_path):
@@ -227,7 +228,7 @@ def test_result_store_concurrent_appends_keep_all_lines_valid(tmp_path):
     lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
     assert len(lines) == 8
     records = [json.loads(line) for line in lines]
-    assert len({record["result_id"] for record in records}) == 8
+    assert len({record["record"]["result_id"] for record in records}) == 8
     for index in range(8):
         assert get_result(f"{index:032x}", path=path) is not None
 
@@ -310,6 +311,194 @@ def test_high_cognitive_dissonance_cannot_override_a_blocked_gate(gate_status):
     result = build_decision_result(_make_state(decision="buy"), cognitive)
     assert result["evaluation_gate"] == gate_status
     assert result["status"] == "UNCERTAIN"
+
+
+def _economic_integrity_fixture(result_id="00000000000000000000000000000002"):
+    from elite.contracts.result_store import _opportunity_hash
+
+    scenario = {
+        "revenue_total": 1200.0, "cost_total": 240.0, "net_result": 960.0,
+        "net_margin_pct": 80.0, "roi_pct": 96.0, "payback_months": 1.0,
+        "decision_candidate": "PURSUE",
+    }
+    record = {
+        "schema_version": "catedralx.economic-opportunity/1.0",
+        "result_id": result_id, "engine": "CatedralX",
+        "evaluation_domain": "business_opportunity", "status": "ANALYSIS_COMPLETE",
+        "opportunity_id": "synthetic-opportunity", "income_model": "hybrid",
+        "currency": "MXN", "horizon_months": 6,
+        "financials": {
+            "capital_required": 100.0, "available_capital": 100.0, "funding_gap": 0.0,
+            "revenue_total_base_input": 1200.0, "cost_total_base_input": 240.0,
+            "initial_capital_status": "funded",
+            "working_capital_assessment": "not_assessed_without_periodic_cashflow",
+            "tax_assessment": "not_included_unless_declared_as_cost_line",
+        },
+        "scenarios": {"conservative": scenario, "base": scenario, "optimistic": scenario},
+        "decision_candidate": "PURSUE", "risk_flags": [],
+        "assumptions": ["Synthetic test assumptions."],
+        "evidence": [{
+            "evidence_id": "ev-1", "source": "synthetic://test", "digest": "c" * 64,
+            "observed_at": "2026-11-23T12:00:00-06:00",
+        }],
+        "evidence_status": "declared_digest_not_source_authentication",
+        "uncertainty": {"status": "not_probability_calibrated", "note": "Synthetic."},
+        "provenance": {"input_sha256": "d" * 64},
+        "trace_id": "1234567890abcdef1234567890abcdef",
+        "evaluation_hash": "", "analysis_only": True, "orders_created": False,
+        "orders_executed": False, "authorization": "NOT_GRANTED",
+        "independent_acceptance_required": True,
+    }
+    record["evaluation_hash"] = _opportunity_hash(record)
+    return record
+
+
+def test_result_store_integrity_chains_both_contract_types(tmp_path):
+    from elite.contracts.result_store import verify_result_store
+
+    path = tmp_path / "results.jsonl"
+    decision = build_decision_result(
+        _make_state(), _make_cognitive(gate_status="BLOCKED_UNCERTAINTY"),
+        trace_id="1234567890abcdef1234567890abcdef",
+    )
+    decision["result_id"] = "00000000000000000000000000000001"
+    economic = _economic_integrity_fixture()
+    append_result(decision, path)
+    append_result(economic, path)
+
+    assert verify_result_store(path)["record_count"] == 2
+    assert get_result(decision["result_id"], path) == decision
+    assert get_result(economic["result_id"], path) == economic
+
+
+def test_result_store_integrity_detects_suffix_truncation(tmp_path):
+    from elite.contracts.result_store import verify_result_store
+
+    path = tmp_path / "results.jsonl"
+    decision = build_decision_result(_make_state(), _make_cognitive())
+    append_result(decision, path)
+    append_result(build_decision_result(_make_state(), _make_cognitive()), path)
+    lines = path.read_text(encoding="utf-8").splitlines()
+    path.write_text(lines[0] + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="Checkpoint"):
+        verify_result_store(path)
+
+
+def test_result_store_integrity_rejects_legacy_without_migration(tmp_path):
+    path = tmp_path / "results.jsonl"
+    path.write_text('{"result_id":"legacy"}\n', encoding="utf-8")
+    with pytest.raises(ValueError, match="legado/no migrado"):
+        append_result(build_decision_result(_make_state(), _make_cognitive()), path)
+
+
+def test_result_store_integrity_rejects_duplicate_id_across_types(tmp_path):
+    path = tmp_path / "results.jsonl"
+    shared_id = "00000000000000000000000000000004"
+    decision = build_decision_result(_make_state(), _make_cognitive())
+    decision["result_id"] = shared_id
+    append_result(decision, path)
+    with pytest.raises(ValueError, match="duplicado"):
+        append_result(_economic_integrity_fixture(shared_id), path)
+
+
+def test_result_store_integrity_detects_record_tampering(tmp_path):
+    import json
+    from elite.contracts.result_store import verify_result_store
+
+    path = tmp_path / "results.jsonl"
+    result = build_decision_result(_make_state(), _make_cognitive())
+    append_result(result, path)
+    envelope = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+    envelope["record"]["decision"] = "sell"
+    path.write_text(json.dumps(envelope, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="contenido alterado|Hash de cadena"):
+        verify_result_store(path)
+
+
+def test_result_store_integrity_detects_checkpoint_rewrite(tmp_path):
+    import json
+    from elite.contracts.result_store import verify_result_store
+
+    path = tmp_path / "results.jsonl"
+    append_result(build_decision_result(_make_state(), _make_cognitive()), path)
+    checkpoint = path.with_name(path.name + ".head")
+    value = json.loads(checkpoint.read_text(encoding="utf-8"))
+    value["head_hash"] = "f" * 64
+    checkpoint.write_text(json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Checkpoint no coincide"):
+        verify_result_store(path)
+
+def test_result_store_verifies_persisted_record_binding(tmp_path):
+    from elite.contracts.result_store import verify_result_record
+
+    path = tmp_path / "results.jsonl"
+    result = build_decision_result(_make_state(), _make_cognitive())
+    append_result(result, path)
+    report = verify_result_record(result["result_id"], result, path)
+    assert report["valid"] is True
+    assert report["result_id"] == result["result_id"]
+    assert report["sequence"] == 1
+    assert len(report["content_hash"]) == 64
+    assert len(report["record_hash"]) == 64
+
+
+def test_result_store_rejects_caller_copy_mismatch(tmp_path):
+    from elite.contracts.result_store import verify_result_record
+
+    path = tmp_path / "results.jsonl"
+    result = build_decision_result(_make_state(), _make_cognitive())
+    append_result(result, path)
+    altered = dict(result)
+    altered["decision"] = "sell" if result["decision"] != "sell" else "buy"
+    with pytest.raises(ValueError, match="no coincide"):
+        verify_result_record(result["result_id"], altered, path)
+
+
+def test_result_store_rejects_missing_persisted_record(tmp_path):
+    from elite.contracts.result_store import verify_result_record
+
+    path = tmp_path / "results.jsonl"
+    result = build_decision_result(_make_state(), _make_cognitive())
+    with pytest.raises(ValueError, match="ausente"):
+        verify_result_record(result["result_id"], result, path)
+
+def test_result_store_cli_verifies_persisted_decision_result(tmp_path, monkeypatch):
+    import json
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    store = tmp_path / "results.jsonl"
+    result = build_decision_result(_make_state(), _make_cognitive())
+    append_result(result, store)
+    expected = tmp_path / "expected.json"
+    expected.write_text(json.dumps(result), encoding="utf-8")
+    monkeypatch.setenv("CATEDRALX_RESULT_STORE_PATH", str(store))
+    repo_root = Path(__file__).resolve().parents[1]
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(repo_root / "elite" / "bin" / "verify_result_store.py"),
+            "--result-id", result["result_id"],
+            "--expected-file", str(expected),
+        ],
+        cwd=repo_root,
+        env={**__import__("os").environ, "PYTHONPATH": str(repo_root / "elite")},
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr + completed.stdout
+    report = json.loads(completed.stdout)
+    assert report["valid"] is True
+    assert report["result_id"] == result["result_id"]
+
+
+# --- Tests carried over from PR #32 (validation behavior also present in the
+# resolved envelope implementation) ---
 
 
 def test_result_store_rejects_noncanonical_decision_and_unknown_properties(tmp_path):
