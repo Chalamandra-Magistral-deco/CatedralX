@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import uuid
 from pathlib import Path
 
 ELITE_DIR = Path(__file__).resolve().parents[1]
@@ -44,7 +45,8 @@ def main() -> int:
         if not freshness["healthy"]:
             raise ValueError("Snapshot rechazado: " + str(freshness["reason"]))
         sensory = from_snapshot(snapshot)
-        state = execute_cycle(sensory)
+        trace_id = os.getenv("CATEDRALX_TRACE_ID") or uuid.uuid4().hex
+        state = execute_cycle(sensory, trace_id=trace_id)
     except (OSError, ValueError, TypeError) as exc:
         return _no_cycle(str(exc))
 
@@ -69,6 +71,7 @@ def main() -> int:
         "trading_enabled": False,
         "orders_created": False,
         "orders_executed": False,
+        "trace_id": trace_id,
     }
     # FASE 1a: Generar contrato DecisionResult y persistir antes de feedback.
     cognitive_data = state.cognicion if hasattr(state, "cognicion") else {}
@@ -76,7 +79,7 @@ def main() -> int:
         state,
         cognitive_data,
         cycle_id=state.percepcion_espacial.get("cycle_id"),
-        trace_id=os.getenv("CATEDRALX_TRACE_ID"),
+        trace_id=trace_id,
     )
     append_result(decision_contract)
     result["decision_result"] = decision_contract

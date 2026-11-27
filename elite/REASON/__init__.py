@@ -1,1 +1,0 @@
-"""Reasoning modules for market geometry and dynamics."""

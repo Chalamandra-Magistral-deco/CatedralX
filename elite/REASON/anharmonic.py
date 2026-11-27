@@ -1,7 +1,6 @@
 """Projective cross-ratio features for a price series."""
 
 
-
 def analyze(precios: list[float]) -> tuple[float, float]:
     """Return the cross-ratio and an elliptical-structure score."""
     if len(precios) < 4:
