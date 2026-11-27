@@ -24,7 +24,7 @@ def test_rsx_rejects_synthetic_or_invalid_history():
 
 def test_rsx_builds_contract_from_observed_prices():
     prices = [100.0 + i for i in range(30)]
-    sensory = construir_sensory_input({"historial_precios": prices, "precio": prices[-1], "source": "test"})
+    sensory = construir_sensory_input({"historial_precios": prices, "precio": prices[-1], "source": "test", "observed_at": "2026-11-18T23:40:00Z"})
     assert sensory.precio_actual == prices[-1]
     assert len(sensory.precio_historico) == 30
 
