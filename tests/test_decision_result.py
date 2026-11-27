@@ -495,3 +495,30 @@ def test_result_store_cli_verifies_persisted_decision_result(tmp_path, monkeypat
     report = json.loads(completed.stdout)
     assert report["valid"] is True
     assert report["result_id"] == result["result_id"]
+
+
+# --- Tests carried over from PR #32 (validation behavior also present in the
+# resolved envelope implementation) ---
+
+
+def test_result_store_rejects_noncanonical_decision_and_unknown_properties(tmp_path):
+    result = build_decision_result(_make_state(decision="buy"), _make_cognitive())
+    result["decision"] = "EXECUTE"
+    with pytest.raises(ValueError, match="decision"):
+        append_result(result, path=tmp_path / "invalid-decision.jsonl")
+
+    result = build_decision_result(_make_state(decision="buy"), _make_cognitive())
+    result["unmodeled_field"] = "must-not-be-persisted"
+    with pytest.raises(ValueError, match="propiedades no permitidas"):
+        append_result(result, path=tmp_path / "unknown-property.jsonl")
+
+
+def test_result_store_validates_optional_decision_result_fields(tmp_path):
+    result = build_decision_result(_make_state(decision="buy"), _make_cognitive())
+    result["tests"] = ["synthetic-check"]
+    result["missing_inputs"] = []
+    result["blocking_reasons"] = []
+    result["evaluation_reason"] = None
+    result["next_action"] = "SOLICITAR_ACEPTACION_INDEPENDIENTE"
+    result_id = append_result(result, path=tmp_path / "valid-optionals.jsonl")
+    assert get_result(result_id, path=tmp_path / "valid-optionals.jsonl") == result
