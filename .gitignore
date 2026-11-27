@@ -1,30 +1,90 @@
-# Python build/test artifacts
+# ==================================================
+# CATEDRALX — GITIGNORE
+# Principio: excluir artefactos locales y secretos;
+# conservar código, pruebas, contratos y documentación.
+# ==================================================
+
+# Python: caché, bytecode y compilación
 __pycache__/
 *.py[cod]
+*$py.class
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.pytype/
+.pyre/
+.dmypy.json
+.tox/
+.nox/
 .venv/
 venv/
-/build/
-/dist/
+ENV/
+build/
+dist/
+wheels/
 *.egg-info/
+.eggs/
+pip-wheel-metadata/
 
-# Local secrets and environment overrides
+# Cobertura y resultados locales de pruebas
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+test-results/
+.pytest_cache/
+
+# Entornos y secretos locales
 .env
 .env.*
 !.env.example
+!.env.template
 *.pem
 *.key
+*.p12
+*.pfx
+secrets/
+.secret/
+secrets.json
 
-# Local logs
+# Logs y archivos temporales locales
 logs/
 *.log
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+*~
 
-# Test/output artifacts (never committed)
+# Artefactos de auditoría/salida ya definidos como locales
 03-OUTPUT/
-.coverage
-
-# Auditoría: Ignorar artefactos de respaldo
 *.bak*
 *.pre-*
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Editores y sistemas operativos
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+.Trash-*/
+.Spotlight-V100
+.fseventsd/
+
+# Docker: datos locales (no Dockerfile ni configuración versionada)
+docker-data/
+volumes/
+
+# Bases de datos locales
+*.sqlite
+*.sqlite3
+
+# ==================================================
+# NO IGNORAR:
+# elite/, tests/, docs/, BIN/, .github/,
+# contratos JSON/YAML, configuración del proyecto,
+# Dockerfile, README.md, LICENSE ni políticas .snyk.
+# ==================================================

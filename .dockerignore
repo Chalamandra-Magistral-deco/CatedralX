@@ -1,26 +1,107 @@
-.git
+# ==================================================
+# CATEDRALX — DOCKERIGNORE
+# El contexto de build solo debe contener lo necesario
+# para construir la imagen runtime definida en Dockerfile.
+# ==================================================
+
+# Git y metadatos del repositorio
+.git/
 .gitignore
-.venv
-venv
-__pycache__
-*.pyc
-*.pyo
+.gitattributes
+.github/
+
+# Documentación y material de trabajo humano
+docs/
+DOCUMENTACION/
+README.md
+LICENSE
+
+# Pruebas: no se copian en la imagen runtime actual
+tests/
+.pytest_cache/
 .coverage
-.pytest_cache
-*.egg-info
-docs/archive/
+.coverage.*
+coverage.xml
+htmlcov/
+test-results/
+
+# Entornos locales y secretos
 .env
+.env.*
 **/.env
 **/.env.*
+secrets/
 **/secrets/
-**/*.pem
-**/*.key
-**/*.p12
-**/*.pfx
-**/*.sqlite
-**/*.db
+.secret/
+**/.secret/
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Python: caché, bytecode y entornos virtuales
+__pycache__/
 **/__pycache__/
-**/*.pyc
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+.tox/
+.nox/
 .mypy_cache/
 .ruff_cache/
-tests/
+.pytype/
+.pyre/
+
+# Construcciones y paquetes locales
+build/
+dist/
+wheels/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Logs, temporales y respaldos
+logs/
+**/logs/
+*.log
+tmp/
+temp/
+*.tmp
+*.bak*
+*.pre-*
+*.swp
+*.swo
+*~
+
+# Datos locales: bases, dumps y volúmenes
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+docker-data/
+volumes/
+
+# Archivos de editores y sistemas operativos
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+.Trash-*/
+.Spotlight-V100
+.fseventsd/
+
+# Salidas locales conocidas
+03-OUTPUT/
+artifacts/
+reports/
+
+# ==================================================
+# CONSERVAR PARA EL BUILD ACTUAL:
+# requirements-runtime.lock
+# elite/
+# BIN/
+# No ignorar globalmente JSON/YAML: puede haber datos
+# o contratos requeridos por módulos dentro de elite/.
+# ==================================================

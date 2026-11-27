@@ -26,6 +26,10 @@ case "${1:-status}" in
     shift
     exec "$PYTHON" "$ROOT/elite/bin/verify_evaluation_hash.py" "$@"
     ;;
+  verify-result-store)
+    shift
+    exec "$PYTHON" "$ROOT/elite/bin/verify_result_store.py" "$@"
+    ;;
   impact-cycle)
     exec "$PYTHON" "$ROOT/elite/bin/impact_cycle.py" "${@:2}"
     ;;
@@ -41,7 +45,7 @@ case "${1:-status}" in
     exec "$PYTHON" -m pytest -q -p no:cacheprovider "$ROOT/tests"
     ;;
   help|-h|--help)
-    printf "%s\n" "Uso: catedral {status|feed-once|motor|ciclo|economic-opportunity|verify-evaluation-hash|impact-cycle|user-feedback|dispatch-agents|test|help}" "status muestra estado local de solo lectura" "feed-once descarga velas publicas cerradas y escribe snapshot RSX" "motor ejecuta un ciclo SCX con un snapshot RSX real y valido" "ciclo actualiza RSX y ejecuta un unico analisis SCX" "economic-opportunity --input-file <json> evalúa escenarios sin ejecutar acciones" "verify-evaluation-hash --input-file <json> [--kind auto|central|opportunity] [--expected <hex>] recomputa y verifica un evaluation_hash; salida 0 válido, 1 inválido, 2 error de entrada" "impact-cycle pasa --report o --event y argumentos al ciclo gobernado de impacto" "user-feedback registra feedback de usuario o muestra su resumen; no modifica reglas" "dispatch-agents --cycle-id <id> despacha una propuesta autorizada a Agents" "dispatch-agents envía una tarea autenticada a Agents; solo se ejecuta bajo invocación explícita" "test ejecuta pruebas automatizadas" "No habilita órdenes ni inicia daemons."
+    printf "%s\n" "Uso: catedral {status|feed-once|motor|ciclo|economic-opportunity|verify-evaluation-hash|verify-result-store|impact-cycle|user-feedback|dispatch-agents|test|help}" "status muestra estado local de solo lectura" "feed-once descarga velas publicas cerradas y escribe snapshot RSX" "motor ejecuta un ciclo SCX con un snapshot RSX real y valido" "ciclo actualiza RSX y ejecuta un unico analisis SCX" "economic-opportunity --input-file <json> evalúa escenarios sin ejecutar acciones" "verify-evaluation-hash --input-file <json> [--kind auto|central|opportunity] [--expected <hex>] recomputa y verifica un evaluation_hash; salida 0 válido, 1 inválido, 2 error de entrada" "verify-result-store --result-id <id> --expected-file <json> verifica cadena, checkpoint y coincidencia del DecisionResult persistido" "impact-cycle pasa --report o --event y argumentos al ciclo gobernado de impacto" "user-feedback registra feedback de usuario o muestra su resumen; no modifica reglas" "dispatch-agents --cycle-id <id> despacha una propuesta autorizada a Agents" "dispatch-agents envía una tarea autenticada a Agents; solo se ejecuta bajo invocación explícita" "test ejecuta pruebas automatizadas" "No habilita órdenes ni inicia daemons."
     ;;
   *)
     echo "Comando desconocido: $1" >&2

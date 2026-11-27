@@ -24,6 +24,8 @@ DEFAULT_SYMBOL = "BTCUSDT"
 DEFAULT_LIMIT = 60
 MIN_CLOSED_CANDLES = 30
 CANDLE_INTERVAL_MS = 60_000
+CANDLE_CLOSE_OFFSET_MS = CANDLE_INTERVAL_MS - 1
+MAX_PROVIDER_RESPONSE_BYTES = 2_000_000
 
 
 def accept_observation(payload: dict[str, Any], *, writer: Callable = write_observation):
@@ -40,23 +42,26 @@ def run_once(fetcher: Callable[[], dict[str, Any]], *, writer: Callable = write_
 
 
 def build_observation_from_klines(
-    rows: Any,
-    *,
-    now_ms: int | None = None,
-    symbol: str = DEFAULT_SYMBOL,
+    rows: Any, *, now_ms: int | None = None, symbol: str = DEFAULT_SYMBOL,
 ) -> dict[str, Any]:
-    """Build a validated observation from Binance-shaped kline rows.
-
-    Only candles whose close time has passed are included. Synthetic values are
-    never added. The gap and inertia fields are simple return-derived features.
-    """
+    """Build an observation only from valid, closed, contiguous 1-minute candles."""
     if not isinstance(rows, list):
         raise TypeError("provider response must be a list of klines")
-    current_ms = int(time.time() * 1000) if now_ms is None else int(now_ms)
+    if not isinstance(symbol, str) or not re.fullmatch(r"[A-Z0-9]{5,20}", symbol):
+        raise ValueError("symbol must contain 5-20 uppercase letters/digits")
+    if isinstance(now_ms, bool):
+        raise ValueError("now_ms must be an integer timestamp")
+    try:
+        current_ms = int(time.time() * 1000) if now_ms is None else int(now_ms)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("now_ms must be an integer timestamp") from exc
+
     closed: list[tuple[int, float, float, int]] = []
     for index, row in enumerate(rows):
         if not isinstance(row, (list, tuple)) or len(row) < 7:
             raise ValueError(f"kline[{index}] has an invalid shape")
+        if any(isinstance(row[position], bool) for position in (0, 1, 4, 6)):
+            raise ValueError(f"kline[{index}] contains boolean values")
         try:
             open_time = int(row[0])
             open_price = float(row[1])
@@ -64,66 +69,55 @@ def build_observation_from_klines(
             close_time = int(row[6])
         except (TypeError, ValueError, OverflowError) as exc:
             raise ValueError(f"kline[{index}] contains invalid values") from exc
-        if (
-            not math.isfinite(open_price) or open_price <= 0
-            or not math.isfinite(close_price) or close_price <= 0
-        ):
+        if not math.isfinite(open_price) or open_price <= 0 or not math.isfinite(close_price) or close_price <= 0:
             raise ValueError(f"kline[{index}] prices must be positive and finite")
+        if close_time != open_time + CANDLE_CLOSE_OFFSET_MS:
+            raise ValueError(f"kline[{index}] is not a canonical 1-minute candle")
         if close_time <= current_ms:
             closed.append((open_time, open_price, close_price, close_time))
 
     if len(closed) < MIN_CLOSED_CANDLES:
-        raise ValueError(
-            f"need at least {MIN_CLOSED_CANDLES} closed observed candles; got {len(closed)}"
-        )
+        raise ValueError(f"need at least {MIN_CLOSED_CANDLES} closed observed candles; got {len(closed)}")
     open_times = [item[0] for item in closed]
     if open_times != sorted(set(open_times)):
         raise ValueError("provider candles must have unique, ascending open times")
-
     for previous, current in pairwise(open_times):
         if current - previous != CANDLE_INTERVAL_MS:
-            raise ValueError(
-                "provider candles must be contiguous 1-minute intervals"
-            )
+            raise ValueError("provider candles must be contiguous 1-minute intervals")
 
     last_close_time = closed[-1][3]
     age_ms = current_ms - last_close_time
-    # With 1-minute candles, a closed candle older than two minutes is stale.
     if age_ms < 0 or age_ms > 120_000:
         raise ValueError(f"latest closed candle is stale ({age_ms} ms old)")
-
     prices = [item[2] for item in closed]
-    previous_close = prices[-2]
-    latest_open = closed[-1][1]
-    latest_close = prices[-1]
-    observed_at = datetime.fromtimestamp(
-        last_close_time / 1000, tz=UTC
-    ).isoformat()
-
+    previous_close, latest_open, latest_close = prices[-2], closed[-1][1], prices[-1]
+    observed_at = datetime.fromtimestamp(last_close_time / 1000, tz=UTC).isoformat()
     return {
-        "historial_precios": prices,
-        "precio": latest_close,
-        "gap": (latest_open / previous_close) - 1.0,
-        "inercia": (latest_close / previous_close) - 1.0,
+        "historial_precios": prices, "precio": latest_close,
+        "gap": latest_open / previous_close - 1.0,
+        "inercia": latest_close / previous_close - 1.0,
         "source": f"binance_spot_public:{symbol}:1m",
         "observed_at": observed_at,
     }
 
 
 def fetch_binance_spot_observation(
-    symbol: str | None = None,
-    *,
-    limit: int = DEFAULT_LIMIT,
-    timeout: float = 5.0,
-    now_ms: int | None = None,
+    symbol: str | None = None, *, limit: int = DEFAULT_LIMIT,
+    timeout: float = 5.0, now_ms: int | None = None,
 ) -> dict[str, Any]:
-    """Fetch public BTC/USDT (or configured spot symbol) closed 1-minute candles."""
+    """Fetch public spot 1-minute candles; this function cannot place orders."""
     chosen_symbol = (symbol or os.getenv("CATEDRALX_MARKET_SYMBOL") or DEFAULT_SYMBOL).upper()
     if not re.fullmatch(r"[A-Z0-9]{5,20}", chosen_symbol):
         raise ValueError("market symbol must contain only 5-20 uppercase letters/digits")
     if isinstance(limit, bool) or not isinstance(limit, int) or not 30 <= limit <= 1000:
         raise ValueError("limit must be an integer from 30 to 1000")
-    if not math.isfinite(float(timeout)) or timeout <= 0 or timeout > 20:
+    if isinstance(timeout, bool):
+        raise ValueError("timeout must be greater than 0 and at most 20 seconds")
+    try:
+        timeout_value = float(timeout)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("timeout must be greater than 0 and at most 20 seconds") from exc
+    if not math.isfinite(timeout_value) or not 0 < timeout_value <= 20:
         raise ValueError("timeout must be greater than 0 and at most 20 seconds")
 
     query = urlencode({"symbol": chosen_symbol, "interval": "1m", "limit": limit})
@@ -132,17 +126,14 @@ def fetch_binance_spot_observation(
         headers={"Accept": "application/json", "User-Agent": "CatedralX-RSX/1.0"},
         method="GET",
     )
-    with urlopen(request, timeout=float(timeout)) as response:
+    with urlopen(request, timeout=timeout_value) as response:
         if getattr(response, "status", 200) != 200:
             raise RuntimeError(f"market provider returned HTTP {response.status}")
-        raw = response.read(2_000_001)
-        if len(raw) > 2_000_000:
+        raw = response.read(MAX_PROVIDER_RESPONSE_BYTES + 1)
+        if len(raw) > MAX_PROVIDER_RESPONSE_BYTES:
             raise ValueError("market provider response exceeds 2 MB")
     try:
         rows = json.loads(raw.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("market provider returned invalid JSON") from exc
-    observation = build_observation_from_klines(
-        rows, now_ms=now_ms, symbol=chosen_symbol
-    )
-    return observation
+    return build_observation_from_klines(rows, now_ms=now_ms, symbol=chosen_symbol)

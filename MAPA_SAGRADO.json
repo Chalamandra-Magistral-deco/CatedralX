@@ -1,16 +1,17 @@
 {
-  "sagrada_version": "4.3",
-  "estado": "Snapshot estructural de main anclado al commit de origen indicado; no equivale al HEAD posterior ni demuestra despliegue operativo.",
+  "sagrada_version": "4.4",
+  "estado": "Snapshot estructural de main anclado al commit de origen indicado (corregido 2026-11-23 tras verificación directa de archivos y ejecución real de la suite); no equivale a un HEAD posterior ni demuestra despliegue operativo.",
   "fuente_de_verdad": {
     "repositorio": "Chalamandra-Magistral-deco/CatedralX",
     "rama": "main",
-    "snapshot_commit": "b1841e18b9d64d215d7382e4ca9122efb959bb57",
-    "tree_sha": "c0faf72a346ce96015b118e8ccaeac8daad95c98",
+    "snapshot_commit": "62c0214d63f24cc1f5d3670e703baa70c64f2315",
+    "tree_sha": null,
     "tree_entries": 217,
     "tracked_files": 185,
     "python_files": 126,
-    "captured_at": "2026-11-15",
-    "conteo_scope": "Snapshot recursivo no truncado del árbol Git del commit indicado; tree_entries incluye archivos y directorios versionados; tracked_files cuenta blobs; python_files cuenta archivos .py. Los commits documentales posteriores pueden mover HEAD sin cambiar este inventario de código."
+    "captured_at": "2026-11-23",
+    "conteo_scope": "Snapshot recursivo no truncado del árbol Git del commit indicado; tree_entries incluye archivos y directorios versionados; tracked_files cuenta blobs; python_files cuenta archivos .py. Los commits documentales posteriores pueden mover HEAD sin cambiar este inventario de código.",
+    "nota_version_4_4": "Corrige contra la versión 4.3: completa las listas de archivos de RSX/SCX/CONTRACTS/CLI (que en 4.3 eran selecciones parciales, no inventarios exhaustivos, excepto en MCX y DSX que ya eran completas) y actualiza el conteo de pruebas al valor real ejecutado en este commit. tree_sha queda sin verificar en esta pasada (no se recalculó por separado) — regenerar si se necesita con exactitud."
   },
   "bin_canonico": "BIN/catedral",
   "vectores": {
@@ -25,8 +26,10 @@
         "percepcion.py",
         "radar_watcher.py",
         "sensors.py",
+        "snapshot_signing.py",
         "stream_altar.py"
-      ]
+      ],
+      "nota_version_4_4": "Se agregó snapshot_signing.py, ausente en 4.3 pese a ser el módulo de firma/verificación de procedencia de snapshots (control H-02)."
     },
     "SCX": {
       "rol": "Razonamiento y ciclo cognitivo",
@@ -34,12 +37,29 @@
       "archivos": [
         "orchestrator.py",
         "razon.py",
+        "core_contract.py",
+        "master_cycle.py",
+        "multicriteria.py",
+        "procesador.py",
         "dynamic_constraints.py",
         "financial_engine.py",
         "cognitive_state.py",
+        "report_composition.py",
+        "hurst_analyzer.py",
+        "gyroscope.py",
+        "geometry.py",
+        "anharmonic.py",
+        "hamiltonian.py",
+        "free_energy.py",
+        "active_inference.py",
+        "cerebellum.py",
+        "economic_feedback.py",
+        "fex_feedback_adapter.py",
+        "mental_power.py",
         "schemas.py",
         "state_paths.py"
-      ]
+      ],
+      "nota_version_4_4": "En 4.3 esta lista tenía solo 7 de los 23 archivos no-__init__ reales (faltaban 16, incluidos core_contract.py y master_cycle.py — el segundo ciclo de razonamiento paralelo documentado como pendiente de Fase 2 en AUDITORIA_CONSOLIDACION_PERGAMINO.md). Orden: primero el ciclo canónico y su contraparte sintética, luego los módulos de soporte matemático/diagnóstico."
     },
     "MCX": {
       "rol": "Optimización y diagnósticos complementarios",
@@ -55,7 +75,8 @@
         "resico.py",
         "sentiment_engine.py"
       ],
-      "nota": "hormonas.json no pertenece a este directorio; el estado persistente se guarda fuera del checkout."
+      "nota": "hormonas.json no pertenece a este directorio; el estado persistente se guarda fuera del checkout.",
+      "nota_version_4_4": "Sin cambios — esta lista ya era exhaustiva y exacta en 4.3. Aviso aparte (no es parte del inventario): ganancias.py, kelly_vince.py, poder_real.py y sentiment_engine.py no tienen ningún importador en todo el repo (verificado por grep); afectivo.py, entropia.py, homeostasis.py y resico.py solo los usa tests/test_cathedral_vectors.py."
     },
     "MSX": {
       "rol": "Procedencia",
@@ -107,7 +128,7 @@
           "user_feedback.py"
         ]
       },
-      "nota": "elite/FEX/trainer.py es una fachada de compatibilidad delegada al trainer canónico de FEEDBACK; se conserva porque existe un test para ambos caminos."
+      "nota": "elite/FEX/trainer.py es una fachada de compatibilidad delegada al trainer canónico de FEEDBACK; se conserva porque existe un test para ambos caminos (tests/test_acceptance_contract.py)."
     },
     "CONTRACTS": {
       "rol": "Normalización de acciones, construcción y persistencia de DecisionResult",
@@ -117,8 +138,10 @@
         "builder.py",
         "result_store.py",
         "schemas/chalamandra_contract.json",
-        "schemas/decision_result.json"
-      ]
+        "schemas/decision_result.json",
+        "schemas/economic_opportunity_result.json"
+      ],
+      "nota_version_4_4": "Se agregó schemas/economic_opportunity_result.json, ausente en 4.3."
     },
     "CLI": {
       "rol": "Interfaz de comandos y adaptadores one-shot",
@@ -131,8 +154,13 @@
         "elite/bin/dispatch_agents.py",
         "elite/bin/dispatch_authorized_cycles.py",
         "elite/bin/user_feedback.py",
+        "elite/bin/feedback_label.py",
+        "elite/bin/feedback_report.py",
+        "elite/bin/verify_evaluation_hash.py",
+        "elite/bin/consola_vectores.py",
         "elite/bin/inyector-vitral"
-      ]
+      ],
+      "nota_version_4_4": "Se agregaron feedback_label.py, feedback_report.py, verify_evaluation_hash.py y consola_vectores.py — 4 de los 11 archivos reales de elite/bin/ faltaban en 4.3."
     }
   },
   "persistencia": {
@@ -168,7 +196,8 @@
     "docker": "Imagen CLI puntual; ejecuta catedral status y termina.",
     "compose": "Ejecución puntual; no publica puerto 5050 ni levanta API/Agents/worker.",
     "endpoint_loopback": "elite/bin/inyector-vitral existe como herramienta opcional en 127.0.0.1:5050; no forma parte del contenedor CLI.",
-    "ci": "354 pruebas, pip check, compileall, validación Compose, Docker build y CLI smoke test aprobados en el commit funcional dd863ae9835fb1cdba2f454fb6479766a84ded41.",
+    "ci": "407 pruebas ejecutadas y aprobadas por verificación directa (pytest) contra el commit 62c0214d63f24cc1f5d3670e703baa70c64f2315 el 2026-11-23. Build de imagen Docker y validación de docker-compose NO fueron re-ejecutados en esta pasada — ese dato se hereda sin reverificar del pipeline de GitHub Actions.",
+    "ci_nota_version_4_4": "354 pruebas en 4.3 (commit dd863ae9) y 372 en ESTADO_PRODUCCION.md son cifras correctas para sus propios commits, no errores — la suite creció 53 y 35 pruebas respectivamente desde entonces.",
     "trading_enabled": false,
     "orders_created": false,
     "orders_executed": false
