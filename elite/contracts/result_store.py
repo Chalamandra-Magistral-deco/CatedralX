@@ -38,7 +38,7 @@ def _validate_decision_result(record: dict[str, Any]) -> None:
     required = {
         "result_id", "status", "engine", "decision", "evaluation_hash", "evaluation_gate", "cycle_id",
         "evidence", "assumptions", "risks", "provenance", "trace_id", "analysis_only",
-        "orders_created", "orders_executed",
+        "orders_created", "orders_executed", "contract_hash",
     }
     optional = {"tests", "next_action", "missing_inputs", "blocking_reasons", "evaluation_reason", "evaluation"}
     allowed = required | optional
@@ -113,6 +113,16 @@ def _validate_decision_result(record: dict[str, Any]) -> None:
             evidence_ids.append(item["evidence_id"])
         if len(evidence_ids) != len(set(evidence_ids)) or not set(evidence_ids).issubset(set(provenance_ids)):
             raise ValueError("DecisionResult ACCEPTED requiere IDs de evidencia únicos y enlazados a procedencia")
+    # Verificación del valor de contract_hash (aporte del PR #40, re-aplicado
+    # sobre el envelope de main): la presencia del campo no basta; el hash
+    # canónico debe coincidir con el contenido del registro. La importación
+    # diferida evita un ciclo con builder. El envelope ya encadena el
+    # registro completo vía content_hash; esto añade la verificación del
+    # contrato en sí, que es lo que los tests de integridad del PR exigen.
+    from .builder import verify_decision_result_hash
+
+    if not verify_decision_result_hash(record):
+        raise ValueError("DecisionResult.contract_hash ausente o inválido")
 
 
 def _finite_number(value: Any) -> bool:

@@ -73,9 +73,7 @@ def main() -> int:
         "orders_executed": False,
         "trace_id": trace_id,
     }
-    result["prediction_id"] = registrar_prediccion(result)
-
-    # FASE 1a: Generar contrato DecisionResult y persistir
+    # FASE 1a: Generar contrato DecisionResult y persistir antes de feedback.
     cognitive_data = state.cognicion if hasattr(state, "cognicion") else {}
     decision_contract = build_decision_result(
         state,
@@ -85,6 +83,14 @@ def main() -> int:
     )
     append_result(decision_contract)
     result["decision_result"] = decision_contract
+    # FEX is downstream of durable DecisionResult persistence: a feedback
+    # failure can no longer leave an orphan prediction without its contract.
+    try:
+        result["prediction_id"] = registrar_prediccion(result)
+        result["feedback_status"] = "RECORDED"
+    except Exception as exc:
+        result["feedback_status"] = "FAILED"
+        result["feedback_error"] = type(exc).__name__
     result["evaluation_hash"] = decision_contract.get("evaluation_hash")
     result["evaluation_gate"] = decision_contract.get("evaluation_gate")
     result["trace_id"] = decision_contract.get("trace_id")

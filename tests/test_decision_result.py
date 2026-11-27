@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from elite.contracts.builder import build_decision_result
+from elite.contracts.builder import build_decision_result, canonical_decision_result_hash
 from elite.contracts.result_store import append_result, get_result
 
 
@@ -215,6 +215,7 @@ def test_result_store_concurrent_appends_keep_all_lines_valid(tmp_path):
         try:
             result = build_decision_result(_make_state(decision="buy"), _make_cognitive())
             result["result_id"] = f"{index:032x}"
+            result["contract_hash"] = canonical_decision_result_hash(result)
             append_result(result, path=path)
         except BaseException as exc:  # noqa: BLE001 - collected by the test
             errors.append(exc)
@@ -362,6 +363,9 @@ def test_result_store_integrity_chains_both_contract_types(tmp_path):
         trace_id="1234567890abcdef1234567890abcdef",
     )
     decision["result_id"] = "00000000000000000000000000000001"
+    # Cambiar result_id invalida contract_hash: recalcular (mismo patrón que
+    # el test concurrente del PR #40 en este archivo).
+    decision["contract_hash"] = canonical_decision_result_hash(decision)
     economic = _economic_integrity_fixture()
     append_result(decision, path)
     append_result(economic, path)
@@ -396,6 +400,7 @@ def test_result_store_integrity_rejects_duplicate_id_across_types(tmp_path):
     shared_id = "00000000000000000000000000000004"
     decision = build_decision_result(_make_state(), _make_cognitive())
     decision["result_id"] = shared_id
+    decision["contract_hash"] = canonical_decision_result_hash(decision)
     append_result(decision, path)
     with pytest.raises(ValueError, match="duplicado"):
         append_result(_economic_integrity_fixture(shared_id), path)
@@ -412,7 +417,7 @@ def test_result_store_integrity_detects_record_tampering(tmp_path):
     envelope["record"]["decision"] = "sell"
     path.write_text(json.dumps(envelope, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="contenido alterado|Hash de cadena"):
+    with pytest.raises(ValueError, match="contenido alterado|Hash de cadena|contract_hash"):
         verify_result_store(path)
 
 

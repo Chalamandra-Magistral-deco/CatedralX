@@ -1,6 +1,8 @@
 """DecisionResult builder for CatedralX with central-governor provenance."""
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import uuid
 from datetime import UTC, datetime
@@ -10,6 +12,34 @@ from .actions import normalizar_senal
 
 _TRACE_ID_RE = re.compile(r"^[0-9a-f]{32}$")
 _EVALUATION_HASH_RE = re.compile(r"^[0-9a-f]{64}$")
+_CONTRACT_HASH_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+def canonical_decision_result_hash(record: dict[str, Any]) -> str:
+    """Hash every DecisionResult field except its self-referential hash and store envelope."""
+    if not isinstance(record, dict):
+        raise TypeError("DecisionResult debe ser un objeto")
+    payload = {
+        key: value for key, value in record.items()
+        if key not in {"contract_hash", "store_integrity"}
+    }
+    encoded = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def verify_decision_result_hash(record: Any) -> bool:
+    """Return False for malformed, non-finite, or tampered DecisionResults."""
+    if not isinstance(record, dict):
+        return False
+    expected = record.get("contract_hash")
+    if not isinstance(expected, str) or not _CONTRACT_HASH_RE.fullmatch(expected):
+        return False
+    try:
+        return canonical_decision_result_hash(record) == expected
+    except (TypeError, ValueError, OverflowError):
+        return False
 
 
 def _extract_provenance_records(value: Any) -> list[dict[str, Any]]:
@@ -144,7 +174,7 @@ def build_decision_result(
 
     risks = perception.get("analisis_financiero", {}).get("risk_flags", [])
     resolved_cycle_id = cycle_id if cycle_id is not None else perception.get("cycle_id")
-    return {
+    result = {
         "result_id": str(uuid.uuid4()),
         "status": status,
         "engine": "CatedralX",
@@ -175,3 +205,5 @@ def build_decision_result(
             if status == "ACCEPTED" else "Manual review required"
         ),
     }
+    result["contract_hash"] = canonical_decision_result_hash(result)
+    return result

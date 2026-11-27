@@ -214,6 +214,11 @@ def test_result_store_write_and_read_preserve_cycle_and_trace(tmp_path):
         "orders_created": False,
         "orders_executed": False,
     }
+    # El contrato resuelto (PR #40 sobre el envelope de main) exige
+    # contract_hash con valor válido en todo DecisionResult.
+    from contracts.builder import canonical_decision_result_hash
+
+    record["contract_hash"] = canonical_decision_result_hash(record)
 
     result_id = append_result(record, store)
     restored = get_result(result_id, store)
