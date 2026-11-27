@@ -1,4 +1,6 @@
-# Runtime dependencies for CatedralX
+# CatedralX — dependencias directas de runtime.
+# Para instalaciones de despliegue fuera de Docker: rangos compatibles.
+# La imagen Docker instala requirements-runtime.lock (versiones exactas).
 cryptography>=50.0.2,<51
 numpy>=2.0,<3
 psutil>=5.9,<8

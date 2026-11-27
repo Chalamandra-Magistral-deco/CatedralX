@@ -2,3 +2,6 @@
 # The values were test-only placeholders, not credentials; current tests use repeated-byte keys.
 a83d8e127b2ea51ba1e27b790e5347c7989c346a:tests/test_sustainability_governance.py:generic-api-key:159
 91c219a2c7682c4ea791be094a8dc03726f46231:tests/test_sustainability_governance.py:generic-api-key:159
+# False positive: API parameter name only; no key material is present.
+e4680a7bdbd5fa62100ebc2f863912ea6cda561d:elite/MSX/cycle_manifest.py:generic-api-key:129
+fea12cd9bf9a852ee3a66deca06e17279fc43e3d:elite/MSX/cycle_manifest.py:generic-api-key:132

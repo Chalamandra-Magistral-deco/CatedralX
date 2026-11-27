@@ -22,20 +22,17 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: requirements.lock
+          cache-dependency-path: requirements-lock.txt
 
       - name: Install locked dependencies (fail closed)
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.lock
+          python -m pip install -r requirements-lock.txt
+          python -m pip install -e ".[test]"
           python -m pip check
 
-      - name: Validate contract document syntax
+      - name: Validate versioned JSON contract schemas
         run: |
-          ruby -e 'require "yaml"; ARGV.each { |file| YAML.parse_file(file) }' \
-            docs/contracts/request_flow.yaml \
-            docs/contracts/distribution_flow.yaml \
-            docs/contracts/orchestration_flow.yaml
           python -m json.tool elite/contracts/schemas/chalamandra_contract.json >/dev/null
           python -m json.tool elite/contracts/schemas/decision_result.json >/dev/null
           python -m json.tool elite/contracts/schemas/economic_opportunity_result.json >/dev/null
