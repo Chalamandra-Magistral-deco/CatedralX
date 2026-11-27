@@ -7,7 +7,7 @@ import pytest
 from AEX.ejecutor import execute_order, preparar_intencion
 from DSX.DEFENSE.lateral_core import rate_limited
 from FEX.FEEDBACK.feedback_loop import registrar_prediccion
-from MCX.OPTIMIZE.affective import actualizar_estado
+from REASON.affective import actualizar_estado
 from MCX.OPTIMIZE.entropia import entropia
 from MCX.OPTIMIZE.homeostasis import parametros_homeostaticos
 from MCX.OPTIMIZE.resico import estimar_reserva
