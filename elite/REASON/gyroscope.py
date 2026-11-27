@@ -166,9 +166,9 @@ def gyro_state(
     mean_abs = max_abs * float(np.mean(np.abs(scaled_recent)))
     slope_scaled = float(np.polyfit(np.arange(5), scaled_recent, 1)[0])
     normalized_slope = slope_scaled / (1.0 + 1e-9 / mean_abs)
-    if normalized_slope > 0.002:
+    if normalized_slope > 0.001:
         orientacion = "ALCISTA"
-    elif normalized_slope < -0.002:
+    elif normalized_slope < -0.001:
         orientacion = "BAJISTA"
     else:
         orientacion = "NEUTRO"
