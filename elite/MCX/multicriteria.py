@@ -3,7 +3,7 @@
 The implementation remains in REASON temporarily for backward compatibility.
 This module exposes the MCX-owned public API without duplicating policy logic.
 """
-from ..REASON.multicriteria import (
+from REASON.multicriteria import (
     CathedralEvaluation,
     blocked_uncertainty,
     compute_evaluation_hash,
