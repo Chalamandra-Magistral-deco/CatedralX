@@ -32,6 +32,19 @@ def _digest(value: Any) -> str:
     return hashlib.sha256(_canonical_bytes(value)).hexdigest()
 
 
+def calcular_hash_conjunto(contenido: Any) -> str:
+    """Return SHA-256 over deterministic, strict JSON canonicalization.
+
+    Only JSON-compatible values are accepted. Rejecting NaN and implicit
+    stringification prevents different Python objects from silently sharing
+    an ambiguous serialized representation.
+
+    Public helper preserved from work/main: elite/MSX/cycle_manifest.py and
+    tests/test_cycle_manifest.py import it. Same digest as _digest.
+    """
+    return _digest(contenido)
+
+
 def _record_payload(record: Mapping[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in record.items() if key != "record_hash"}
 
